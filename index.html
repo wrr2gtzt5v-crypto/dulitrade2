@@ -696,7 +696,7 @@ function loadHot(){
       if(!quote.c||quote.c===0)return null;
       const ind=calcIndicators(candles);
       const patterns=detectPatterns(candles);
-      const scores=scoreAll(h.s,quote,ind,patterns,[],[],profile,null);
+      const scores=scoreAll(h.s,quote,candles,ind,patterns,[],[],profile,null);
       return{...h,scores,price:quote.c};
     }catch(e){return null;}
   }
@@ -890,8 +890,181 @@ function calcIndicators(candles){
   return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl};
 }
 
+// ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
+function calcTargets(p){
+  const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence} = p;
+  const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
+  const isSell = sig==="SELL"||sig==="STRONG_SELL";
+  const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
+
+  // ── 1. ATR% — תנודתיות יחסית ────────────────────────────
+  const baseAtr = Math.max(atr||0, price*0.005);
+  const atrPct  = baseAtr / price; // 0.01 = 1%
+
+  // ── 2. זיהוי אסטרטגיה אוטומטית ──────────────────────────
+  const hasMomentum  = rsi<50 && macdVal>0 && vr>1.2;
+  const hasMeanRev   = rsi<35 || stochRsi<25 || price<bbL;
+  const hasBreakout  = vr>1.8 && pct>1.5 && price>ma50;
+  const hasSwing     = confluence>=5 && confluence<=7 && Math.abs(pct)<1.5;
+
+  let strategy;
+  if(hasBreakout && isBuy)      strategy = "Breakout 🚀";
+  else if(hasMeanRev && isBuy)  strategy = "Mean Reversion 🔄";
+  else if(hasMomentum && isBuy) strategy = "Momentum 📈";
+  else if(hasSwing)             strategy = "Swing 🔀";
+  else if(isSell)               strategy = "Short/Exit 📉";
+  else                          strategy = "Conservative 🛡";
+
+  // ── 3. SL — מיקום חכם לפי נרות + פרמטרים ────────────────
+  // בסיס: ATR × מכפיל בסיסי
+  let slBasePct = atrPct * 1.0; // 1 ATR כבסיס
+
+  // נרות יפניים — SL לפי תבנית
+  const lastC = (candles.c||[]).slice(-1)[0] || price;
+  const lastL = (candles.l||[]).slice(-1)[0] || price*0.99;
+  const lastH = (candles.h||[]).slice(-1)[0] || price*1.01;
+  const prevL = (candles.l||[]).slice(-2,-1)[0] || lastL;
+  const prevH = (candles.h||[]).slice(-2,-1)[0] || lastH;
+
+  let candleSL = null; // SL מדויק לפי נר
+  for(const pat of patterns){
+    if(pat.name.includes("Hammer")||pat.name.includes("Morning Star")){
+      // SL מתחת לתחתית הנר — רמת תמיכה אמיתית
+      candleSL = Math.min(lastL, prevL) * 0.998;
+      break;
+    }
+    if(pat.name.includes("Bullish Engulfing")){
+      candleSL = prevL * 0.998;
+      break;
+    }
+    if(pat.name.includes("Shooting Star")||pat.name.includes("Bearish Engulfing")){
+      candleSL = Math.max(lastH, prevH) * 1.002;
+      break;
+    }
+    if(pat.name.includes("Doji")){
+      slBasePct = atrPct * 0.6; // Doji = SL קרוב
+      break;
+    }
+  }
+
+  // מכפילי SL לפי פרמטרים
+  let slMult = 1.0;
+
+  // Confluence — גבוה = SL יותר רחוק (יותר ביטחון)
+  if(confluence>=8)      slMult *= 1.2;
+  else if(confluence>=6) slMult *= 1.0;
+  else if(confluence<=4) slMult *= 0.75; // ביטחון נמוך = SL קרוב
+
+  // רמת סיכון
+  if(risk>=70)       slMult *= 0.75;
+  else if(risk>=55)  slMult *= 0.9;
+  else if(risk<=35)  slMult *= 1.15;
+
+  // VIX — שוק פוחד = SL קרוב
+  if(vix>30)       slMult *= 0.8;
+  else if(vix>25)  slMult *= 0.9;
+
+  // Earnings — לפני דוח = SL הדוק
+  if(hasEarnings) slMult *= 0.7;
+
+  // Beta — מניה תנודתית = SL קצת יותר גדול
+  if(beta>1.5)      slMult *= 1.1;
+  else if(beta<0.8) slMult *= 0.9;
+
+  // אסטרטגיה
+  if(strategy.includes("Breakout"))      slMult *= 1.1;
+  else if(strategy.includes("Mean Rev")) slMult *= 0.85;
+  else if(strategy.includes("Momentum")) slMult *= 1.0;
+  else if(strategy.includes("Swing"))    slMult *= 0.95;
+
+  // חישוב SL סופי
+  let finalSlPct = slBasePct * slMult;
+  // גבולות: לא פחות מ-0.4% ולא יותר מ-3.5%
+  finalSlPct = Math.max(0.004, Math.min(0.035, finalSlPct));
+
+  let sl;
+  if(candleSL){
+    // השתמש ב-SL לפי נר אם הוא בטווח הגיוני
+    const candleSlPct = Math.abs(price - candleSL) / price;
+    if(candleSlPct >= 0.003 && candleSlPct <= 0.04){
+      sl = +candleSL.toFixed(2);
+    } else {
+      sl = isBuy ? +(price * (1 - finalSlPct)).toFixed(2) : +(price * (1 + finalSlPct)).toFixed(2);
+    }
+  } else {
+    sl = isBuy ? +(price * (1 - finalSlPct)).toFixed(2) : +(price * (1 + finalSlPct)).toFixed(2);
+  }
+
+  const actualSlPct = Math.abs(price - sl) / price;
+
+  // ── 4. TP — לפי תנועה ריאלית + יחס ────────────────────
+  // תנועה יומית ממוצעת של 5 ימים אחרונים
+  const recentC = (candles.c||[]).slice(-6);
+  let avgDailyMove = atrPct; // fallback
+  if(recentC.length>=2){
+    let totalMove = 0;
+    for(let i=1;i<recentC.length;i++) totalMove += Math.abs(recentC[i]-recentC[i-1])/recentC[i-1];
+    avgDailyMove = totalMove / (recentC.length-1);
+  }
+
+  // זמן החזקה צפוי לפי אסטרטגיה
+  let holdDays;
+  if(strategy.includes("Breakout"))      holdDays = 7;
+  else if(strategy.includes("Mean Rev")) holdDays = 5;
+  else if(strategy.includes("Momentum")) holdDays = 14;
+  else if(strategy.includes("Swing"))    holdDays = 10;
+  else if(strategy.includes("Short"))    holdDays = 7;
+  else                                   holdDays = 10;
+  if(isStrong) holdDays *= 1.5;
+  if(hasEarnings) holdDays = Math.min(holdDays, 5);
+
+  // תנועה צפויה = avgDailyMove × √holdDays (Random Walk)
+  let expectedMovePct = avgDailyMove * Math.sqrt(holdDays);
+
+  // מגבילים לפי Confluence
+  if(confluence>=8)      expectedMovePct *= 1.2;
+  else if(confluence>=6) expectedMovePct *= 1.0;
+  else if(confluence<=4) expectedMovePct *= 0.7;
+
+  // מגבילים לפי Bollinger — TP לא יעבור BB העליון/התחתון
+  const bbTarget = isBuy ? bbU : bbL;
+  const bbDistPct = bbTarget > 0 ? Math.abs(price - bbTarget) / price : 0.05;
+
+  // יחס סיכון/תגמול מינימלי
+  let minRR = 1.8;
+  if(confluence>=8)   minRR = 2.5;
+  else if(confluence>=6) minRR = 2.0;
+  if(risk>=70)        minRR = 1.5;
+  if(hasEarnings)     minRR = 1.5;
+
+  // TP = המקסימום מבין: תנועה צפויה ו-minRR × SL
+  const rrBasedTpPct = actualSlPct * minRR;
+  let finalTpPct = Math.max(expectedMovePct, rrBasedTpPct);
+
+  // לא יעבור את ה-Bollinger
+  if(bbDistPct > 0) finalTpPct = Math.min(finalTpPct, bbDistPct * 0.9);
+
+  // גבולות: לא פחות מ-0.8% ולא יותר מ-8%
+  finalTpPct = Math.max(0.008, Math.min(0.08, finalTpPct));
+
+  const tp = isBuy
+    ? +(price * (1 + finalTpPct)).toFixed(2)
+    : +(price * (1 - finalTpPct)).toFixed(2);
+
+  // ── 5. זמן החזקה בשפה ────────────────────────────────
+  const holdingMap = {7:"1-2 שבועות", 10:"1-2 שבועות", 14:"2-3 שבועות", 21:"3-4 שבועות"};
+  const holdKey = Object.keys(holdingMap).map(Number).reduce((a,b)=>Math.abs(b-holdDays)<Math.abs(a-holdDays)?b:a);
+  const holding = holdDays <= 5 ? "3-7 ימים" : holdingMap[holdKey] || "1-2 שבועות";
+
+  // ── 6. יחס סיכון/תגמול ───────────────────────────────
+  const rrRatio = +(finalTpPct / actualSlPct).toFixed(1);
+
+  return { entry: +price.toFixed(2), tp, sl, holding, strategy, trueAtr: baseAtr, rrRatio };
+}
+
 // ── SCORING ───────────────────────────────────────────────
-function scoreAll(sym, quote, ind, patterns, newsArr, extNewsArr, profile, macro){
+function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profile, macro){
   const price=quote.c,prev=quote.pc;
   const pct=+((price-prev)/prev*100).toFixed(2);
   const {rsi,macdVal,macdSig,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl}=ind;
@@ -1064,39 +1237,33 @@ function scoreAll(sym, quote, ind, patterns, newsArr, extNewsArr, profile, macro
   if(totalScore>=70)risk-=10;
   risk=Math.max(10,Math.min(90,risk));
 
-  // ── TARGETS — מבוסס ATR אמיתי ויחס סיכון/תגמול אופטימלי ──
-  const trueAtr=Math.max(atr||0, price*0.008);
-  // SL = 1 ATR מתחת לכניסה — תמיד קבוע
-  // TP משתנה לפי חוזק האיתות: STRONG=3.5x, BUY=2.5x, HOLD=1.5x
-  const tpMult = sig==="STRONG_BUY"?3.5 : sig==="BUY"?2.5 : sig==="STRONG_SELL"?3.5 : sig==="SELL"?2.5 : 1.5;
-  const slMult = 1.0; // תמיד 1 ATR כ-SL
-  let entry,tp,sl,holding;
-  if(sig==="STRONG_BUY"||sig==="BUY"){
-    entry=+price.toFixed(2);
-    tp=+(price + trueAtr*tpMult).toFixed(2);
-    sl=+(price - trueAtr*slMult).toFixed(2);
-    holding=sig==="STRONG_BUY"?"4-8 שבועות":"2-4 שבועות";
-  }else if(sig==="STRONG_SELL"||sig==="SELL"){
-    entry=+price.toFixed(2);
-    tp=+(price - trueAtr*tpMult).toFixed(2);
-    sl=+(price + trueAtr*slMult).toFixed(2);
-    holding="1-3 שבועות";
-  }else{
-    entry=+price.toFixed(2);
-    tp=+(price + trueAtr*1.5).toFixed(2);
-    sl=+(price - trueAtr*0.8).toFixed(2);
-    holding="המתן לאיתות";
-  }
+  // ── TARGETS — חישוב חכם לפי כל הפרמטרים ──────────────
+  const targets = calcTargets({
+    price, atr, sig, risk, totalScore,
+    rsi, stochRsi, williamsR, cci, macdVal,
+    ma50, ma200, bbU, bbL, vr, pct,
+    patterns, candles,
+    beta: profile.beta,
+    hasEarnings: checkEarnings(sym||""),
+    vix: macro?.["^VIX"]?.price || 20,
+    confluence: (() => {
+      const c = calcConfluence(
+        {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
+        pct, patterns, posNews, negNews, totalNews
+      );
+      return c.score;
+    })(),
+  });
+  const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
   const slPct=+(((sl-entry)/entry)*100).toFixed(1);
-  const rrRatio=Math.abs(tpPct/slPct);
 
   return{
     sig,sigLabel,pillCls,
     totalScore,techScoreNorm,fundScoreNorm,newsScoreNorm,macroScore,
     risk,pct,price:+price.toFixed(2),
     high:+quote.h.toFixed(2),low:+quote.l.toFixed(2),
-    entry,tp,sl,tpPct,slPct,rrRatio:+rrRatio.toFixed(1),holding,
+    entry,tp,sl,tpPct,slPct,rrRatio:+rrRatio.toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
@@ -1342,9 +1509,13 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="hbar">
         <span style="font-size:22px">⏱</span>
         <div><div class="hlbl">זמן החזקה מומלץ</div><div class="hval">${d.holding}</div></div>
+        <div>
+          <div class="hlbl">אסטרטגיה</div>
+          <div class="hval" style="font-size:13px;color:var(--blue)">${d.strategy||"—"}</div>
+        </div>
         <div style="margin-right:auto;text-align:left">
           <div class="hlbl">יחס סיכון/תגמול</div>
-          <div class="hval" style="color:${d.rrRatio>=2?"var(--green)":d.rrRatio>=1?"var(--amber)":"var(--red)"}">1:${d.rrRatio}</div>
+          <div class="hval" style="color:${d.rrRatio>=2.5?"var(--green)":d.rrRatio>=1.5?"var(--amber)":"var(--red)"}">1:${d.rrRatio}</div>
         </div>
       </div>
 
@@ -1429,7 +1600,7 @@ async function go(){
     if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
     const ind=calcIndicators(candles);
     const patterns=detectPatterns(candles);
-    const scores=scoreAll(sym,quote,ind,patterns,newsArr,extNewsArr,profile,macro);
+    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro);
     render(sym,quote,candles,profile,scores,patterns,competitors,macro);
     saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
     fireAlert(sym,scores.sig,scores.price,scores.totalScore);
