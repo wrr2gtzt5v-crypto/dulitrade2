@@ -743,7 +743,22 @@ function calcIndicators(candles){
   const bM=bS.reduce((a,b)=>a+b,0)/bS.length;
   const bStd=bS.length>1?Math.sqrt(bS.reduce((a,b)=>a+(b-bM)**2,0)/bS.length):c[N-1]*0.02;
   const bbU=+(bM+2*bStd).toFixed(2),bbL=+(bM-2*bStd).toFixed(2);
-  const atr=+(bStd*0.5||c[N-1]*0.015).toFixed(2);
+
+  // ATR אמיתי — מחושב מ-High/Low/Close האמיתיים (14 ימים)
+  const hs=candles.h||[], ls=candles.l||[];
+  let atr;
+  if(hs.length>=2&&ls.length>=2){
+    const atrLen=Math.min(14,hs.length-1);
+    let trSum=0;
+    for(let i=N-atrLen;i<N;i++){
+      const hi=hs[i]||c[i], li=ls[i]||c[i], pc=c[i-1]||c[i];
+      const tr=Math.max(hi-li, Math.abs(hi-pc), Math.abs(li-pc));
+      trSum+=tr;
+    }
+    atr=+(trSum/atrLen).toFixed(2);
+  } else {
+    atr=+(bStd*0.5||c[N-1]*0.015).toFixed(2);
+  }
 
   // Stochastic RSI
   const rsiArr=[];
@@ -946,15 +961,28 @@ function scoreAll(sym, quote, ind, patterns, newsArr, extNewsArr, profile, macro
   if(totalScore>=70)risk-=10;
   risk=Math.max(10,Math.min(90,risk));
 
-  // ── TARGETS ────────────────────────────────────────────
-  const trueAtr=Math.max(atr||0,price*0.01);
+  // ── TARGETS — מבוסס ATR אמיתי ויחס סיכון/תגמול אופטימלי ──
+  const trueAtr=Math.max(atr||0, price*0.008);
+  // SL = 1 ATR מתחת לכניסה — תמיד קבוע
+  // TP משתנה לפי חוזק האיתות: STRONG=3.5x, BUY=2.5x, HOLD=1.5x
+  const tpMult = sig==="STRONG_BUY"?3.5 : sig==="BUY"?2.5 : sig==="STRONG_SELL"?3.5 : sig==="SELL"?2.5 : 1.5;
+  const slMult = 1.0; // תמיד 1 ATR כ-SL
   let entry,tp,sl,holding;
   if(sig==="STRONG_BUY"||sig==="BUY"){
-    entry=+price.toFixed(2);tp=+(price+trueAtr*(sig==="STRONG_BUY"?4:3)).toFixed(2);sl=+(price-trueAtr*1.5).toFixed(2);holding=sig==="STRONG_BUY"?"3-6 שבועות":"2-4 שבועות";
+    entry=+price.toFixed(2);
+    tp=+(price + trueAtr*tpMult).toFixed(2);
+    sl=+(price - trueAtr*slMult).toFixed(2);
+    holding=sig==="STRONG_BUY"?"4-8 שבועות":"2-4 שבועות";
   }else if(sig==="STRONG_SELL"||sig==="SELL"){
-    entry=+price.toFixed(2);tp=+(price-trueAtr*(sig==="STRONG_SELL"?3.5:2.5)).toFixed(2);sl=+(price+trueAtr*1.2).toFixed(2);holding="1-2 שבועות";
+    entry=+price.toFixed(2);
+    tp=+(price - trueAtr*tpMult).toFixed(2);
+    sl=+(price + trueAtr*slMult).toFixed(2);
+    holding="1-3 שבועות";
   }else{
-    entry=+price.toFixed(2);tp=+(price+trueAtr*2).toFixed(2);sl=+(price-trueAtr).toFixed(2);holding="המתן לאיתות";
+    entry=+price.toFixed(2);
+    tp=+(price + trueAtr*1.5).toFixed(2);
+    sl=+(price - trueAtr*0.8).toFixed(2);
+    holding="המתן לאיתות";
   }
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
   const slPct=+(((sl-entry)/entry)*100).toFixed(1);
