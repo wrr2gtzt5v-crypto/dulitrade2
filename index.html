@@ -308,6 +308,37 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .hist-date{color:var(--text3);}
 .hist-price{color:var(--text2);}
 
+/* SCANNER */
+.scanner-section{margin:1.5rem 0 1rem;}
+.scanner-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+.scanner-head h3{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;}
+.scanner-status{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
+.scanner-progress{height:3px;background:var(--border);border-radius:2px;margin-bottom:12px;overflow:hidden;display:none;}
+.scanner-progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s;}
+.scanner-grid{display:flex;flex-direction:column;gap:8px;}
+.scan-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .15s;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;}
+.scan-card:hover{border-color:var(--green);}
+.scan-card.buy{border-right:3px solid var(--green);}
+.scan-card.sell{border-right:3px solid var(--red);}
+.scan-left{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px;}
+.scan-sym{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;color:var(--text);}
+.scan-price{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);}
+.scan-mid{display:flex;flex-direction:column;gap:4px;}
+.scan-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;width:fit-content;}
+.scan-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;}
+.scan-tag{font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--border);color:var(--text3);font-family:'IBM Plex Mono',monospace;}
+.scan-tag.hot{border-color:var(--amber);color:var(--amber);}
+.scan-tag.rr{border-color:var(--blue);color:var(--blue);}
+.scan-tag.mom{border-color:var(--green);color:var(--green);}
+.scan-tag.safe{border-color:#00d97e88;color:var(--green);}
+.scan-reason{font-size:11px;color:var(--text2);line-height:1.4;margin-top:3px;}
+.scan-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;}
+.scan-score{font-size:18px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+.scan-rr{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
+.scan-risk{font-size:10px;font-family:'IBM Plex Mono',monospace;}
+.scan-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px;font-family:'IBM Plex Mono',monospace;line-height:2;}
+.scan-loading{display:flex;align-items:center;gap:10px;padding:1.5rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:12px;}
+
 .empty{text-align:center;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:2.2;}
 .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;}
 .dots span{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:b 1.2s infinite;}
@@ -368,13 +399,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 </div>
 
 <div class="wrap">
-  <!-- HOT -->
-  <div class="hot-section">
-    <div class="sec-head">
-      <h3>🔥 מניות חמות — לא לפספס</h3>
-      <button class="tbtn" onclick="loadHot()" style="font-size:11px;">רענן</button>
+  <!-- SCANNER -->
+  <div class="scanner-section">
+    <div class="scanner-head">
+      <h3>🔍 סורק עסקאות — מוצא הזדמנויות בזמן אמת</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="scanner-status" id="scanStatus">לא סרוק עדיין</span>
+        <button class="tbtn" onclick="runScanner()" id="scanBtn" style="font-size:11px;background:var(--green);color:#000;border:none;padding:5px 14px;font-weight:700;">▶ סרוק עכשיו</button>
+      </div>
     </div>
-    <div class="hot-grid" id="hotGrid"></div>
+    <div class="scanner-progress" id="scanProgress">
+      <div class="scanner-progress-fill" id="scanFill"></div>
+    </div>
+    <div class="scanner-grid" id="scanGrid">
+      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות מעולות<br><span style="font-size:11px">המערכת תנתח 30 מניות ותמיין את הטובות ביותר</span></div>
+    </div>
   </div>
 
   <!-- SEARCH -->
@@ -666,77 +705,6 @@ async function loadIndices(){
       cel.className="idx-chg "+(pct>=0?"up":"dn");
     }catch(e){}
   }
-}
-
-// ── HOT STOCKS ────────────────────────────────────────────
-const HOT_POOL=[
-  {s:"NVDA",n:"NVIDIA",r:"ביקוש AI ממשיך לעלות — עונת הרווחים חזקה"},
-  {s:"TSLA",n:"Tesla",r:"תנודתיות גבוהה — מועמד למהלכים חדים"},
-  {s:"META",n:"Meta",r:"פרסום דיגיטלי מתחזק — AI Ads"},
-  {s:"PLTR",n:"Palantir",r:"חוזי ממשלה חדשים — AI ענטרפרייז"},
-  {s:"AMD",n:"AMD",r:"תחרות עם NVIDIA — שוק GPU מתרחב"},
-  {s:"COIN",n:"Coinbase",r:"מתאם גבוה עם ביטקוין"},
-  {s:"AAPL",n:"Apple",r:"iPhone 17 — ציפיות גבוהות"},
-  {s:"SOFI",n:"SoFi",r:"ריבית יורדת — בנקאות דיגיטלית"},
-  {s:"MNDY",n:"Monday",r:"SaaS ישראלי — צמיחה חזקה"},
-  {s:"CHKP",n:"Check Point",r:"אבטחת סייבר — ביקוש גבוה"},
-];
-function loadHot(){
-  // מציג placeholder ואז טוען נתונים אמיתיים ומסנן לפי סיכון < 40
-  document.getElementById("hotGrid").innerHTML=HOT_POOL.slice(0,3).map(h=>
-    `<div class="hot-card" style="opacity:.5"><div class="hot-sym">${h.s}</div><div class="hot-name">${h.n}</div><div class="hot-reason">טוען...</div></div>`
-  ).join("");
-
-  const shuffled=[...HOT_POOL].sort(()=>Math.random()-.5);
-  const results=[];
-
-  async function fetchOne(h){
-    try{
-      const [quote,candles,profile]=await Promise.all([api(h.s,"quote"),api(h.s,"candle"),api(h.s,"profile")]);
-      if(!quote.c||quote.c===0)return null;
-      const ind=calcIndicators(candles);
-      const patterns=detectPatterns(candles);
-      const scores=scoreAll(h.s,quote,candles,ind,patterns,[],[],profile,null);
-      return{...h,scores,price:quote.c};
-    }catch(e){return null;}
-  }
-
-  Promise.allSettled(shuffled.map(fetchOne)).then(settled=>{
-    const valid=settled
-      .filter(r=>r.status==="fulfilled"&&r.value&&r.value.scores.risk<40)
-      .map(r=>r.value)
-      .sort((a,b)=>b.scores.totalScore-a.scores.totalScore)
-      .slice(0,3);
-
-    if(!valid.length){
-      // אם אין סיכון נמוך, קח את הכי טובים
-      const fallback=settled
-        .filter(r=>r.status==="fulfilled"&&r.value)
-        .map(r=>r.value)
-        .sort((a,b)=>b.scores.totalScore-a.scores.totalScore)
-        .slice(0,3);
-      renderHot(fallback);
-    }else{
-      renderHot(valid);
-    }
-  });
-}
-
-function renderHot(stocks){
-  if(!stocks.length){
-    document.getElementById("hotGrid").innerHTML=`<div class="hot-card" style="grid-column:span 3;text-align:center;color:var(--text3);font-size:12px">אין מניות עם סיכון נמוך מ-40 כרגע</div>`;
-    return;
-  }
-  const sigColor=s=>s==="STRONG_BUY"?"var(--green)":s==="BUY"?"var(--green)":s==="SELL"?"var(--red)":s==="STRONG_SELL"?"var(--red)":"var(--amber)";
-  const sigLabel=s=>s==="STRONG_BUY"?"קנייה חזקה ▲▲":s==="BUY"?"קנייה ▲":s==="SELL"?"מכירה ▼":s==="STRONG_SELL"?"מכירה חזקה ▼▼":"המתן ◆";
-  document.getElementById("hotGrid").innerHTML=stocks.map(h=>`
-    <div class="hot-card" onclick="q('${h.s}')">
-      <div class="hot-sym">${h.s}</div>
-      <div class="hot-name">${h.n}</div>
-      <div style="font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:700;color:${sigColor(h.scores.sig)};margin:4px 0">${sigLabel(h.scores.sig)}</div>
-      <div class="hot-reason">${h.r}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">ציון: ${h.scores.totalScore}/100 · סיכון: ${h.scores.risk}/100 · $${h.price.toFixed(2)}</div>
-    </div>`).join("");
 }
 
 // ── CANDLE CHART ──────────────────────────────────────────
@@ -1856,11 +1824,197 @@ function renderPositionHtml(price, sl){
   </div>`;
 }
 
+// ── SCANNER ENGINE ────────────────────────────────────────
+const SCAN_LIST = [
+  "AAPL","NVDA","TSLA","MSFT","AMZN","META","GOOGL","AMD",
+  "NFLX","COIN","PLTR","SOFI","TEVA","CHKP","MNDY","WIX",
+  "V","MA","JPM","DIS","UBER","INTC","PYPL","BAC","GS",
+  "QCOM","CRM","SNAP","HOOD","AMGN","PANW","CRWD","NOW","SHOP"
+];
+
+let scannerRunning = false;
+let lastScanResults = [];
+let scanInterval = null;
+
+async function runScanner(auto=false){
+  if(scannerRunning) return;
+  scannerRunning = true;
+
+  const btn = document.getElementById("scanBtn");
+  const status = document.getElementById("scanStatus");
+  const grid = document.getElementById("scanGrid");
+  const progress = document.getElementById("scanProgress");
+  const fill = document.getElementById("scanFill");
+
+  btn.disabled = true;
+  btn.textContent = "⏳ סורק...";
+  progress.style.display = "block";
+  fill.style.width = "0%";
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>סורק ${SCAN_LIST.length} מניות...</div>`;
+
+  const results = [];
+  const BATCH = 4; // 4 מניות במקביל
+
+  for(let i = 0; i < SCAN_LIST.length; i += BATCH){
+    const batch = SCAN_LIST.slice(i, i+BATCH);
+    const pct = Math.round((i/SCAN_LIST.length)*100);
+    fill.style.width = pct + "%";
+    status.textContent = `סורק ${i+1}-${Math.min(i+BATCH,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
+
+    await Promise.allSettled(batch.map(async sym => {
+      try {
+        const [quote, candles, profile] = await Promise.all([
+          api(sym,"quote"), api(sym,"candle"), api(sym,"profile")
+        ]);
+        if(!quote.c || quote.c === 0) return;
+
+        const ind = calcIndicators(candles);
+        const patterns = detectPatterns(candles);
+        const scores = scoreAll(sym, quote, candles, ind, patterns, [], [], profile, null);
+
+        // חישוב Confluence
+        const conf = calcConfluence(
+          {rsi:ind.rsi,stochRsi:ind.stochRsi,williamsR:ind.williamsR,cci:ind.cci,
+           macdVal:ind.macdVal,ma50:ind.ma50,ma200:ind.ma200,bbU:ind.bbU,bbL:ind.bbL,vr:ind.vr,vLbl:ind.vLbl},
+          scores.pct, patterns, 0, 0, 0
+        );
+
+        // קריטריונים לעסקה מעולה
+        const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
+        const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
+        if(!isBuy && !isSell) return; // HOLD — לא מעניין
+
+        const passConfluence = conf.score >= 6;
+        const passRisk       = scores.risk < 55;
+        const passRR         = scores.rrRatio >= 1.8;
+        const passScore      = scores.totalScore >= 54;
+        const passRSI        = scores.rsi >= 25 && scores.rsi <= 72;
+
+        // חייב לעבור לפחות 3 מתוך 5 קריטריונים
+        const passed = [passConfluence, passRisk, passRR, passScore, passRSI].filter(Boolean).length;
+        if(passed < 3) return;
+
+        // תגיות
+        const tags = [];
+        if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"🔥 HOT",cls:"hot"});
+        if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
+        if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
+        if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
+        if(conf.score >= 8) tags.push({t:`✓ Conf ${conf.score}/10`,cls:"mom"});
+
+        // סיבה עיקרית
+        const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
+        const reason = topFactor?.t || scores.trend;
+
+        results.push({
+          sym, price: quote.c, pct: scores.pct,
+          sig: scores.sig, sigLabel: scores.sigLabel,
+          score: scores.totalScore, risk: scores.risk,
+          rrRatio: scores.rrRatio, conf: conf.score,
+          rsi: ind.rsi, tags, reason, passed,
+          name: profile.name || sym,
+        });
+      } catch(e){}
+    }));
+
+    // הצג תוצאות ביניים
+    if(results.length > 0) renderScanResults([...results]);
+  }
+
+  // מיון סופי — לפי ציון × confluence × R/R
+  results.sort((a,b)=>{
+    const scoreA = a.score * 0.4 + a.conf * 5 * 0.3 + a.rrRatio * 10 * 0.3;
+    const scoreB = b.score * 0.4 + b.conf * 5 * 0.3 + b.rrRatio * 10 * 0.3;
+    return scoreB - scoreA;
+  });
+
+  lastScanResults = results;
+  renderScanResults(results);
+
+  fill.style.width = "100%";
+  const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+  status.textContent = `נמצאו ${results.length} הזדמנויות · עודכן ${now}`;
+  btn.disabled = false;
+  btn.textContent = "↺ סרוק שוב";
+  setTimeout(()=>progress.style.display="none", 1000);
+  scannerRunning = false;
+}
+
+function renderScanResults(results){
+  const grid = document.getElementById("scanGrid");
+  if(!results.length){
+    grid.innerHTML = `<div class="scan-empty">לא נמצאו עסקאות שעומדות בקריטריונים כרגע<br><span style="font-size:11px;color:var(--text3)">נסה שוב מאוחר יותר — השוק משתנה</span></div>`;
+    return;
+  }
+
+  const sigColor = s => s.includes("BUY")?"var(--green)":s.includes("SELL")?"var(--red)":"var(--amber)";
+  const sigBg    = s => s.includes("BUY")?"var(--gdim)":s.includes("SELL")?"var(--rdim)":"var(--adim)";
+  const chDir    = p => p>=0?"var(--green)":"var(--red)";
+
+  grid.innerHTML = results.slice(0,6).map(r=>`
+    <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
+      <div class="scan-left">
+        <div class="scan-sym">${r.sym}</div>
+        <div class="scan-price">$${r.price.toFixed(2)}</div>
+        <div class="scan-price" style="color:${chDir(r.pct)}">${r.pct>=0?"+":""}${r.pct}%</div>
+      </div>
+      <div class="scan-mid">
+        <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
+        <div class="scan-tags">
+          ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
+        </div>
+        <div class="scan-reason">${r.reason}</div>
+      </div>
+      <div class="scan-right">
+        <div class="scan-score" style="color:${r.score>=65?"var(--green)":r.score>=55?"var(--amber)":"var(--red)"}">${r.score}</div>
+        <div class="scan-rr">R/R 1:${r.rrRatio}</div>
+        <div class="scan-risk" style="color:${r.risk<35?"var(--green)":r.risk<55?"var(--amber)":"var(--red)"}">סיכון ${r.risk}</div>
+        <div class="scan-rr" style="color:var(--blue)">Conf ${r.conf}/10</div>
+      </div>
+    </div>`).join("");
+}
+
+// Auto-scan כל 10 דקות
+function startAutoScan(){
+  if(scanInterval) clearInterval(scanInterval);
+  scanInterval = setInterval(()=>{
+    if(!scannerRunning) runScanner(true);
+  }, 10 * 60 * 1000);
+}
+
 // ── INIT ─────────────────────────────────────────────────
-loadHot();
 loadIndices();
 loadMacro();
 setTimeout(refreshAllWL, 2000);
+startAutoScan();
+// סריקה ראשונה אוטומטית אחרי 3 שניות
+setTimeout(()=>runScanner(true), 3000);
+
+// Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
+setInterval(()=>{
+  loadIndices();
+  loadMacro();
+  fetch("/api/stock?symbol=SPY&endpoint=quote").catch(()=>{});
+}, 5 * 60 * 1000); // כל 5 דקות
+
+// הצג הודעה כשהנתונים ישנים מ-20 דקות
+let lastFetch = Date.now();
+setInterval(()=>{
+  const mins = Math.floor((Date.now()-lastFetch)/60000);
+  if(mins >= 20){
+    const el = document.querySelector(".live");
+    if(el) el.innerHTML = `<div class="dot" style="background:var(--amber)"></div><span style="color:var(--amber)">נתונים לפני ${mins} דקות</span>`;
+  }
+}, 60000);
+
+// עדכן lastFetch בכל ניתוח
+const origGo = go;
+window.go = async function(){
+  lastFetch = Date.now();
+  const el = document.querySelector(".live");
+  if(el) el.innerHTML = `<div class="dot"></div>Live Data`;
+  return origGo();
+};
 </script>
 </body>
 </html>
