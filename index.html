@@ -377,6 +377,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
   </div>
   <div class="hright">
     <div class="live"><div class="dot"></div>Live Data</div>
+    <div id="marketStatus" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--border);cursor:default;" title="שעות מסחר NYSE/NASDAQ">
+      <span id="marketDot" style="width:7px;height:7px;border-radius:50%;background:var(--text3)"></span>
+      <span id="marketLabel">בודק...</span>
+    </div>
     <button class="tbtn" id="themeBtn" onclick="toggleTheme()">🌙</button>
   </div>
 </header>
@@ -1417,7 +1421,11 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div>
         <div class="csym">${sym}</div>
         <div class="cname">${p.name||sym} · ${p.sector||"—"} · ${p.industry||"—"}</div>
-        <div class="rbadge"><div class="dot" style="width:5px;height:5px;flex-shrink:0"></div>נתוני Yahoo Finance · ${d.totalNews} כתבות · 5 מקורות</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+          <div class="rbadge"><div class="dot" style="width:5px;height:5px;flex-shrink:0"></div>נתוני Yahoo Finance · ${d.totalNews} כתבות</div>
+          ${(()=>{const ms=lastMarketStatus||getMarketStatus();return ms.status!=="open"?`<div class="rbadge" style="color:${ms.color};background:${ms.bg};border-color:${ms.color}">${ms.label}</div>`:"";})()}
+        </div>
+        ${(()=>{const ms=lastMarketStatus||getMarketStatus();return ms.warning?`<div style="font-size:10px;color:var(--amber);margin-top:4px;line-height:1.4">${ms.warning}</div>`:"";})()}
       </div>
       <div class="siga">
         <div class="pill ${d.pillCls}">${d.sigLabel}</div>
@@ -1981,6 +1989,136 @@ function startAutoScan(){
     if(!scannerRunning) runScanner(true);
   }, 10 * 60 * 1000);
 }
+
+// ── MARKET STATUS ─────────────────────────────────────────
+const US_HOLIDAYS_2025_2026 = [
+  "2025-01-01","2025-01-20","2025-02-17","2025-04-18",
+  "2025-05-26","2025-06-19","2025-07-04","2025-09-01",
+  "2025-11-27","2025-12-25",
+  "2026-01-01","2026-01-19","2026-02-16","2026-04-03",
+  "2026-05-25","2026-06-19","2026-07-03","2026-09-07",
+  "2026-11-26","2026-12-25"
+];
+
+function getMarketStatus(){
+  const now = new Date();
+  // המר לשעון ET (UTC-4 בקיץ, UTC-5 בחורף)
+  const etOffset = isDST(now) ? -4 : -5;
+  const etTime = new Date(now.getTime() + (now.getTimezoneOffset() + etOffset*60) * 60000);
+
+  const day  = etTime.getDay();   // 0=ראשון, 6=שבת
+  const hour = etTime.getHours();
+  const min  = etTime.getMinutes();
+  const timeNum = hour + min/60;  // 9.5 = 9:30
+
+  // תאריך בפורמט YYYY-MM-DD
+  const dateStr = etTime.toISOString().split("T")[0];
+
+  // סוף שבוע
+  if(day === 0 || day === 6){
+    return { status:"closed", label:"שוק סגור 🔴", color:"var(--red)", bg:"var(--rdim)", warning:null };
+  }
+
+  // חג
+  if(US_HOLIDAYS_2025_2026.includes(dateStr)){
+    return { status:"closed", label:"חג אמריקאי 🔴", color:"var(--red)", bg:"var(--rdim)", warning:null };
+  }
+
+  // Pre-Market: 4:00 AM – 9:30 AM ET
+  if(timeNum >= 4 && timeNum < 9.5){
+    const opensIn = Math.round((9.5 - timeNum) * 60);
+    return {
+      status:"pre",
+      label:`Pre-Market 🟡`,
+      color:"var(--amber)", bg:"var(--adim)",
+      warning:`⚠ Pre-Market — נפח נמוך, מחירים פחות אמינים. השוק נפתח בעוד ${opensIn} דקות. האיתותים מבוססים על סגירה אחרונה.`
+    };
+  }
+
+  // שעות מסחר: 9:30 AM – 4:00 PM ET
+  if(timeNum >= 9.5 && timeNum < 16){
+    const closesIn = Math.round((16 - timeNum) * 60);
+    const closeHour = Math.floor(closesIn/60);
+    const closeMin  = closesIn % 60;
+    const closeStr  = closeHour > 0 ? `${closeHour}ש' ${closeMin}ד'` : `${closeMin} דקות`;
+    return {
+      status:"open",
+      label:`שוק פתוח 🟢`,
+      color:"var(--green)", bg:"var(--gdim)",
+      warning:null,
+      extra:`סוגר בעוד ${closeStr}`
+    };
+  }
+
+  // After-Hours: 4:00 PM – 8:00 PM ET
+  if(timeNum >= 16 && timeNum < 20){
+    return {
+      status:"after",
+      label:`After-Hours 🟡`,
+      color:"var(--amber)", bg:"var(--adim)",
+      warning:`⚠ After-Hours — נפח נמוך, מחירים לא רשמיים. האיתותים מבוססים על מחיר סגירה של ${etTime.toLocaleDateString("he-IL")}.`
+    };
+  }
+
+  // לילה — שוק סגור
+  const nextOpen = timeNum < 4 ? "הבוקר ב-9:30" : "מחר ב-9:30";
+  return {
+    status:"closed",
+    label:`שוק סגור 🔴`,
+    color:"var(--red)", bg:"var(--rdim)",
+    warning:null,
+    extra:`נפתח ${nextOpen} ET`
+  };
+}
+
+function isDST(date){
+  // DST בארה"ב: שני ראשון של מרץ עד ראשון הראשון של נובמבר
+  const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+  const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+  return date.getTimezoneOffset() < Math.max(jan, jul);
+}
+
+let lastMarketStatus = null;
+
+function updateMarketStatus(){
+  const ms = getMarketStatus();
+  lastMarketStatus = ms;
+
+  const dot   = document.getElementById("marketDot");
+  const label = document.getElementById("marketLabel");
+  const badge = document.getElementById("marketStatus");
+
+  if(!dot||!label||!badge) return;
+
+  dot.style.background   = ms.color;
+  label.textContent      = ms.label;
+  badge.style.borderColor = ms.color;
+  badge.style.color      = ms.color;
+  badge.style.background = ms.bg;
+
+  // הוסף tooltip עם זמן ET
+  const etNow = new Date(new Date().getTime() + (new Date().getTimezoneOffset() + (isDST(new Date())?-4:-5)*60)*60000);
+  badge.title = `שעון ET: ${etNow.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}${ms.extra?" | "+ms.extra:""}`;
+
+  // הצג/הסתר אזהרת Pre/After
+  let warnEl = document.getElementById("marketWarn");
+  if(ms.warning){
+    if(!warnEl){
+      warnEl = document.createElement("div");
+      warnEl.id = "marketWarn";
+      warnEl.style.cssText = `margin:8px 1.5rem 0;padding:8px 14px;background:var(--adim);border:1px solid var(--amber);border-radius:6px;font-size:11px;color:var(--amber);font-family:'IBM Plex Mono',monospace;line-height:1.6;`;
+      const wrap = document.querySelector(".wrap");
+      if(wrap) wrap.insertBefore(warnEl, wrap.firstChild);
+    }
+    warnEl.textContent = ms.warning;
+  } else if(warnEl){
+    warnEl.remove();
+  }
+}
+
+// עדכן כל דקה
+updateMarketStatus();
+setInterval(updateMarketStatus, 60 * 1000);
 
 // ── INIT ─────────────────────────────────────────────────
 loadIndices();
