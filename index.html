@@ -231,10 +231,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .conf-score{font-size:16px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
 .conf-track{height:8px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:10px;}
 .conf-fill{height:100%;border-radius:5px;transition:width .5s;}
-.conf-dots{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
-.conf-dot{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text2);padding:2px 8px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap;}
-.conf-dot.agree{border-color:var(--green);color:var(--green);}
-.conf-dot.disagree{border-color:var(--red);color:var(--red);}
+.conf-dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+.conf-dot{font-size:9px;color:var(--text2);padding:2px 6px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap;font-family:'IBM Plex Mono',monospace;}
+.conf-dot.agree{border-color:var(--green);color:var(--green);background:var(--gdim);}
+.conf-dot.disagree{border-color:var(--red);color:var(--red);background:var(--rdim);}
 
 /* EARNINGS WARNING */
 .earnings-warn{margin:0 1.25rem .75rem;padding:10px 14px;background:#1a0a00;border:1px solid var(--amber);border-radius:7px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px;}
@@ -1776,18 +1776,22 @@ function renderConfluenceHtml(conf, sig){
   const pct = (conf.score / conf.total * 100).toFixed(0);
   const color = conf.score >= 7 ? "var(--green)" : conf.score >= 5 ? "var(--amber)" : "var(--red)";
   const label = conf.score >= 7 ? "הסכמה גבוהה ✓" : conf.score >= 5 ? "הסכמה חלקית" : "הסכמה נמוכה ⚠";
-  const rec = conf.score >= 6 ? "" : `<div style="font-size:11px;color:var(--amber);margin-top:6px">⚠ Confluence נמוך — רק ${conf.score}/10 אינדיקטורים מסכימים. המתן לאישור נוסף לפני כניסה.</div>`;
+  const rec = conf.score < 6 ? `<div style="font-size:11px;color:var(--amber);margin-top:8px">⚠ Confluence ${conf.score}/10 — המתן לאישור נוסף לפני כניסה.</div>` : "";
+
+  // מציג רק שמות קצרים — ירוק=מסכים, אדום=לא מסכים, אפור=ניטרלי
+  const allDots = [
+    ...conf.bulls.map(s=>`<span class="conf-dot agree">▲ ${s.name}</span>`),
+    ...conf.bears.map(s=>`<span class="conf-dot disagree">▼ ${s.name}</span>`),
+    ...conf.neutral.map(s=>`<span class="conf-dot">— ${s.name}</span>`),
+  ].join("");
+
   return `<div class="confluence-bar">
     <div class="conf-title">
-      <span style="cursor:pointer" onclick="showTip('Confluence')">🎯 Confluence Score ℹ</span>
+      <span style="cursor:pointer" onclick="showTip('Confluence')">🎯 Confluence ℹ</span>
       <span class="conf-score" style="color:${color}">${conf.score}/10 — ${label}</span>
     </div>
     <div class="conf-track"><div class="conf-fill" style="width:${pct}%;background:${color}"></div></div>
-    <div class="conf-dots">
-      ${conf.bulls.map(s=>`<div class="conf-dot agree">▲ ${s.name}</div>`).join("")}
-      ${conf.bears.map(s=>`<div class="conf-dot disagree">▼ ${s.name}</div>`).join("")}
-      ${conf.neutral.map(s=>`<div class="conf-dot">— ${s.name}</div>`).join("")}
-    </div>
+    <div class="conf-dots">${allDots}</div>
     ${rec}
   </div>`;
 }
