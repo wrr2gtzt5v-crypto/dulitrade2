@@ -112,8 +112,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .pbuy{background:var(--gdim);color:var(--green);border:1.5px solid var(--green);}
 .psell{background:var(--rdim);color:var(--red);border:1.5px solid var(--red);}
 .phold{background:var(--adim);color:var(--amber);border:1.5px solid var(--amber);}
-.psbuy{background:#003d20;color:#00ff9d;border:1.5px solid #00ff9d;}
-.pssell{background:#3d0010;color:#ff2d44;border:1.5px solid #ff2d44;}
+.psbuy{background:#003d20;color:#00ff9d;border:2px solid #00ff9d;box-shadow:0 0 10px rgba(0,255,157,.3);}
+.pssell{background:#3d0010;color:#ff2d44;border:2px solid #ff2d44;box-shadow:0 0 10px rgba(255,45,68,.3);}
 .cconf{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
 
 /* SCORE SUMMARY */
@@ -579,8 +579,61 @@ const HOT_POOL=[
   {s:"CHKP",n:"Check Point",r:"אבטחת סייבר — ביקוש גבוה"},
 ];
 function loadHot(){
-  const shuffled=[...HOT_POOL].sort(()=>Math.random()-.5).slice(0,3);
-  document.getElementById("hotGrid").innerHTML=shuffled.map(h=>`<div class="hot-card" onclick="q('${h.s}')"><div class="hot-sym">${h.s}</div><div class="hot-name">${h.n}</div><div class="hot-reason">${h.r}</div><div class="hot-sig">לחץ לניתוח מלא →</div></div>`).join("");
+  // מציג placeholder ואז טוען נתונים אמיתיים ומסנן לפי סיכון < 40
+  document.getElementById("hotGrid").innerHTML=HOT_POOL.slice(0,3).map(h=>
+    `<div class="hot-card" style="opacity:.5"><div class="hot-sym">${h.s}</div><div class="hot-name">${h.n}</div><div class="hot-reason">טוען...</div></div>`
+  ).join("");
+
+  const shuffled=[...HOT_POOL].sort(()=>Math.random()-.5);
+  const results=[];
+
+  async function fetchOne(h){
+    try{
+      const [quote,candles,profile]=await Promise.all([api(h.s,"quote"),api(h.s,"candle"),api(h.s,"profile")]);
+      if(!quote.c||quote.c===0)return null;
+      const ind=calcIndicators(candles);
+      const patterns=detectPatterns(candles);
+      const scores=scoreAll(h.s,quote,ind,patterns,[],[],profile,null);
+      return{...h,scores,price:quote.c};
+    }catch(e){return null;}
+  }
+
+  Promise.allSettled(shuffled.map(fetchOne)).then(settled=>{
+    const valid=settled
+      .filter(r=>r.status==="fulfilled"&&r.value&&r.value.scores.risk<40)
+      .map(r=>r.value)
+      .sort((a,b)=>b.scores.totalScore-a.scores.totalScore)
+      .slice(0,3);
+
+    if(!valid.length){
+      // אם אין סיכון נמוך, קח את הכי טובים
+      const fallback=settled
+        .filter(r=>r.status==="fulfilled"&&r.value)
+        .map(r=>r.value)
+        .sort((a,b)=>b.scores.totalScore-a.scores.totalScore)
+        .slice(0,3);
+      renderHot(fallback);
+    }else{
+      renderHot(valid);
+    }
+  });
+}
+
+function renderHot(stocks){
+  if(!stocks.length){
+    document.getElementById("hotGrid").innerHTML=`<div class="hot-card" style="grid-column:span 3;text-align:center;color:var(--text3);font-size:12px">אין מניות עם סיכון נמוך מ-40 כרגע</div>`;
+    return;
+  }
+  const sigColor=s=>s==="STRONG_BUY"?"var(--green)":s==="BUY"?"var(--green)":s==="SELL"?"var(--red)":s==="STRONG_SELL"?"var(--red)":"var(--amber)";
+  const sigLabel=s=>s==="STRONG_BUY"?"קנייה חזקה ▲▲":s==="BUY"?"קנייה ▲":s==="SELL"?"מכירה ▼":s==="STRONG_SELL"?"מכירה חזקה ▼▼":"המתן ◆";
+  document.getElementById("hotGrid").innerHTML=stocks.map(h=>`
+    <div class="hot-card" onclick="q('${h.s}')">
+      <div class="hot-sym">${h.s}</div>
+      <div class="hot-name">${h.n}</div>
+      <div style="font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:700;color:${sigColor(h.scores.sig)};margin:4px 0">${sigLabel(h.scores.sig)}</div>
+      <div class="hot-reason">${h.r}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">ציון: ${h.scores.totalScore}/100 · סיכון: ${h.scores.risk}/100 · $${h.price.toFixed(2)}</div>
+    </div>`).join("");
 }
 
 // ── CANDLE CHART ──────────────────────────────────────────
