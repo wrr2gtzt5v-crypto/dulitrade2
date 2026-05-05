@@ -225,8 +225,89 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .tip-box .scale{margin-top:10px;display:flex;gap:4px;align-items:center;font-size:11px;color:var(--text3);}
 .tip-close{position:absolute;top:12px;left:14px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;}
 
-/* MISC */
-.atxt{font-size:13px;line-height:1.75;color:var(--text2);margin-bottom:1.25rem;}
+/* CONFLUENCE */
+.confluence-bar{margin:0 1.25rem .75rem;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;}
+.conf-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.conf-score{font-size:18px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+.conf-track{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:8px;}
+.conf-fill{height:100%;border-radius:5px;transition:width .5s;}
+.conf-dots{display:flex;gap:6px;flex-wrap:wrap;}
+.conf-dot{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);padding:2px 7px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
+.conf-dot.agree{border-color:var(--green);color:var(--green);}
+.conf-dot.disagree{border-color:var(--red);color:var(--red);}
+
+/* EARNINGS WARNING */
+.earnings-warn{margin:0 1.25rem .75rem;padding:10px 14px;background:#1a0a00;border:1px solid var(--amber);border-radius:7px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px;}
+
+/* POSITION SIZING */
+.pos-size-box{margin:0 1.25rem 1.25rem;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;}
+.pos-size-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px;}
+.pos-size-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.pos-size-row input{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);font-family:'IBM Plex Mono',monospace;outline:none;width:160px;}
+.pos-size-row input:focus{border-color:var(--green);}
+.pos-size-row button{background:var(--green);border:none;color:#000;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
+.pos-result{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px;}
+.pos-cell{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center;}
+.pos-lbl{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:3px;}
+.pos-val{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--blue);}
+
+/* TRAILING STOP */
+.trailing-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:1.25rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.trailing-lbl{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;}
+.trailing-val{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--amber);}
+
+/* HISTORY */
+.hist-section{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;}
+.hist-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px;}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.hist-row:last-child{border-bottom:none;}
+.confluence-bar{padding:12px 1.25rem;border-bottom:1px solid var(--border);background:var(--bg2);}
+.conf-title{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.conf-track{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:6px;}
+.conf-fill{height:100%;border-radius:5px;transition:width .6s;}
+.conf-dots{display:flex;gap:5px;flex-wrap:wrap;}
+.conf-dot{width:10px;height:10px;border-radius:50%;}
+.conf-label{font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+
+/* EARNINGS WARNING */
+.earnings-warn{margin:0 1.25rem .75rem;padding:10px 14px;background:#1a0a00;border:1px solid var(--amber);border-radius:7px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px;}
+
+/* POSITION SIZING */
+.pos-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem;}
+.pos-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.pos-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pos-input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:13px;color:var(--text);outline:none;width:160px;font-family:'IBM Plex Mono',monospace;}
+.pos-input:focus{border-color:var(--green);}
+.pos-result{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace;flex:1;}
+.pos-result strong{color:var(--green);}
+
+/* TRAILING STOP */
+.trail-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--text2);}
+
+/* WATCHLIST */
+.watchlist-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin:1rem 0;}
+.wl-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.wl-add{display:flex;gap:8px;margin-bottom:10px;}
+.wl-add input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:13px;color:var(--text);outline:none;font-family:'IBM Plex Mono',monospace;}
+.wl-add input:focus{border-color:var(--green);}
+.wl-add button{background:var(--green);border:none;color:#000;padding:7px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;}
+.wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+.wl-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;transition:border-color .15s;position:relative;}
+.wl-card:hover{border-color:var(--green);}
+.wl-sym{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+.wl-price{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-top:2px;}
+.wl-sig{font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:600;margin-top:3px;}
+.wl-rm{position:absolute;top:4px;left:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;}
+.wl-rm:hover{color:var(--red);}
+
+/* HISTORY */
+.hist-section{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:1.25rem;}
+.hist-title{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:8px;}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.hist-row:last-child{border-bottom:none;}
+.hist-date{color:var(--text3);}
+.hist-price{color:var(--text2);}
+
 .empty{text-align:center;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:2.2;}
 .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;}
 .dots span{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:b 1.2s infinite;}
@@ -334,7 +415,27 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
       <button class="asave" onclick="saveAlert()">שמור ✓</button>
     </div>
     <div class="atags" id="atags"></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px">📧 מייל דרך FormSubmit · 📱 WhatsApp קישור ישיר</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span>💼 גודל תיק:</span>
+      <input id="portfolioInput" type="number" placeholder="לדוגמה: 50000" dir="ltr"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text);outline:none;width:140px;font-family:'IBM Plex Mono',monospace"
+        onchange="savePortfolio()" value=""/>
+      <span id="portfolioDisplay" style="font-size:11px;color:var(--green);font-family:'IBM Plex Mono',monospace"></span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">📧 מייל דרך FormSubmit · 📱 WhatsApp קישור ישיר · 💼 גודל תיק לחישוב Position Size</div>
+  </div>
+
+  <!-- WATCHLIST -->
+  <div class="watchlist-section">
+    <div class="wl-title">
+      <span>⭐ Watchlist — מניות במעקב</span>
+      <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="wlCount">0/10</span>
+    </div>
+    <div class="wl-add">
+      <input id="wlInp" type="text" placeholder="הוסף סימבול..." onkeydown="if(event.key==='Enter')addWL()" autocomplete="off" spellcheck="false"/>
+      <button onclick="addWL()">+ הוסף</button>
+    </div>
+    <div class="wl-grid" id="wlGrid"><div style="font-size:12px;color:var(--text3);font-family:'IBM Plex Mono',monospace">הוסף מניות למעקב ↑</div></div>
   </div>
 
   <div id="out">
@@ -459,7 +560,9 @@ const TERMS={
   "סיכון":{t:"מד סיכון DULITRADE",
     d:"ציון מ-10 עד 90 המחושב לפי RSI, תנודתיות יומית, סנטימנט חדשות, נפח, ו-Beta. מד סיכון גבוה = לא מומלץ להיכנס.",
     e:"✅ < 35: נמוך | 35-60: בינוני | > 60: גבוה"},
-  "Doji":{t:"Doji — נר יפני",d:"גוף אפסי, פתיחה = סגירה. מסמן אי-החלטיות בשוק. אחרי Doji בשיא = היפוך אפשרי כלפי מטה.",e:""},
+  "Confluence":{t:"Confluence Score — ציון הסכמה",d:"מודד כמה אינדיקטורים מסכימים ביניהם מתוך 10. ציון 7+ = הסכמה גבוהה, כניסה מומלצת. 5-6 = זהירות, המתן לאישור נוסף. מתחת ל-5 = אינדיקטורים סותרים, אל תיכנס.",e:"🎯 בית השקעות מקצועי נכנס לעסקה רק כשיש Confluence של 6+ מתוך 10"},
+  "TrailingStop":{t:"Trailing Stop — עצירת הפסד נגררת",d:"עצירת הפסד שזזה אוטומטית עם המחיר. אם קנית ב-100$ עם Trailing של 5% — כשהמניה עולה ל-110$, ה-SL עולה ל-104.5$. מגן על רווחים מצטברים.",e:"📈 Trailing Stop = כלי ניהול סיכונים מספר 1 של טריידרים מקצועיים"},
+  "PositionSize":{t:"Position Sizing — גודל פוזיציה",d:"כמה כסף להכניס לכל עסקה. כלל הזהב: לעולם לא לסכן יותר מ-2% מהתיק בעסקה אחת. מחושב: (גודל תיק × 2%) ÷ מרחק ה-Stop Loss = מספר המניות.",e:"💰 תיק של $50,000 × 2% = $1,000 מקסימום סיכון לעסקה"},
   "Hammer":{t:"פטיש (Hammer)",d:"גוף קטן למעלה + פתיל תחתון ארוך. קונים החזירו את המחיר. סימן חיובי אחרי ירידה.",e:""},
   "Engulfing":{t:"Engulfing — בליעה",d:"נר גדול בולע את הנר הקודם. Bullish = ירוק בולע אדום = כוח קנייה. Bearish = אדום בולע ירוק = כוח מכירה.",e:""},
   "מגמה":{t:"מגמה (Trend)",d:"כיוון התנועה הכללי. מגמת עלייה = שיאים ותחתיות עולים. מסחר בכיוון המגמה בטוח יותר.",e:"📈 'Don't fight the trend'"},
@@ -1010,6 +1113,28 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const riskLbl=d.risk<35?"נמוך ✓":d.risk<60?"בינוני":"גבוה ⚠";
   const warnHtml=d.risk>=65?`<div class="rwarn">⚠ ${T("רמת סיכון","סיכון")} גבוהה (${d.risk}/100) — לא מומלץ להיכנס עכשיו. המתן לאיתות חזק יותר.</div>`:"";
 
+  // ── Confluence ──────────────────────────────────────────
+  const conf = calcConfluence(
+    {rsi:d.rsi,stochRsi:d.stochRsi,williamsR:d.williamsR,cci:d.cci,macdVal:d.macdVal,
+     ma50:d.ma50,ma200:d.ma200,bbU:d.bbU,bbL:d.bbL,vr:d.vr,vLbl:d.vLbl},
+    d.pct, patterns, d.posNews, d.negNews, d.totalNews
+  );
+  const confHtml = renderConfluenceHtml(conf, d.sig);
+
+  // ── Earnings Warning ────────────────────────────────────
+  const hasEarnings = checkEarnings(sym);
+  const earningsHtml = hasEarnings ? `<div class="earnings-warn">⚠️ <strong>דוח רווחים צפוי בקרוב!</strong> — הסיכון גבוה לפני דוח. שקול להמתין לאחר הפרסום לפני כניסה לעסקה.</div>` : "";
+
+  // ── Trailing Stop ───────────────────────────────────────
+  const ts = calcTrailingStop(d.price, d.atr, d.sig);
+  const trailingHtml = (d.sig==="BUY"||d.sig==="STRONG_BUY") ? renderTrailingHtml(ts, d.price) : "";
+
+  // ── Position Sizing ─────────────────────────────────────
+  const posHtml = renderPositionHtml(d.price, d.sl);
+
+  // ── Historical Signals ──────────────────────────────────
+  const histHtml = renderHistoryHtml(sym);
+
   // ── הסבר נרות ──────────────────────────────────────────
   const bullP=patterns.find(p=>p.bull===true),bearP=patterns.find(p=>p.bull===false);
   let candleExplain="";
@@ -1196,6 +1321,8 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="rval" style="color:${riskColor}">${riskLbl} (${d.risk}/100)</div>
     </div>
 
+    ${confHtml}
+    ${earningsHtml}
     ${warnHtml}
 
     <div class="metrics">
@@ -1246,6 +1373,8 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="chart-wrap" id="chartWrap" style="height:220px;"></div>
 
       ${candleExplain}
+      ${trailingHtml}
+      ${posHtml}
       ${patternsHtml}
 
       <div class="stitle">ניתוח טכני — ${d.trend} <span class="info-icon" onclick="showTip('מגמה')">ℹ</span></div>
@@ -1262,6 +1391,8 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       ${compHtml}
 
       ${nHtml}
+
+      ${histHtml}
 
       <div class="links">
         <a class="lnk" href="https://finance.yahoo.com/quote/${sym}" target="_blank">Yahoo Finance ↗</a>
@@ -1300,6 +1431,7 @@ async function go(){
     const patterns=detectPatterns(candles);
     const scores=scoreAll(sym,quote,ind,patterns,newsArr,extNewsArr,profile,macro);
     render(sym,quote,candles,profile,scores,patterns,competitors,macro);
+    saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
     fireAlert(sym,scores.sig,scores.price,scores.totalScore);
   }catch(e){
     document.getElementById("out").innerHTML=`<div class="errmsg">⚠ ${e.message}</div>`;
@@ -1307,10 +1439,257 @@ async function go(){
   btn.disabled=false;btn.textContent="נתח ←";
 }
 
+// ── WATCHLIST ─────────────────────────────────────────────
+let watchlist = JSON.parse(localStorage.getItem("dt_wl")||"[]");
+renderWL();
+
+function addWL(){
+  const v=document.getElementById("wlInp").value.trim().toUpperCase().replace(/[^A-Z.]/g,"");
+  if(!v||watchlist.includes(v)||watchlist.length>=10)return;
+  watchlist.push(v);
+  localStorage.setItem("dt_wl",JSON.stringify(watchlist));
+  document.getElementById("wlInp").value="";
+  renderWL();
+  refreshWLCard(v);
+}
+
+function removeWL(sym){
+  watchlist=watchlist.filter(s=>s!==sym);
+  localStorage.setItem("dt_wl",JSON.stringify(watchlist));
+  renderWL();
+}
+
+function renderWL(){
+  document.getElementById("wlCount").textContent=watchlist.length+"/10";
+  if(!watchlist.length){
+    document.getElementById("wlGrid").innerHTML=`<div style="font-size:12px;color:var(--text3);font-family:'IBM Plex Mono',monospace">הוסף מניות למעקב ↑</div>`;
+    return;
+  }
+  document.getElementById("wlGrid").innerHTML=watchlist.map(s=>`
+    <div class="wl-card" id="wlc-${s}" onclick="q('${s}')">
+      <button class="wl-rm" onclick="event.stopPropagation();removeWL('${s}')">✕</button>
+      <div class="wl-sym">${s}</div>
+      <div class="wl-price" id="wlp-${s}">טוען...</div>
+      <div class="wl-sig" id="wls-${s}">—</div>
+    </div>`).join("");
+}
+
+async function refreshWLCard(sym){
+  try{
+    const [quote,candles,profile]=await Promise.all([api(sym,"quote"),api(sym,"candle"),api(sym,"profile")]);
+    if(!quote.c)return;
+    const ind=calcIndicators(candles);
+    const patterns=detectPatterns(candles);
+    const scores=scoreAll(sym,quote,ind,patterns,[],[],profile,null);
+    const pct=+((quote.c-quote.pc)/quote.pc*100).toFixed(2);
+    const sigColor=s=>s==="STRONG_BUY"||s==="BUY"?"var(--green)":s==="SELL"||s==="STRONG_SELL"?"var(--red)":"var(--amber)";
+    const sigLbl=s=>s==="STRONG_BUY"?"קנייה חזקה":s==="BUY"?"קנייה":s==="SELL"?"מכירה":s==="STRONG_SELL"?"מכירה חזקה":"המתן";
+    const pp=document.getElementById("wlp-"+sym);
+    const ps=document.getElementById("wls-"+sym);
+    if(pp) pp.innerHTML=`$${quote.c.toFixed(2)} <span style="color:${pct>=0?"var(--green)":"var(--red)"}">${pct>=0?"+":""}${pct}%</span>`;
+    if(ps) ps.innerHTML=`<span style="color:${sigColor(scores.sig)}">${sigLbl(scores.sig)}</span>`;
+  }catch(e){}
+}
+
+function refreshAllWL(){ watchlist.forEach(refreshWLCard); }
+
+// ── SIGNAL HISTORY ────────────────────────────────────────
+function saveHistory(sym, sig, price, score){
+  const key="dt_hist_"+sym;
+  const hist=JSON.parse(localStorage.getItem(key)||"[]");
+  hist.unshift({sig,price,score,date:new Date().toLocaleDateString("he-IL")});
+  localStorage.setItem(key,JSON.stringify(hist.slice(0,5)));
+}
+
+function getHistory(sym){
+  return JSON.parse(localStorage.getItem("dt_hist_"+sym)||"[]");
+}
+
+// ── CONFLUENCE SCORE ──────────────────────────────────────
+function calcConfluence(ind, patterns, scores, quote){
+  const {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr} = ind;
+  const price = quote.c;
+  const isBull = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
+  const isBear = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
+
+  const checks = [
+    {name:"RSI",         bull:rsi<50,         bear:rsi>50,        val:`${rsi}`},
+    {name:"Stoch RSI",   bull:stochRsi<50,    bear:stochRsi>50,   val:`${stochRsi}`},
+    {name:"Williams %R", bull:williamsR<-50,  bear:williamsR>-50, val:`${williamsR}`},
+    {name:"CCI",         bull:cci<0,          bear:cci>0,         val:`${cci}`},
+    {name:"MACD",        bull:macdVal>0,      bear:macdVal<0,     val:macdVal>0?"▲":"▼"},
+    {name:"MA50",        bull:price>ma50,     bear:price<ma50,    val:`$${ma50}`},
+    {name:"MA200",       bull:price>ma200,    bear:price<ma200,   val:`$${ma200}`},
+    {name:"בולינג'ר",    bull:price<bbL,      bear:price>bbU,     val:price<bbL?"תחתון":price>bbU?"עליון":"אמצע"},
+    {name:"נפח",         bull:vr>1&&scores.pct>0, bear:vr>1&&scores.pct<0, val:`${vr}x`},
+    {name:"נרות",        bull:patterns.some(p=>p.bull===true), bear:patterns.some(p=>p.bull===false), val:patterns[0]?.name.split(" ")[0]||"—"},
+  ];
+
+  const direction = isBull?"bull":isBear?"bear":"bull";
+  const agree = checks.filter(c=>c[direction]).length;
+  const disagree = checks.filter(c=>!c[direction]&&!c.bull&&!c.bear?false:!c[direction]).length;
+
+  return {checks, agree, total:checks.length, score:agree};
+}
+
+// ── EARNINGS CALENDAR ─────────────────────────────────────
+// רשימה סטטית של תאריכי דוחות קרובים (מתעדכנת ידנית)
+const EARNINGS_SOON = ["NVDA","META","GOOGL","MSFT","AMZN","AAPL","TSLA","AMD","NFLX","COIN","PLTR","SOFI"];
+function checkEarnings(sym){
+  // בדיקה אם המניה צפויה לדוח בשבועיים הקרובים
+  return EARNINGS_SOON.includes(sym.toUpperCase());
+}
+
+// ── POSITION SIZING ───────────────────────────────────────
+function calcPositionSize(price, sl, portfolioSize){
+  if(!portfolioSize||portfolioSize<=0)return null;
+  const riskPct = 0.02; // מסכן 2% מהתיק בכל עסקה
+  const riskAmount = portfolioSize * riskPct;
+  const slDist = Math.abs(price - sl);
+  if(slDist <= 0)return null;
+  const shares = Math.floor(riskAmount / slDist);
+  const totalInvest = shares * price;
+  const portfolioPct = (totalInvest / portfolioSize * 100).toFixed(1);
+  return {shares, totalInvest:+totalInvest.toFixed(0), portfolioPct, riskAmount:+riskAmount.toFixed(0)};
+}
+
+// ── PORTFOLIO SIZE ────────────────────────────────────────
+let portfolioSize = +localStorage.getItem("dt_portfolio") || 0;
+function savePortfolio(){
+  const v = +document.getElementById("portfolioInput").value;
+  portfolioSize = v;
+  localStorage.setItem("dt_portfolio", v);
+  document.getElementById("portfolioDisplay").textContent = v > 0 ? `✓ $${v.toLocaleString()} נשמר` : "";
+}
+// load saved
+window.addEventListener("DOMContentLoaded", ()=>{
+  if(portfolioSize > 0){
+    const el = document.getElementById("portfolioInput");
+    if(el) el.value = portfolioSize;
+    document.getElementById("portfolioDisplay").textContent = `✓ $${portfolioSize.toLocaleString()} נשמר`;
+  }
+});
+
+// ── HISTORICAL SIGNALS ────────────────────────────────────
+function saveSignalHistory(sym, sig, price, score){
+  const key = "dt_hist_" + sym;
+  const hist = JSON.parse(localStorage.getItem(key) || "[]");
+  hist.unshift({
+    sig, price, score,
+    date: new Date().toLocaleDateString("he-IL"),
+    time: new Date().toLocaleTimeString("he-IL", {hour:"2-digit", minute:"2-digit"})
+  });
+  localStorage.setItem(key, JSON.stringify(hist.slice(0, 5)));
+}
+function getSignalHistory(sym){
+  return JSON.parse(localStorage.getItem("dt_hist_" + sym) || "[]");
+}
+function renderHistoryHtml(sym){
+  const hist = getSignalHistory(sym);
+  if(!hist.length) return "";
+  const sigColor = s => s.includes("BUY") ? "var(--green)" : s.includes("SELL") ? "var(--red)" : "var(--amber)";
+  const sigHe = s => s==="STRONG_BUY"?"קנייה חזקה ▲▲":s==="BUY"?"קנייה ▲":s==="STRONG_SELL"?"מכירה חזקה ▼▼":s==="SELL"?"מכירה ▼":"המתן ◆";
+  return `<div class="hist-section">
+    <div class="hist-title">📋 היסטוריית איתותים — ${sym} (5 אחרונים)</div>
+    ${hist.map((h,i)=>`<div class="hist-row">
+      <span style="color:${sigColor(h.sig)}">${sigHe(h.sig)}</span>
+      <span>$${h.price}</span>
+      <span style="color:var(--text3)">ציון: ${h.score}</span>
+      <span style="color:var(--text3)">${h.date} ${h.time}</span>
+      ${i===0?"<span style='color:var(--amber);font-size:10px'>← עכשיו</span>":""}
+    </div>`).join("")}
+  </div>`;
+}
+
+// ── CONFLUENCE SCORE ──────────────────────────────────────
+function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
+  const {rsi, stochRsi, williamsR, cci, macdVal, ma50, ma200, bbU, bbL, vr, vLbl} = ind;
+  // כל אינדיקטור מצביע: +1=קנייה, -1=מכירה, 0=ניטרלי
+  const signals = [
+    {name:"RSI",          v: rsi<40?1:rsi>65?-1:0},
+    {name:"Stoch RSI",    v: stochRsi<25?1:stochRsi>75?-1:0},
+    {name:"Williams %R",  v: williamsR<-75?1:williamsR>-25?-1:0},
+    {name:"CCI",          v: cci<-80?1:cci>80?-1:0},
+    {name:"MACD",         v: macdVal>0?1:-1},
+    {name:"MA50/200",     v: ma50>ma200?1:ma50<ma200?-1:0},
+    {name:"בולינג'ר",     v: bbL>0?(rsi<40&&cci<0?1:rsi>65&&cci>0?-1:0):0},
+    {name:"נפח",          v: vr>1.5&&pct>0?1:vr>1.5&&pct<0?-1:0},
+    {name:"נרות יפניים",  v: patterns.some(p=>p.bull===true)?1:patterns.some(p=>p.bull===false)?-1:0},
+    {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0},
+  ];
+  const bulls = signals.filter(s=>s.v===1);
+  const bears = signals.filter(s=>s.v===-1);
+  const neutral = signals.filter(s=>s.v===0);
+  // ציון 0-10
+  const score = bulls.length;
+  return { score, bulls, bears, neutral, total: signals.length };
+}
+
+function renderConfluenceHtml(conf, sig){
+  const pct = (conf.score / conf.total * 100).toFixed(0);
+  const color = conf.score >= 7 ? "var(--green)" : conf.score >= 5 ? "var(--amber)" : "var(--red)";
+  const label = conf.score >= 7 ? "הסכמה גבוהה ✓" : conf.score >= 5 ? "הסכמה חלקית" : "הסכמה נמוכה ⚠";
+  const rec = conf.score >= 6 ? "" : `<div style="font-size:11px;color:var(--amber);margin-top:6px">⚠ Confluence נמוך — רק ${conf.score}/10 אינדיקטורים מסכימים. המתן לאישור נוסף לפני כניסה.</div>`;
+  return `<div class="confluence-bar">
+    <div class="conf-title">
+      <span style="cursor:pointer" onclick="showTip('Confluence')">🎯 Confluence Score ℹ</span>
+      <span class="conf-score" style="color:${color}">${conf.score}/10 — ${label}</span>
+    </div>
+    <div class="conf-track"><div class="conf-fill" style="width:${pct}%;background:${color}"></div></div>
+    <div class="conf-dots">
+      ${conf.bulls.map(s=>`<div class="conf-dot agree">▲ ${s.name}</div>`).join("")}
+      ${conf.bears.map(s=>`<div class="conf-dot disagree">▼ ${s.name}</div>`).join("")}
+      ${conf.neutral.map(s=>`<div class="conf-dot">— ${s.name}</div>`).join("")}
+    </div>
+    ${rec}
+  </div>`;
+}
+
+// ── TRAILING STOP ─────────────────────────────────────────
+function calcTrailingStop(price, atr, sig){
+  // Trailing Stop = 1.5 ATR מתחת לשיא (לקנייה) או מעל לשפל (למכירה)
+  const isBuy = sig==="BUY"||sig==="STRONG_BUY";
+  const ts = isBuy ? +(price - atr * 1.5).toFixed(2) : +(price + atr * 1.5).toFixed(2);
+  const tsPct = +((Math.abs(price - ts) / price) * 100).toFixed(1);
+  return { ts, tsPct, isBuy };
+}
+
+function renderTrailingHtml(ts, price){
+  return `<div class="trailing-box">
+    <span style="font-size:18px">📈</span>
+    <div>
+      <div class="trailing-lbl" style="cursor:pointer" onclick="showTip('TrailingStop')">Trailing Stop ℹ — זז עם המחיר</div>
+      <div class="trailing-val">$${ts.ts} <span style="font-size:11px;color:var(--text3)">(${ts.tsPct}% מהמחיר הנוכחי)</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-right:auto;max-width:300px;line-height:1.5">
+      אם המניה עולה ל-$${(price*1.03).toFixed(2)}, ה-Trailing Stop יזוז ל-$${(price*1.03-ts.ts+price).toFixed(2)}.
+      מגן על רווחים אוטומטית.
+    </div>
+  </div>`;
+}
+
+// ── POSITION SIZING RENDER ────────────────────────────────
+function renderPositionHtml(price, sl){
+  const ps = calcPositionSize(price, sl, portfolioSize);
+  if(!ps) return `<div class="pos-size-box">
+    <div class="pos-size-title">💼 Position Sizing — הכנס גודל תיק למעלה לחישוב</div>
+  </div>`;
+  return `<div class="pos-size-box">
+    <div class="pos-size-title" style="cursor:pointer" onclick="showTip('PositionSize')">💼 Position Sizing — כמה להשקיע? ℹ (2% סיכון מהתיק)</div>
+    <div class="pos-result">
+      <div class="pos-cell"><div class="pos-lbl">מספר מניות</div><div class="pos-val">${ps.shares.toLocaleString()}</div></div>
+      <div class="pos-cell"><div class="pos-lbl">השקעה כוללת</div><div class="pos-val">$${ps.totalInvest.toLocaleString()}</div></div>
+      <div class="pos-cell"><div class="pos-lbl">% מהתיק</div><div class="pos-val">${ps.portfolioPct}%</div></div>
+      <div class="pos-cell"><div class="pos-lbl">סיכון מקסימלי</div><div class="pos-val" style="color:var(--red)">$${ps.riskAmount.toLocaleString()}</div></div>
+    </div>
+  </div>`;
+}
+
 // ── INIT ─────────────────────────────────────────────────
 loadHot();
 loadIndices();
 loadMacro();
+setTimeout(refreshAllWL, 2000);
 </script>
 </body>
 </html>
