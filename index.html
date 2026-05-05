@@ -1311,7 +1311,19 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const fmtPct=(v)=>v!=null?(v>0?"+":"")+((v*100).toFixed(1))+"%":"—";
   const fmtColor=(v,good,bad)=>{if(v==null)return"var(--text2)";if(v>good)return"var(--green)";if(v<bad)return"var(--red)";return"var(--amber)";};
 
+  // בדוק אם נתונים חסרים
+  const missingCount = [p.revenueGrowth,p.profitMargin,p.pe,p.roe,p.debtToEquity].filter(v=>v==null).length;
+  const missingNotice = missingCount >= 3 ? `
+    <div style="background:var(--adim);border:1px solid var(--amber);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span>⚠ חלק מהנתונים הפונדמנטליים אינם זמינים כרגע — Yahoo Finance הגביל את הגישה.</span>
+      <a href="https://finance.yahoo.com/quote/${sym}/financials" target="_blank" 
+         style="color:var(--blue);text-decoration:none;font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap">
+        לצפייה בנתונים מלאים ↗
+      </a>
+    </div>` : "";
+
   const fundHtml=`
+    ${missingNotice}
     <div class="fund-grid">
       <div class="fund-card">
         <div class="fund-card-title">📈 צמיחה</div>
