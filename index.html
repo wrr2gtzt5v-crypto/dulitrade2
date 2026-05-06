@@ -1733,7 +1733,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
         <div class="tbox"><div class="tlbl">מרחק מהשפל</div><div class="tval" style="font-size:12px;color:var(--green)">${p.fiftyTwoWeekLow?((d.price/p.fiftyTwoWeekLow-1)*100).toFixed(1)+"%":"—"}</div></div>
       </div>`:""}
 
-      <div class="stitle">נרות יפניים — 45 ימים <span class="info-icon" onclick="showTip('Doji')">ℹ</span></div>
+      <div class="stitle">נרות יפניים — 90 ימים <span id="candleUpdateTime" style="font-size:10px;color:var(--text3);font-weight:normal;margin-right:8px"></span><span class="info-icon" onclick="showTip('Doji')">ℹ</span></div>
       <div class="chart-wrap" id="chartWrap" style="height:220px;"></div>
 
       ${candleExplain}
@@ -1771,7 +1771,14 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
 
   setTimeout(()=>{
     const wrap=document.getElementById("chartWrap");
-    if(wrap) drawCandleChart(candles);
+    if(wrap){
+      drawCandleChart(candles);
+      // הפעל רענון אוטומטי כל 30 דקות
+      startCandleRefresh(sym, candles);
+      // עדכן זמן
+      const timeEl=document.getElementById("candleUpdateTime");
+      if(timeEl) timeEl.textContent="עודכן: "+new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+    }
   },200);
 }
 
@@ -1787,6 +1794,8 @@ async function go(){
   document.getElementById("ac").style.display="none";
   const btn=document.getElementById("abtn");
   btn.disabled=true;btn.textContent="מנתח...";
+  // עצור רענון נרות של מניה קודמת
+  currentSym = null;
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
     const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider]=await Promise.all([
@@ -2046,6 +2055,38 @@ const SCAN_LIST = [
 let scannerRunning = false;
 let lastScanResults = [];
 let scanInterval = null;
+
+// ── CANDLE AUTO-REFRESH ───────────────────────────────────
+let currentSym = null;
+let lastCandleTime = 0;
+let candleRefreshInterval = null;
+
+function startCandleRefresh(sym, candles){
+  currentSym = sym;
+  lastCandleTime = Date.now();
+
+  // עצור interval קודם אם קיים
+  if(candleRefreshInterval) clearInterval(candleRefreshInterval);
+
+  // בדוק כל 30 דקות אם צריך לרענן
+  candleRefreshInterval = setInterval(async ()=>{
+    // רק אם אותה מניה עדיין מוצגת
+    if(currentSym !== sym) return;
+    const wrap = document.getElementById("chartWrap");
+    if(!wrap) return;
+
+    try{
+      const newCandles = await api(sym, "candle");
+      if(newCandles.c && newCandles.c.length > 0){
+        lastCandleTime = Date.now();
+        drawCandleChart(newCandles);
+        // עדכן תגית זמן
+        const timeEl = document.getElementById("candleUpdateTime");
+        if(timeEl) timeEl.textContent = "עודכן: " + new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+      }
+    }catch(e){}
+  }, 30 * 60 * 1000); // 30 דקות
+}
 
 async function runScanner(auto=false){
   if(scannerRunning) return;
