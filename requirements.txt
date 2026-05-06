@@ -1,1 +1,1 @@
-yfinance>=0.2.61
+# Finnhub only - no external dependencies needed
