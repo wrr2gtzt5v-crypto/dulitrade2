@@ -2315,9 +2315,6 @@ setInterval(updateMarketStatus, 60 * 1000);
 loadIndices();
 loadMacro();
 setTimeout(refreshAllWL, 2000);
-startAutoScan();
-// סריקה ראשונה אוטומטית אחרי 3 שניות
-setTimeout(()=>runScanner(true), 3000);
 
 // Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
 setInterval(()=>{
