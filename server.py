@@ -213,6 +213,158 @@ def get_news(symbol):
     except:
         return []
 
+# ── EARNINGS SURPRISE ─────────────────────────────────────
+def get_earnings(symbol):
+    try:
+        d = yh_fetch(f"/v10/finance/quoteSummary/{symbol}?modules=earningsHistory,earningsTrend")
+        res = (d.get("quoteSummary",{}).get("result") or [None])[0]
+        if not res:
+            return {"available": False}
+
+        def raw(obj,key):
+            v=obj.get(key); return v.get("raw") if isinstance(v,dict) else v
+
+        history = res.get("earningsHistory",{}).get("history",[])
+        surprises = []
+        for h in history[-4:]:  # 4 רבעונים אחרונים
+            actual   = raw(h,"epsActual")
+            estimate = raw(h,"epsEstimate")
+            surprise = raw(h,"surprisePercent")
+            period   = h.get("period","")
+            if actual is not None and estimate is not None:
+                surprises.append({
+                    "period":   period,
+                    "actual":   round(actual,2),
+                    "estimate": round(estimate,2),
+                    "surprise": round(surprise*100,1) if surprise else None,
+                    "beat":     actual > estimate
+                })
+
+        # מגמת EPS
+        trend = res.get("earningsTrend",{}).get("trend",[])
+        nextEps = None
+        for t in trend:
+            if t.get("period") == "0q":
+                nextEps = raw(t.get("earningsEstimate",{}),"avg")
+                break
+
+        beats = sum(1 for s in surprises if s.get("beat"))
+        lastSurprise = surprises[-1].get("surprise") if surprises else None
+
+        return {
+            "available": True,
+            "surprises": surprises,
+            "beats": beats,
+            "total": len(surprises),
+            "lastSurprisePct": lastSurprise,
+            "nextEpsEstimate": round(nextEps,2) if nextEps else None,
+            "consistent": beats >= 3  # הפתיע חיובי 3+ רבעונים
+        }
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
+# ── INSIDER BUYING — SEC EDGAR ────────────────────────────
+def get_insider(symbol):
+    try:
+        # חפש CIK של החברה ב-EDGAR
+        search_url = f"https://efts.sec.gov/LATEST/search-index?q=%22{symbol}%22&dateRange=custom&startdt=2024-01-01&forms=4"
+        req = Request(search_url, headers={"User-Agent":"dulitrade@example.com","Accept":"application/json"})
+        with urlopen(req, timeout=8) as r:
+            data = json.loads(r.read())
+
+        hits = data.get("hits",{}).get("hits",[])[:10]
+        buys, sells = 0, 0
+        transactions = []
+
+        for hit in hits:
+            src = hit.get("_source",{})
+            trans_type = src.get("transaction_type","")
+            shares = src.get("shares","0")
+            name   = src.get("entity_name","")
+            date   = src.get("period_of_report","")
+
+            try: shares_n = float(str(shares).replace(",",""))
+            except: shares_n = 0
+
+            if "P" in str(trans_type):  # Purchase
+                buys += 1
+                transactions.append({"type":"קנייה","name":name,"date":date,"shares":shares_n})
+            elif "S" in str(trans_type):  # Sale
+                sells += 1
+                transactions.append({"type":"מכירה","name":name,"date":date,"shares":shares_n})
+
+        return {
+            "available": True,
+            "buys": buys,
+            "sells": sells,
+            "net": buys - sells,
+            "bullish": buys > sells,
+            "transactions": transactions[:5]
+        }
+    except:
+        return {"available": False}
+
+# ── SECTOR ROTATION ───────────────────────────────────────
+SECTOR_ETFS = {
+    "Technology":    "XLK",
+    "Healthcare":    "XLV",
+    "Financials":    "XLF",
+    "Energy":        "XLE",
+    "Consumer Cyclical": "XLY",
+    "Communication": "XLC",
+    "Industrials":   "XLI",
+    "Materials":     "XLB",
+    "Real Estate":   "XLRE",
+    "Utilities":     "XLU",
+    "Consumer Defensive": "XLP",
+}
+
+def get_sector(sector_name):
+    try:
+        etf = SECTOR_ETFS.get(sector_name)
+        if not etf:
+            # נסה לזהות לפי שם חלקי
+            for k,v in SECTOR_ETFS.items():
+                if any(w in sector_name for w in k.split()):
+                    etf = v
+                    break
+        if not etf:
+            return {"available": False}
+
+        # מחיר ETF + S&P 500 ל-4 שבועות
+        spyQ = get_quote("SPY")
+        etfQ = get_quote(etf)
+
+        # candles ל-20 ימי מסחר (חודש)
+        to  = int(time.time())
+        frm = to - 30*86400
+        etfC = yh_fetch(f"/v8/finance/chart/{etf}?interval=1d&period1={frm}&period2={to}")
+        spyC = yh_fetch(f"/v8/finance/chart/SPY?interval=1d&period1={frm}&period2={to}")
+
+        def monthly_chg(d):
+            c = (d.get("chart",{}).get("result") or [{}])[0]
+            q = (c.get("indicators",{}).get("quote") or [{}])[0]
+            closes = [x for x in (q.get("close",[]) or []) if x]
+            if len(closes) < 2: return 0
+            return round((closes[-1]/closes[0]-1)*100,2)
+
+        etf_chg  = monthly_chg(etfC)
+        spy_chg  = monthly_chg(spyC)
+        relative = round(etf_chg - spy_chg, 2)
+
+        return {
+            "available":  True,
+            "sector":     sector_name,
+            "etf":        etf,
+            "etfChg1M":   etf_chg,
+            "spyChg1M":   spy_chg,
+            "relative":   relative,
+            "leading":    relative > 1.0,   # מוביל את השוק
+            "lagging":    relative < -1.0,  # פיגור אחרי השוק
+        }
+    except Exception as e:
+        return {"available": False}
+
 # ── EXTERNAL NEWS ─────────────────────────────────────────
 def get_extnews(symbol):
     sym = symbol.upper()
@@ -341,6 +493,11 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="extnews":     data=get_extnews(symbol)
                 elif endpoint=="competitors": data=get_competitors(symbol)
                 elif endpoint=="macro":       data=get_macro()
+                elif endpoint=="earnings":    data=get_earnings(symbol)
+                elif endpoint=="insider":     data=get_insider(symbol)
+                elif endpoint=="sector":
+                    sector = qs.get("sector",[""])[0]
+                    data=get_sector(sector)
                 else: data={"error":"endpoint לא תקין"}
             except Exception as e:
                 data={"error":str(e)}
@@ -350,13 +507,32 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(404); self.end_headers()
 
     def _json(self, data, code=200):
-        body = json.dumps(data, ensure_ascii=False).encode()
-        self.send_response(code)
-        for k,v in HEADERS_OUT.items(): self.send_header(k,v)
-        self.send_header("Content-Length",len(body))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            body = json.dumps(data, ensure_ascii=False).encode()
+            self.send_response(code)
+            for k,v in HEADERS_OUT.items(): self.send_header(k,v)
+            self.send_header("Content-Length",len(body))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def handle_error(self, request, client_address):
+        pass  # מדכא שגיאות BrokenPipe מה-log
+
+from socketserver import ThreadingMixIn
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
 
 if __name__=="__main__":
+    import signal, sys
+    def shutdown(sig, frame):
+        print("Shutting down..."); sys.exit(0)
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+
+    server = ThreadedHTTPServer(("0.0.0.0", PORT), Handler)
+    server.socket.setsockopt(6, 1, 1)  # TCP_NODELAY
     print(f"DULITRADE on port {PORT} | Finnhub: {'✓' if FINNHUB_KEY else '✗'}")
-    HTTPServer(("0.0.0.0",PORT),Handler).serve_forever()
+    server.serve_forever()
