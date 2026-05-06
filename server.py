@@ -526,12 +526,6 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
 
 if __name__=="__main__":
-    import signal, sys
-    def shutdown(sig, frame):
-        print("Shutting down..."); sys.exit(0)
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-
     server = ThreadedHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"DULITRADE on port {PORT} | Finnhub: {'✓' if FINNHUB_KEY else '✗'}")
     server.serve_forever()
