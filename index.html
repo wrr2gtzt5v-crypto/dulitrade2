@@ -882,8 +882,9 @@ function calcTargets(p){
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
 
   // ── 1. ATR% — תנודתיות יחסית ────────────────────────────
-  const baseAtr = Math.max(atr||0, price*0.005);
-  const atrPct  = baseAtr / price; // 0.01 = 1%
+  // ATR מינימום = 1% מהמחיר (ריאלי לכל מניה)
+  const baseAtr = Math.max(atr||0, price*0.01);
+  const atrPct  = baseAtr / price;
 
   // ── 2. זיהוי אסטרטגיה אוטומטית ──────────────────────────
   const hasMomentum  = rsi<50 && macdVal>0 && vr>1.2;
@@ -1028,8 +1029,8 @@ function calcTargets(p){
   // לא יעבור את ה-Bollinger
   if(bbDistPct > 0) finalTpPct = Math.min(finalTpPct, bbDistPct * 0.9);
 
-  // גבולות: לא פחות מ-0.8% ולא יותר מ-8%
-  finalTpPct = Math.max(0.008, Math.min(0.08, finalTpPct));
+  // גבולות: לא פחות מ-1.5% ולא יותר מ-8%
+  finalTpPct = Math.max(0.015, Math.min(0.08, finalTpPct));
 
   const tp = isBuy
     ? +(price * (1 + finalTpPct)).toFixed(2)
