@@ -77,6 +77,7 @@ def get_candles(symbol):
 def get_profile(symbol):
     if YF_OK:
         try:
+            time.sleep(0.3)  # מניעת 429
             info = yf.Ticker(symbol).info
             mc = info.get("marketCap")
             return {
@@ -162,9 +163,15 @@ def get_competitors(symbol):
     return results
 
 def get_macro():
-    tickers = {"^VIX":"^VIX","^TNX":"^TNX","^DXY":"DX-Y.NYB","^GSPC":"^GSPC"}
+    # yfinance לא אוהב ^ — משתמשים בסימולים חלופיים
+    tickers = {
+        "^VIX":  ("VIX",  "VIXY"),   # VIX index -> ETF
+        "^TNX":  ("^TNX", "TLT"),    # 10Y yield -> bond ETF
+        "^DXY":  ("DX-Y.NYB", "UUP"), # Dollar -> ETF
+        "^GSPC": ("^GSPC", "SPY"),   # S&P -> ETF
+    }
     results = {}
-    for key, sym in tickers.items():
+    for key, (primary, fallback) in tickers.items():
         try:
             if FINNHUB_KEY:
                 fh_sym = key.replace("^","")
@@ -173,13 +180,20 @@ def get_macro():
                     results[key]={"price":d["c"],"prev":d.get("pc",0)}
                     continue
             if YF_OK:
-                h = yf.Ticker(sym).history(period="2d")
-                if not h.empty:
-                    c = h["Close"].tolist()
-                    results[key]={"price":round(c[-1],2),"prev":round(c[-2],2) if len(c)>1 else round(c[-1],2)}
-                    continue
+                # נסה primary תחילה
+                for sym in [primary, fallback]:
+                    try:
+                        h = yf.Ticker(sym).history(period="2d")
+                        if not h.empty:
+                            c = h["Close"].tolist()
+                            results[key]={"price":round(c[-1],2),"prev":round(c[-2],2) if len(c)>1 else round(c[-1],2)}
+                            break
+                    except: continue
+                if key not in results:
+                    results[key]={"price":0,"prev":0}
         except: pass
-        results[key]={"price":0,"prev":0}
+        if key not in results:
+            results[key]={"price":0,"prev":0}
     return results
 
 def get_earnings(symbol):
