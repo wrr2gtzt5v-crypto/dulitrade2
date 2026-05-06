@@ -804,22 +804,28 @@ function detectPatterns(candles){
 }
 
 // ── TECHNICAL INDICATORS ─────────────────────────────────
-function calcIndicators(candles, quote){
+function calcIndicators(candles, quote, fhInd){
   const c=candles.c||[],v=candles.v||[];
   const price = quote?.c || (c.length>0?c[c.length-1]:0);
   const prev  = quote?.pc || (c.length>1?c[c.length-2]:price);
   const pctQ  = prev>0?(price-prev)/prev*100:0;
 
-  // אם אין מספיק נרות — חשב מנתוני quote בלבד
+  // נסה להשתמש באינדיקטורים מ-Finnhub אם זמינים
+  const fhTech = fhInd?.technicalAnalysis || {};
+  const fhRsi  = fhInd?.trend?.rsi || null;
+
+  // אם אין מספיק נרות — חשב מנתוני quote + Finnhub indicators
   if(c.length<5){
-    const macdVal = pctQ > 0 ? 0.5 : -0.5;
-    const rsi = pctQ > 2 ? 62 : pctQ > 0 ? 52 : pctQ < -2 ? 38 : 48;
+    // RSI מ-Finnhub אם זמין
+    const rsi = fhRsi || (pctQ > 2 ? 62 : pctQ > 0 ? 52 : pctQ < -2 ? 38 : 48);
+    const macdVal = fhTech?.macd || (pctQ > 0 ? 0.5 : -0.5);
     const hi = quote?.h || price*1.01;
     const lo = quote?.l || price*0.99;
     const atr = +(hi - lo).toFixed(2);
     return {
       rsi, macdVal, macdTxt: macdVal>0?"חיובי ▲":"שלילי ▼",
-      ma50:price, ma200:price, bbU:+(price*1.02).toFixed(2), bbL:+(price*0.98).toFixed(2),
+      ma50:fhTech?.sma50||price, ma200:fhTech?.sma200||price,
+      bbU:+(price*1.02).toFixed(2), bbL:+(price*0.98).toFixed(2),
       atr: atr||+(price*0.015).toFixed(2),
       stochRsi: rsi>60?65:rsi<40?35:50,
       williamsR: pctQ>1?-30:pctQ<-1?-70:-50,
@@ -1821,17 +1827,18 @@ async function go(){
   currentSym = null;
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
-    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider]=await Promise.all([
+    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators]=await Promise.all([
       api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
       api(sym,"news"),api(sym,"extnews"),
       api(sym,"competitors"),api(sym,"macro"),
-      api(sym,"earnings"),api(sym,"insider")
+      api(sym,"earnings"),api(sym,"insider"),
+      api(sym,"indicators")
     ]);
     const sector = profile.sector && profile.sector!=="—"
       ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
       : {};
     if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
-    const ind=calcIndicators(candles, quote);
+    const ind=calcIndicators(candles, quote, fhIndicators);
     const patterns=detectPatterns(candles);
     const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro,earnings,insider,sector);
     render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector);
@@ -1882,7 +1889,7 @@ async function refreshWLCard(sym){
   try{
     const [quote,candles,profile]=await Promise.all([api(sym,"quote"),api(sym,"candle"),api(sym,"profile")]);
     if(!quote.c||isNaN(quote.c))return;
-    const ind=calcIndicators(candles, quote);
+    const ind=calcIndicators(candles, quote, {});
     const patterns=detectPatterns(candles);
     const scores=scoreAll(sym,quote,candles,ind,patterns,[],[],profile,null);
     const pct=quote.pc>0?+((quote.c-quote.pc)/quote.pc*100).toFixed(2):0;
@@ -2143,7 +2150,7 @@ async function runScanner(auto=false){
         ]);
         if(!quote.c || quote.c === 0) return;
 
-        const ind = calcIndicators(candles, quote);
+        const ind = calcIndicators(candles, quote, {});
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, quote, candles, ind, patterns, [], [], profile, null);
 
