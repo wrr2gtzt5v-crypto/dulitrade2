@@ -1862,32 +1862,6 @@ function getHistory(sym){
 }
 
 // ── CONFLUENCE SCORE ──────────────────────────────────────
-function calcConfluence(ind, patterns, scores, quote){
-  const {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr} = ind;
-  const price = quote.c;
-  const isBull = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
-  const isBear = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
-
-  const checks = [
-    {name:"RSI",         bull:rsi<50,         bear:rsi>50,        val:`${rsi}`},
-    {name:"Stoch RSI",   bull:stochRsi<50,    bear:stochRsi>50,   val:`${stochRsi}`},
-    {name:"Williams %R", bull:williamsR<-50,  bear:williamsR>-50, val:`${williamsR}`},
-    {name:"CCI",         bull:cci<0,          bear:cci>0,         val:`${cci}`},
-    {name:"MACD",        bull:macdVal>0,      bear:macdVal<0,     val:macdVal>0?"▲":"▼"},
-    {name:"MA50",        bull:price>ma50,     bear:price<ma50,    val:`$${ma50}`},
-    {name:"MA200",       bull:price>ma200,    bear:price<ma200,   val:`$${ma200}`},
-    {name:"בולינג'ר",    bull:price<bbL,      bear:price>bbU,     val:price<bbL?"תחתון":price>bbU?"עליון":"אמצע"},
-    {name:"נפח",         bull:vr>1&&scores.pct>0, bear:vr>1&&scores.pct<0, val:`${vr}x`},
-    {name:"נרות",        bull:patterns.some(p=>p.bull===true), bear:patterns.some(p=>p.bull===false), val:patterns[0]?.name.split(" ")[0]||"—"},
-  ];
-
-  const direction = isBull?"bull":isBear?"bear":"bull";
-  const agree = checks.filter(c=>c[direction]).length;
-  const disagree = checks.filter(c=>!c[direction]&&!c.bull&&!c.bear?false:!c[direction]).length;
-
-  return {checks, agree, total:checks.length, score:agree};
-}
-
 // ── EARNINGS CALENDAR ─────────────────────────────────────
 // רשימה סטטית של תאריכי דוחות קרובים (מתעדכנת ידנית)
 const EARNINGS_SOON = ["NVDA","META","GOOGL","MSFT","AMZN","AAPL","TSLA","AMD","NFLX","COIN","PLTR","SOFI"];
