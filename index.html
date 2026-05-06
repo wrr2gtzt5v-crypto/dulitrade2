@@ -727,7 +727,10 @@ function drawCandleChart(candles){
   const wrap=document.getElementById("chartWrap");
   if(!wrap)return;
   const c=candles.c||[],o=candles.o||[],h=candles.h||[],l=candles.l||[];
-  if(c.length<5){wrap.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">שולף נתוני נרות...</div>';return;}
+  if(c.length<2){
+    wrap.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px;font-family:\'IBM Plex Mono\'">אין נתוני נרות זמינים</div>';
+    return;
+  }
   const N=Math.min(45,c.length);
   const cs=c.slice(-N),os=o.slice(-N),hs=h.slice(-N),ls=l.slice(-N);
   const W=wrap.offsetWidth||700,H=220;
