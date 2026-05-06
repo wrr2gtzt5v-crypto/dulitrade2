@@ -533,6 +533,5 @@ if __name__=="__main__":
     signal.signal(signal.SIGINT, shutdown)
 
     server = ThreadedHTTPServer(("0.0.0.0", PORT), Handler)
-    server.socket.setsockopt(6, 1, 1)  # TCP_NODELAY
     print(f"DULITRADE on port {PORT} | Finnhub: {'✓' if FINNHUB_KEY else '✗'}")
     server.serve_forever()
