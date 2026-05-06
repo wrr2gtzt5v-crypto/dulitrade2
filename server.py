@@ -41,33 +41,31 @@ def get_quote(symbol):
 
 def get_candles(symbol):
     to  = int(time.time())
-    frm = to - 90 * 86400
+    frm = to - 365 * 86400  # שנה אחורה
+    
+    # נסה daily עם from/to
     d = fh(f"/stock/candle?symbol={symbol}&resolution=D&from={frm}&to={to}")
-    if d.get("s") == "ok" and d.get("c"):
-        return {
-            "c": [round(x,2) for x in d.get("c",[])],
-            "o": [round(x,2) for x in d.get("o",[])],
-            "h": [round(x,2) for x in d.get("h",[])],
-            "l": [round(x,2) for x in d.get("l",[])],
-            "v": [int(x)     for x in d.get("v",[])],
-            "t": d.get("t",[]),
-            "s": "ok"
-        }
-    # Fallback: weekly candles (זמין בחשבון חינמי)
-    d2 = fh(f"/stock/candle?symbol={symbol}&resolution=W&from={frm}&to={to}")
-    if d2.get("s") == "ok" and d2.get("c"):
-        return {
-            "c": [round(x,2) for x in d2.get("c",[])],
-            "o": [round(x,2) for x in d2.get("o",[])],
-            "h": [round(x,2) for x in d2.get("h",[])],
-            "l": [round(x,2) for x in d2.get("l",[])],
-            "v": [int(x)     for x in d2.get("v",[])],
-            "t": d2.get("t",[]),
-            "s": "ok"
-        }
+    if d.get("s") == "ok" and d.get("c") and len(d["c"]) >= 5:
+        return {"c":[round(x,2) for x in d["c"]],"o":[round(x,2) for x in d["o"]],
+                "h":[round(x,2) for x in d["h"]],"l":[round(x,2) for x in d["l"]],
+                "v":[int(x) for x in d["v"]],"t":d["t"],"s":"ok"}
+    
+    # נסה monthly — תמיד זמין בחינם
+    frm2 = to - 5 * 365 * 86400  # 5 שנים
+    d3 = fh(f"/stock/candle?symbol={symbol}&resolution=M&from={frm2}&to={to}")
+    if d3.get("s") == "ok" and d3.get("c") and len(d3["c"]) >= 5:
+        return {"c":[round(x,2) for x in d3["c"]],"o":[round(x,2) for x in d3["o"]],
+                "h":[round(x,2) for x in d3["h"]],"l":[round(x,2) for x in d3["l"]],
+                "v":[int(x) for x in d3["v"]],"t":d3["t"],"s":"ok"}
+    
     return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
 
-def get_profile(symbol):
+def get_indicators(symbol):
+    """Finnhub aggregate indicators — RSI, MACD ועוד מחושבים מראש"""
+    d = fh(f"/scan/technical-indicator?symbol={symbol}&resolution=D")
+    return d
+
+
     p = fh(f"/stock/profile2?symbol={symbol}")
     m = fh(f"/stock/metric?symbol={symbol}&metric=all")
     q = get_quote(symbol)
@@ -309,6 +307,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="macro":       data = get_macro()
                 elif endpoint=="earnings":    data = get_earnings(symbol)
                 elif endpoint=="insider":     data = get_insider(symbol)
+                elif endpoint=="indicators":  data = get_indicators(symbol)
                 elif endpoint=="sector":
                     sector = qs.get("sector",[""])[0]
                     data = get_sector(sector)
