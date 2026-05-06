@@ -508,6 +508,16 @@ const COS=[
   {s:"DIA",n:"Dow Jones ETF"},{s:"TLT",n:"Treasury Bond ETF"},
 ];
 
+// ── SAFE NUMBER HELPERS ───────────────────────────────────
+const safe = (v, decimals=2, fallback="—") => {
+  if(v==null||isNaN(v)||!isFinite(v)) return fallback;
+  return (+v).toFixed(decimals);
+};
+const safeN = (v, fallback=0) => {
+  if(v==null||isNaN(v)||!isFinite(v)) return fallback;
+  return +v;
+};
+
 // ── TERMS ──────────────────────────────────────────────────
 const TERMS={
   "RSI":{t:"RSI — מדד כוח יחסי (Relative Strength Index)",
@@ -1360,9 +1370,9 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   return{
     sig,sigLabel,pillCls,
     totalScore,techScoreNorm,fundScoreNorm,newsScoreNorm,macroScore,
-    risk,pct,price:+price.toFixed(2),
-    high:+quote.h.toFixed(2),low:+quote.l.toFixed(2),
-    entry,tp,sl,tpPct,slPct,rrRatio:+rrRatio.toFixed(1),holding,strategy,
+    risk,pct,price:+safeN(price).toFixed(2),
+    high:+safeN(quote.h,price).toFixed(2),low:+safeN(quote.l,price).toFixed(2),
+    entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
     goldenCross,deathCross,crossRecent,relStrength,support,resistance,
@@ -1838,16 +1848,16 @@ function renderWL(){
 async function refreshWLCard(sym){
   try{
     const [quote,candles,profile]=await Promise.all([api(sym,"quote"),api(sym,"candle"),api(sym,"profile")]);
-    if(!quote.c)return;
+    if(!quote.c||isNaN(quote.c))return;
     const ind=calcIndicators(candles);
     const patterns=detectPatterns(candles);
-    const scores=scoreAll(sym,quote,ind,patterns,[],[],profile,null);
-    const pct=+((quote.c-quote.pc)/quote.pc*100).toFixed(2);
+    const scores=scoreAll(sym,quote,candles,ind,patterns,[],[],profile,null);
+    const pct=quote.pc>0?+((quote.c-quote.pc)/quote.pc*100).toFixed(2):0;
     const sigColor=s=>s==="STRONG_BUY"||s==="BUY"?"var(--green)":s==="SELL"||s==="STRONG_SELL"?"var(--red)":"var(--amber)";
     const sigLbl=s=>s==="STRONG_BUY"?"קנייה חזקה":s==="BUY"?"קנייה":s==="SELL"?"מכירה":s==="STRONG_SELL"?"מכירה חזקה":"המתן";
     const pp=document.getElementById("wlp-"+sym);
     const ps=document.getElementById("wls-"+sym);
-    if(pp) pp.innerHTML=`$${quote.c.toFixed(2)} <span style="color:${pct>=0?"var(--green)":"var(--red)"}">${pct>=0?"+":""}${pct}%</span>`;
+    if(pp) pp.innerHTML=`$${(+quote.c).toFixed(2)} <span style="color:${pct>=0?"var(--green)":"var(--red)"}">${pct>=0?"+":""}${pct}%</span>`;
     if(ps) ps.innerHTML=`<span style="color:${sigColor(scores.sig)}">${sigLbl(scores.sig)}</span>`;
   }catch(e){}
 }
