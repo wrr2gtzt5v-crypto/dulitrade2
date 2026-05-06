@@ -682,9 +682,10 @@ async function loadMacro(){
   try{
     const d=await api("^VIX","macro");
     const fmt=(t,id,inv=false)=>{
-      const v=d[t];if(!v||!v.price)return;
-      const p=+v.price.toFixed(2);
-      const ch=v.prev>0?+((v.price-v.prev)/v.prev*100).toFixed(2):0;
+      const v=d[t];if(!v||!v.price||isNaN(v.price))return;
+      const p=+(+v.price).toFixed(2);
+      const prev=+(v.prev||0);
+      const ch=prev>0?+((v.price-prev)/prev*100).toFixed(2):0;
       const el=document.getElementById(id);
       if(el){
         const color=inv?(ch>=0?"var(--red)":"var(--green)"):(ch>=0?"var(--green)":"var(--red)");
@@ -701,9 +702,9 @@ async function loadIndices(){
   for(const [sym,pid,cid] of tickers){
     try{
       const q=await api(sym,"quote");
-      if(!q.c)continue;
+      if(!q.c||isNaN(q.c))continue;
       const pct=+((q.c-q.pc)/q.pc*100).toFixed(2);
-      document.getElementById(pid).textContent="$"+q.c.toFixed(2);
+      document.getElementById(pid).textContent="$"+(+q.c).toFixed(2);
       const cel=document.getElementById(cid);
       cel.textContent=(pct>=0?"+":"")+pct+"%";
       cel.className="idx-chg "+(pct>=0?"up":"dn");
