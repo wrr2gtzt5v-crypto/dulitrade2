@@ -81,6 +81,7 @@ def fh_fetch(path):
 def get_quote(symbol):
     if FINNHUB_KEY:
         d = fh_fetch(f"/quote?symbol={symbol}")
+        print(f"[FH quote {symbol}] c={d.get('c',0)}", flush=True)
         if d.get("c", 0) > 0:
             return {
                 "c":  round(d["c"], 2),
@@ -92,9 +93,11 @@ def get_quote(symbol):
                 "source": "finnhub"
             }
     # Fallback Yahoo
+    print(f"[YH quote fallback {symbol}]", flush=True)
     d = yh_fetch(f"/v8/finance/chart/{symbol}?interval=1d&range=2d")
     meta = (d.get("chart",{}).get("result") or [{}])[0].get("meta",{})
     price = meta.get("regularMarketPrice", 0)
+    print(f"[YH quote {symbol}] price={price}", flush=True)
     prev  = meta.get("chartPreviousClose", price) or price
     return {
         "c":  round(price, 2), "pc": round(prev, 2),
