@@ -43,17 +43,29 @@ def get_candles(symbol):
     to  = int(time.time())
     frm = to - 90 * 86400
     d = fh(f"/stock/candle?symbol={symbol}&resolution=D&from={frm}&to={to}")
-    if d.get("s") != "ok":
-        return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
-    return {
-        "c": [round(x,2) for x in d.get("c",[])],
-        "o": [round(x,2) for x in d.get("o",[])],
-        "h": [round(x,2) for x in d.get("h",[])],
-        "l": [round(x,2) for x in d.get("l",[])],
-        "v": [int(x)     for x in d.get("v",[])],
-        "t": d.get("t",[]),
-        "s": "ok"
-    }
+    if d.get("s") == "ok" and d.get("c"):
+        return {
+            "c": [round(x,2) for x in d.get("c",[])],
+            "o": [round(x,2) for x in d.get("o",[])],
+            "h": [round(x,2) for x in d.get("h",[])],
+            "l": [round(x,2) for x in d.get("l",[])],
+            "v": [int(x)     for x in d.get("v",[])],
+            "t": d.get("t",[]),
+            "s": "ok"
+        }
+    # Fallback: weekly candles (זמין בחשבון חינמי)
+    d2 = fh(f"/stock/candle?symbol={symbol}&resolution=W&from={frm}&to={to}")
+    if d2.get("s") == "ok" and d2.get("c"):
+        return {
+            "c": [round(x,2) for x in d2.get("c",[])],
+            "o": [round(x,2) for x in d2.get("o",[])],
+            "h": [round(x,2) for x in d2.get("h",[])],
+            "l": [round(x,2) for x in d2.get("l",[])],
+            "v": [int(x)     for x in d2.get("v",[])],
+            "t": d2.get("t",[]),
+            "s": "ok"
+        }
+    return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
 
 def get_profile(symbol):
     p = fh(f"/stock/profile2?symbol={symbol}")
