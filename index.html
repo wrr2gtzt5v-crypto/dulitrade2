@@ -1547,70 +1547,74 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     return `<div class="factor"><div class="fdot" style="background:${c2}"></div><span>${f.t}</span></div>`;
   }).join("");
 
-  // ── אינדיקטורים חדשים ─────────────────────────────────
-  const newIndicatorsHtml = `
-    <div class="stitle">אינדיקטורים מתקדמים — 7 חדשים</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:1.25rem;">
+  // ── אינדיקטורים חדשים — ללא nested backticks ────────────
+  function srCard(){
+    if(!d.support||!d.resistance) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const pct = (((d.price-d.support)/(d.resistance-d.support))*100).toFixed(0);
+    return '<div style="font-size:12px;font-family:\'IBM Plex Mono\',monospace"><span style="color:var(--green)">▼ $'+d.support+'</span> <span style="color:var(--text3)">|</span> <span style="color:var(--red)">▲ $'+d.resistance+'</span></div><div style="font-size:11px;color:var(--text3)">מחיר נוכחי '+pct+'% בטווח</div>';
+  }
+  function sectorCard(){
+    if(!sector||!sector.available) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const col = sector.leading?"var(--green)":sector.lagging?"var(--red)":"var(--amber)";
+    const lbl = sector.leading?"מוביל ▲":sector.lagging?"פגור ▼":"ניטרלי";
+    const spySign = sector.spyChg1M>0?"+":"";
+    const etfSign = sector.etfChg1M>0?"+":"";
+    return '<div style="font-size:12px;font-weight:600;color:'+col+'">'+sector.etf+' '+lbl+'</div><div style="font-size:11px;color:var(--text3)">'+sector.etf+': '+etfSign+sector.etfChg1M+'% | S&P: '+spySign+sector.spyChg1M+'% (חודש)</div>';
+  }
+  function earningsCard(){
+    if(!earnings||!earnings.available) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const col = earnings.surprise>2?"var(--green)":earnings.surprise<-2?"var(--red)":"var(--amber)";
+    const sign = earnings.surprise>0?"+":"";
+    return '<div style="font-size:15px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:'+col+'">'+sign+earnings.surprise.toFixed(1)+'%</div><div style="font-size:11px;color:var(--text3)">רבעון '+(earnings.quarter||"אחרון")+'</div>';
+  }
+  function insiderCard(){
+    if(!insider||!insider.available) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const col = insider.net>0?"var(--green)":insider.net<0?"var(--red)":"var(--amber)";
+    const lbl = insider.net>0?"קנייה 🏦":"מכירה ⚠";
+    const nm = (insider.transactions&&insider.transactions[0])?insider.transactions[0].name||"":"";
+    const dt = (insider.transactions&&insider.transactions[0])?insider.transactions[0].date||"":"";
+    return '<div style="font-size:13px;font-weight:600;color:'+col+'">'+lbl+' '+insider.buys+'↑ '+insider.sells+'↓</div><div style="font-size:11px;color:var(--text3)">'+nm+' '+dt+'</div>';
+  }
 
-      <div style="background:var(--bg3);border:1px solid ${d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
-        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Golden/Death Cross</div>
-        <div style="font-size:13px;font-weight:600;color:${d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--text2)"}">
-          ${d.goldenCross?"✨ Golden Cross!":d.deathCross?"💀 Death Cross!":d.ma50>d.ma200?"MA50 > MA200 ↑":"MA50 < MA200 ↓"}
-        </div>
-        <div style="font-size:11px;color:var(--text3)">MA50 $${d.ma50} | MA200 $${d.ma200}</div>
-      </div>
+  const gcColor = d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--border)";
+  const gcText  = d.goldenCross?"✨ Golden Cross!":d.deathCross?"💀 Death Cross!":d.ma50>d.ma200?"MA50 > MA200 ↑":"MA50 < MA200 ↓";
+  const gcColor2= d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--text2)";
+  const rsColor = d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--border)";
+  const rsColor2= d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--amber)";
+  const rsText  = d.relStrength>=65?"חזקה מהשוק ▲":d.relStrength<=35?"חלשה מהשוק ▼":"ממוצע";
+  const secBorder= (sector&&sector.available)?(sector.leading?"var(--green)":sector.lagging?"var(--red)":"var(--border)"):"var(--border)";
+  const earBorder= (earnings&&earnings.available)?(earnings.surprise>2?"var(--green)":earnings.surprise<-2?"var(--red)":"var(--border)"):"var(--border)";
+  const insBorder= (insider&&insider.available)?(insider.net>0?"var(--green)":insider.net<0?"var(--red)":"var(--border)"):"var(--border)";
 
-      <div style="background:var(--bg3);border:1px solid ${d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
-        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Relative Strength vs S&P</div>
-        <div style="font-size:18px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--amber)"}">
-          ${d.relStrength}/99
-        </div>
-        <div style="font-size:11px;color:var(--text3)">${d.relStrength>=65?"חזקה מהשוק ▲":d.relStrength<=35?"חלשה מהשוק ▼":"ממוצע"}</div>
-      </div>
-
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
-        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">תמיכה / התנגדות (52W)</div>
-        ${d.support&&d.resistance?`
-          <div style="font-size:12px;font-family:'IBM Plex Mono',monospace">
-            <span style="color:var(--green)">▼ $${d.support}</span>
-            <span style="color:var(--text3)"> | </span>
-            <span style="color:var(--red)">▲ $${d.resistance}</span>
-          </div>
-          <div style="font-size:11px;color:var(--text3)">מחיר נוכחי ${(((d.price-d.support)/(d.resistance-d.support))*100).toFixed(0)}% בטווח</div>
-        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
-      </div>
-
-      <div style="background:var(--bg3);border:1px solid ${sector?.leading?"var(--green)":sector?.lagging?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
-        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Sector Rotation</div>
-        ${sector?.available?`
-          <div style="font-size:12px;font-weight:600;color:${sector.leading?"var(--green)":sector.lagging?"var(--red)":"var(--amber)"}">
-            ${sector.etf} ${sector.leading?"מוביל ▲":sector.lagging?"פגור ▼":"ניטרלי"}
-          </div>
-          <div style="font-size:11px;color:var(--text3)">${sector.etf}: ${sector.etfChg1M>0?"+":""}${sector.etfChg1M}% | S&P: ${sector.spyChg1M>0?"+":""}${sector.spyChg1M}% (חודש)</div>
-        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
-      </div>
-
-      <div style="background:var(--bg3);border:1px solid ${earnings?.available&&earnings.surprise>2?"var(--green)":earnings?.available&&earnings.surprise<-2?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
-        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Earnings Surprise</div>
-        ${earnings?.available?`
-          <div style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${earnings.surprise>2?"var(--green)":earnings.surprise<-2?"var(--red)":"var(--amber)"}">
-            ${earnings.surprise>0?"+":""}${earnings.surprise.toFixed(1)}%
-          </div>
-          <div style="font-size:11px;color:var(--text3)">רבעון ${earnings.quarter||"אחרון"}</div>
-        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
-      </div>
-
-      <div style="background:var(--bg3);border:1px solid ${insider?.available&&insider.net>0?"var(--green)":insider?.available&&insider.net<0?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
-        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Insider Transactions</div>
-        ${insider?.available?`
-          <div style="font-size:13px;font-weight:600;color:${insider.net>0?"var(--green)":insider.net<0?"var(--red)":"var(--amber)"}">
-            ${insider.net>0?"קנייה 🏦":"מכירה ⚠"}  ${insider.buys}↑ ${insider.sells}↓
-          </div>
-          <div style="font-size:11px;color:var(--text3)">${insider.transactions?.[0]?.name||""} ${insider.transactions?.[0]?.date||""}</div>
-        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
-      </div>
-
-    </div>`;
+  const newIndicatorsHtml = '<div class="stitle">אינדיקטורים מתקדמים</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:1.25rem;">'
+    + '<div style="background:var(--bg3);border:1px solid '+gcColor+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Golden/Death Cross</div>'
+    +   '<div style="font-size:13px;font-weight:600;color:'+gcColor2+'">'+gcText+'</div>'
+    +   '<div style="font-size:11px;color:var(--text3)">MA50 $'+d.ma50+' | MA200 $'+d.ma200+'</div>'
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+rsColor+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Relative Strength vs S&P</div>'
+    +   '<div style="font-size:18px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:'+rsColor2+'">'+d.relStrength+'/99</div>'
+    +   '<div style="font-size:11px;color:var(--text3)">'+rsText+'</div>'
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">תמיכה / התנגדות (52W)</div>'
+    +   srCard()
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+secBorder+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Sector Rotation</div>'
+    +   sectorCard()
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+earBorder+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Earnings Surprise</div>'
+    +   earningsCard()
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+insBorder+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Insider Transactions</div>'
+    +   insiderCard()
+    + '</div>'
+    + '</div>';
 
   const patternsHtml=patterns.length?`
     <div class="candle-analysis">
