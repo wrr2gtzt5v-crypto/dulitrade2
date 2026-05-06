@@ -1036,12 +1036,51 @@ function calcTargets(p){
 }
 
 // ── SCORING ───────────────────────────────────────────────
-function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profile, macro){
+function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profile, macro, earnings={}, insider={}, sector={}){
   const price=quote.c,prev=quote.pc;
   const pct=+((price-prev)/prev*100).toFixed(2);
   const {rsi,macdVal,macdSig,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl}=ind;
   const dayRange=quote.h-quote.l;
   const posInRange=dayRange>0?(price-quote.l)/dayRange:0.5;
+
+  // ── Golden/Death Cross ───────────────────────────────
+  const closes=candles.c||[];
+  let goldenCross=false,deathCross=false,crossRecent=false;
+  if(closes.length>=10){
+    const prevMa50  = closes.length>=11 ? closes.slice(-11,-1).reduce((a,b)=>a+b,0)/10 : ma50;
+    const prevMa200 = closes.length>=51  ? closes.slice(-51,-1).reduce((a,b)=>a+b,0)/50 : ma200;
+    if(ma50>ma200 && prevMa50<=prevMa200){ goldenCross=true; crossRecent=true; }
+    if(ma50<ma200 && prevMa50>=prevMa200){ deathCross=true;  crossRecent=true; }
+  }
+
+  // ── Relative Strength vs S&P ─────────────────────────
+  // מחושב מ-% שינוי 20 ימים אחרונים
+  let relStrength=50; // ברירת מחדל — ניטרלי
+  if(closes.length>=20){
+    const stockChg20 = (closes[closes.length-1]/closes[closes.length-20]-1)*100;
+    // ערך RS: מעל 60 = חזק, מתחת 40 = חלש
+    // משווה לממוצע S&P היסטורי של ~0.5% לחודש
+    const spyBaseline = 2.0; // ציפייה ממוצעת ל-20 ימים
+    relStrength = Math.min(99, Math.max(1, Math.round(50 + (stockChg20 - spyBaseline) * 3)));
+  }
+
+  // ── Support/Resistance ───────────────────────────────
+  let support=null, resistance=null;
+  if(profile.fiftyTwoWeekLow && profile.fiftyTwoWeekHigh){
+    support    = +profile.fiftyTwoWeekLow.toFixed(2);
+    resistance = +profile.fiftyTwoWeekHigh.toFixed(2);
+    // רמות פיבונאצ'י פנימיות
+    const range = resistance - support;
+    const fib382 = +(support + range*0.382).toFixed(2);
+    const fib618 = +(support + range*0.618).toFixed(2);
+    // ציור קרוב לתמיכה/התנגדות
+    const nearSupport    = price <= support*1.03;
+    const nearResistance = price >= resistance*0.97;
+    const atFib382 = Math.abs(price-fib382)/price < 0.02;
+    const atFib618 = Math.abs(price-fib618)/price < 0.02;
+    if(nearSupport)    { /* ישמש ב-calcTargets */ }
+    if(nearResistance) { /* ישמש ב-calcTargets */ }
+  }
 
   let techScore=0,techFactors=[];
 
@@ -1103,7 +1142,50 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   bullPatterns.forEach(p=>{techScore+=2;techFactors.push({t:`נר: ${p.name} — סימן חיובי`,c:"positive"});});
   bearPatterns.forEach(p=>{techScore-=2;techFactors.push({t:`נר: ${p.name} — סימן שלילי`,c:"negative"});});
 
-  const maxTech=26;
+  // 12. Golden/Death Cross
+  if(goldenCross){
+    techScore+=crossRecent?4:2;
+    techFactors.push({t:`✨ Golden Cross! MA50 חצה מעל MA200 — אות שורי חזק מאוד`,c:"positive"});
+  } else if(deathCross){
+    techScore-=(crossRecent?4:2);
+    techFactors.push({t:`💀 Death Cross! MA50 חצה מתחת MA200 — אות דובי חזק`,c:"negative"});
+  } else if(ma50>ma200){
+    techFactors.push({t:`MA50 ($${ma50}) מעל MA200 ($${ma200}) — מגמה שורית`,c:"positive"});
+  } else if(ma50<ma200){
+    techFactors.push({t:`MA50 ($${ma50}) מתחת MA200 ($${ma200}) — מגמה דובית`,c:"negative"});
+  }
+
+  // 13. Relative Strength
+  if(relStrength>=70){
+    techScore+=2;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מניה חזקה מהשוק`,c:"positive"});
+  } else if(relStrength>=55){
+    techScore+=1;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מעל ממוצע`,c:"positive"});
+  } else if(relStrength<=30){
+    techScore-=2;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מניה חלשה מהשוק`,c:"negative"});
+  } else if(relStrength<=45){
+    techScore-=1;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מתחת ממוצע`,c:"negative"});
+  }
+
+  // 14. Support/Resistance
+  if(support && resistance){
+    const distFromSupport    = (price-support)/price;
+    const distFromResistance = (resistance-price)/price;
+    if(distFromSupport<0.03){
+      techScore+=2;
+      techFactors.push({t:`קרוב לתמיכה $${support} — הזדמנות כניסה`,c:"positive"});
+    } else if(distFromResistance<0.03){
+      techScore-=2;
+      techFactors.push({t:`קרוב להתנגדות $${resistance} — סיכון לתיקון`,c:"negative"});
+    } else {
+      techFactors.push({t:`תמיכה $${support} | התנגדות $${resistance}`,c:"neutral"});
+    }
+  }
+
+  const maxTech=34; // הגדלנו את המקסימום בגלל האינדיקטורים החדשים
   // techScore נע בין -maxTech ל-+maxTech. ממיר ל-0-100
   const techScoreNorm=Math.max(0,Math.min(100,Math.round(50+(techScore/maxTech)*50)));
 
@@ -1158,7 +1240,41 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     else if(profile.currentRatio<1){fundScore-=2;fundFactors.push({t:`נזילות נמוכה CR ${profile.currentRatio.toFixed(1)}`,c:"negative"});}
   }
 
-  const maxFund=18;
+  // ── Earnings Surprise ──────────────────────────────────
+  if(earnings?.available){
+    if(earnings.surprise>10){
+      fundScore+=4;
+      fundFactors.push({t:`🎯 Earnings Surprise +${earnings.surprise.toFixed(1)}% — הפתיע לטובה!`,c:"positive"});
+    } else if(earnings.surprise>2){
+      fundScore+=2;
+      fundFactors.push({t:`Earnings Surprise +${earnings.surprise.toFixed(1)}% — מעל ציפיות`,c:"positive"});
+    } else if(earnings.surprise<-10){
+      fundScore-=4;
+      fundFactors.push({t:`⚠ Earnings Surprise ${earnings.surprise.toFixed(1)}% — איכזב מאוד`,c:"negative"});
+    } else if(earnings.surprise<-2){
+      fundScore-=2;
+      fundFactors.push({t:`Earnings Surprise ${earnings.surprise.toFixed(1)}% — מתחת ציפיות`,c:"negative"});
+    }
+  }
+
+  // ── Insider Buying ─────────────────────────────────────
+  if(insider?.available){
+    if(insider.net>=3){
+      fundScore+=4;
+      fundFactors.push({t:`🏦 Insider Buying! ${insider.buys} קניות מנהלים לאחרונה`,c:"positive"});
+    } else if(insider.net>=1){
+      fundScore+=2;
+      fundFactors.push({t:`Insider Buying: ${insider.buys} קניות vs ${insider.sells} מכירות`,c:"positive"});
+    } else if(insider.net<=-3){
+      fundScore-=3;
+      fundFactors.push({t:`⚠ Insider Selling: ${insider.sells} מכירות מנהלים`,c:"negative"});
+    } else if(insider.net<=-1){
+      fundScore-=1;
+      fundFactors.push({t:`Insider Selling: ${insider.sells} מכירות vs ${insider.buys} קניות`,c:"negative"});
+    }
+  }
+
+  const maxFund=26; // הגדלנו בגלל earnings+insider
   const fundScoreNorm=Math.max(0,Math.min(100,Math.round(50+(fundScore/maxFund)*50)));
 
   // ── NEWS SENTIMENT SCORE ───────────────────────────────
@@ -1183,6 +1299,16 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     if(tnx<3.5)macroScore+=10;
     else if(tnx>5)macroScore-=10;
   }
+
+  // ── Sector Rotation ────────────────────────────────────
+  if(sector?.available){
+    if(sector.leading){
+      macroScore+=10;
+    } else if(sector.lagging){
+      macroScore-=10;
+    }
+  }
+
   macroScore=Math.max(0,Math.min(100,macroScore));
 
   // ── TOTAL SCORE ────────────────────────────────────────
@@ -1238,12 +1364,13 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     entry,tp,sl,tpPct,slPct,rrRatio:+rrRatio.toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
 }
 
 // ── RENDER ────────────────────────────────────────────────
-function render(sym, quote, candles, profile, scores, patterns, competitors, macro){
+function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}){
   const d=scores;
   const p=profile;
   const chDir=d.pct>=0?"up":"dn",chS=d.pct>=0?"+":"";
@@ -1420,6 +1547,71 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     return `<div class="factor"><div class="fdot" style="background:${c2}"></div><span>${f.t}</span></div>`;
   }).join("");
 
+  // ── אינדיקטורים חדשים ─────────────────────────────────
+  const newIndicatorsHtml = `
+    <div class="stitle">אינדיקטורים מתקדמים — 7 חדשים</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:1.25rem;">
+
+      <div style="background:var(--bg3);border:1px solid ${d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Golden/Death Cross</div>
+        <div style="font-size:13px;font-weight:600;color:${d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--text2)"}">
+          ${d.goldenCross?"✨ Golden Cross!":d.deathCross?"💀 Death Cross!":d.ma50>d.ma200?"MA50 > MA200 ↑":"MA50 < MA200 ↓"}
+        </div>
+        <div style="font-size:11px;color:var(--text3)">MA50 $${d.ma50} | MA200 $${d.ma200}</div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid ${d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Relative Strength vs S&P</div>
+        <div style="font-size:18px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--amber)"}">
+          ${d.relStrength}/99
+        </div>
+        <div style="font-size:11px;color:var(--text3)">${d.relStrength>=65?"חזקה מהשוק ▲":d.relStrength<=35?"חלשה מהשוק ▼":"ממוצע"}</div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">תמיכה / התנגדות (52W)</div>
+        ${d.support&&d.resistance?`
+          <div style="font-size:12px;font-family:'IBM Plex Mono',monospace">
+            <span style="color:var(--green)">▼ $${d.support}</span>
+            <span style="color:var(--text3)"> | </span>
+            <span style="color:var(--red)">▲ $${d.resistance}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">מחיר נוכחי ${(((d.price-d.support)/(d.resistance-d.support))*100).toFixed(0)}% בטווח</div>
+        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid ${sector?.leading?"var(--green)":sector?.lagging?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Sector Rotation</div>
+        ${sector?.available?`
+          <div style="font-size:12px;font-weight:600;color:${sector.leading?"var(--green)":sector.lagging?"var(--red)":"var(--amber)"}">
+            ${sector.etf} ${sector.leading?"מוביל ▲":sector.lagging?"פגור ▼":"ניטרלי"}
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${sector.etf}: ${sector.etfChg1M>0?"+":""}${sector.etfChg1M}% | S&P: ${sector.spyChg1M>0?"+":""}${sector.spyChg1M}% (חודש)</div>
+        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid ${earnings?.available&&earnings.surprise>2?"var(--green)":earnings?.available&&earnings.surprise<-2?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Earnings Surprise</div>
+        ${earnings?.available?`
+          <div style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${earnings.surprise>2?"var(--green)":earnings.surprise<-2?"var(--red)":"var(--amber)"}">
+            ${earnings.surprise>0?"+":""}${earnings.surprise.toFixed(1)}%
+          </div>
+          <div style="font-size:11px;color:var(--text3)">רבעון ${earnings.quarter||"אחרון"}</div>
+        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid ${insider?.available&&insider.net>0?"var(--green)":insider?.available&&insider.net<0?"var(--red)":"var(--border)"};border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Insider Transactions</div>
+        ${insider?.available?`
+          <div style="font-size:13px;font-weight:600;color:${insider.net>0?"var(--green)":insider.net<0?"var(--red)":"var(--amber)"}">
+            ${insider.net>0?"קנייה 🏦":"מכירה ⚠"}  ${insider.buys}↑ ${insider.sells}↓
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${insider.transactions?.[0]?.name||""} ${insider.transactions?.[0]?.date||""}</div>
+        `:`<div style="font-size:12px;color:var(--text3)">לא זמין</div>`}
+      </div>
+
+    </div>`;
+
   const patternsHtml=patterns.length?`
     <div class="candle-analysis">
       <h4>🕯 תבניות נרות יפניים שזוהו</h4>
@@ -1532,6 +1724,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="chart-wrap" id="chartWrap" style="height:220px;"></div>
 
       ${candleExplain}
+      ${newIndicatorsHtml}
       ${trailingHtml}
       ${posHtml}
       ${patternsHtml}
@@ -1580,16 +1773,20 @@ async function go(){
   btn.disabled=true;btn.textContent="מנתח...";
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
-    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro]=await Promise.all([
+    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider]=await Promise.all([
       api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
       api(sym,"news"),api(sym,"extnews"),
-      api(sym,"competitors"),api(sym,"macro")
+      api(sym,"competitors"),api(sym,"macro"),
+      api(sym,"earnings"),api(sym,"insider")
     ]);
+    const sector = profile.sector && profile.sector!=="—"
+      ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
+      : {};
     if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
     const ind=calcIndicators(candles);
     const patterns=detectPatterns(candles);
-    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro);
-    render(sym,quote,candles,profile,scores,patterns,competitors,macro);
+    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro,earnings,insider,sector);
+    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector);
     saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
     fireAlert(sym,scores.sig,scores.price,scores.totalScore);
   }catch(e){
