@@ -1026,11 +1026,8 @@ function calcTargets(p){
   const rrBasedTpPct = actualSlPct * minRR;
   let finalTpPct = Math.max(expectedMovePct, rrBasedTpPct);
 
-  // לא יעבור את ה-Bollinger
-  if(bbDistPct > 0) finalTpPct = Math.min(finalTpPct, bbDistPct * 0.9);
-
-  // גבולות: לא פחות מ-1.5% ולא יותר מ-8%
-  finalTpPct = Math.max(0.015, Math.min(0.08, finalTpPct));
+  // גבולות: לא פחות מ-2% ולא יותר מ-15%
+  finalTpPct = Math.max(0.02, Math.min(0.15, finalTpPct));
 
   const tp = isBuy
     ? +(price * (1 + finalTpPct)).toFixed(2)
@@ -1351,7 +1348,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   const targets = calcTargets({
     price, atr, sig, risk, totalScore,
     rsi, stochRsi, williamsR, cci, macdVal,
-    ma50, ma200, bbU, bbL, vr, pct,
+    ma50, ma200, bbU, bbL, vr, vLbl, pct,
     patterns, candles,
     beta: profile.beta,
     hasEarnings: checkEarnings(sym||""),
@@ -1772,7 +1769,10 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     </div>
   </div>`;
 
-  setTimeout(()=>drawCandleChart(candles),50);
+  setTimeout(()=>{
+    const wrap=document.getElementById("chartWrap");
+    if(wrap) drawCandleChart(candles);
+  },200);
 }
 
 // ── MAIN ──────────────────────────────────────────────────
