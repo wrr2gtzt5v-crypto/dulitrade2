@@ -2813,8 +2813,10 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
-        // ── פילטר שלב 3: Confluence מינימלי 3 ──────────────
-        if(confScore < 3) return;
+        // ── פילטר שלב 3: Confluence מינימלי ────────────────
+        const _msConf = getMarketStatus();
+        const _minConf = (_msConf.status === "open") ? 3 : 2;
+        if(confScore < _minConf) return;
 
         // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
         let dealStrength = 0;
@@ -2824,11 +2826,7 @@ async function runScanner(auto=false){
         if(ind.vr > 1.5)              dealStrength++; // נפח חריג
         if(sector?.leading)           dealStrength++; // סקטור מוביל
 
-        // סף חוזק לפי שעות מסחר
-        // After-Hours/Pre-Market — נפח וסקטור לא זמינים → סף נמוך יותר
-        const _ms = getMarketStatus();
-        const _minStrength = (_ms.status === "open") ? 3 : 2;
-        if(dealStrength < _minStrength) return;
+        // dealStrength משמש למיון בלבד — לא פילטר קשה
 
         // תגיות
         const tags = [];
