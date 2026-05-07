@@ -58,6 +58,7 @@ def get_candles(symbol):
         try:
             d = av_fetch({"function":"TIME_SERIES_DAILY","symbol":symbol,"outputsize":"compact"})
             ts = d.get("Time Series (Daily)", {})
+            print(f"[AV candles {symbol}] keys={len(ts)} note={d.get('Note','') or d.get('Information','')[:50] if d.get('Note') or d.get('Information') else 'ok'}", flush=True)
             if ts:
                 dates = sorted(ts.keys(), reverse=True)[:90]
                 dates.reverse()
