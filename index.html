@@ -2154,7 +2154,7 @@ async function runScanner(auto=false){
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>סורק ${SCAN_LIST.length} מניות · מסנן הסכמה>3 וסיכון<50...</div>`;
 
   const results = [];
-  const BATCH = 4; // 4 מניות במקביל
+  const BATCH = 3; // 3 מניות במקביל (6 קריאות כל אחת)
 
   for(let i = 0; i < SCAN_LIST.length; i += BATCH){
     const batch = SCAN_LIST.slice(i, i+BATCH);
@@ -2164,14 +2164,20 @@ async function runScanner(auto=false){
 
     await Promise.allSettled(batch.map(async sym => {
       try {
-        const [quote, candles, profile] = await Promise.all([
-          api(sym,"quote"), api(sym,"candle"), api(sym,"profile")
+        const [quote, candles, profile, earnings, insider] = await Promise.all([
+          api(sym,"quote"), api(sym,"candle"), api(sym,"profile"),
+          api(sym,"earnings"), api(sym,"insider")
         ]);
         if(!quote.c || quote.c === 0) return;
 
+        // sector דורש את שם הסקטור מהפרופיל
+        const sector = profile.sector
+          ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
+          : {};
+
         const ind = calcIndicators(candles, quote, {});
         const patterns = detectPatterns(candles);
-        const scores = scoreAll(sym, quote, candles, ind, patterns, [], [], profile, null);
+        const scores = scoreAll(sym, quote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
 
         // חישוב Confluence
         const conf = calcConfluence(
