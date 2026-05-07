@@ -921,24 +921,155 @@ function detectPatterns(candles){
   }
 
   // ════════════════════════════════════════════════════════
-  // דפוסים ישנים — ירידה + Doji (שלב 2 יחליף אלה)
+  // שלב 2 — דפוסי ירידה עם הקשר
   // ════════════════════════════════════════════════════════
-  const lC=c[N-1],lO=o[N-1]||lC,lH=h[N-1]||lC,lL=l[N-1]||lC;
-  const lBody=Math.abs(lC-lO),lRange=lH-lL;
-  const lwik=Math.min(lC,lO)-lL,uwik=lH-Math.max(lC,lO);
 
+  // התנגדות — מקסימום 10 נרות אחרונים
+  const resistance = c.length>=10 ? Math.max(...h.slice(-10)) : Math.max(...h);
+
+  // 5. HANGING MAN מאושר (מקביל ל-Hammer — אבל ירידה)
+  // תנאים: (א) טרנד עולה ב-3 נרות לפני
+  //         (ב) נר: צל תחתון > 2× גוף, צל עליון < 0.5× גוף (זהה ל-Hammer)
+  //         (ג) נר אחריו אדום וסוגר מתחת לגוף ← אישור ירידה
+  //         (ד) קרוב להתנגדות
+  if(N>=6){
+    const trendBefore = trendDir(N-5, 3);
+    const hmIdx   = i2;
+    const confirmIdx = i1;
+
+    const hBody  = body(hmIdx);
+    const hRange = range(hmIdx);
+    const hLWick = lWick(hmIdx);
+    const hUWick = uWick(hmIdx);
+    const nearResistance = h[hmIdx] >= resistance * 0.97;
+    const confirmed = isBear(confirmIdx) && c[confirmIdx] < Math.min(c[hmIdx],o[hmIdx]);
+    const hasVolume = v[hmIdx] > avgVol() * 1.1;
+
+    const isHangingMan = hRange>0 && hLWick > hBody*2 && hUWick < hBody*0.5;
+
+    if(trendBefore==="up" && isHangingMan && confirmed && (nearResistance || hasVolume)){
+      patterns.push({
+        icon:"🪄",
+        name:"Hanging Man מאושר — איש תלוי",
+        desc:"עלייה לפני + נר עם צל תחתון ארוך קרוב להתנגדות + נר אדום מאשר. המוכרים לחצו בחוזקה — היפוך ירידה אמין.",
+        bull:false, strength:2
+      });
+    }
+  }
+
+  // 6. SHOOTING STAR מאושר
+  // תנאים: (א) טרנד עולה ב-3 נרות לפני
+  //         (ב) נר: צל עליון > 2× גוף, צל תחתון < 0.5× גוף
+  //         (ג) נר אחריו אדום וסוגר מתחת לגוף ← אישור
+  //         (ד) קרוב להתנגדות או נפח גבוה
+  if(N>=6){
+    const trendBefore = trendDir(N-5, 3);
+    const ssIdx   = i2;
+    const confirmIdx = i1;
+
+    const sBody  = body(ssIdx);
+    const sRange = range(ssIdx);
+    const sLWick = lWick(ssIdx);
+    const sUWick = uWick(ssIdx);
+    const nearResistance = h[ssIdx] >= resistance * 0.97;
+    const confirmed = isBear(confirmIdx) && c[confirmIdx] < Math.min(c[ssIdx],o[ssIdx]);
+    const hasVolume = v[ssIdx] > avgVol() * 1.1;
+
+    const isStar = sRange>0 && sUWick > sBody*2 && sLWick < sBody*0.5;
+
+    if(trendBefore==="up" && isStar && confirmed && (nearResistance || hasVolume)){
+      patterns.push({
+        icon:"🌟",
+        name:"Shooting Star מאושר — כוכב יורד",
+        desc:"עלייה לפני + צל עליון ארוך קרוב להתנגדות + נר אדום מאשר. קונים נדחו מהשיא — היפוך ירידה.",
+        bull:false, strength:2
+      });
+    }
+  }
+
+  // 7. BEARISH ENGULFING מאושר
+  // תנאים: (א) טרנד עולה ב-3 נרות לפני
+  //         (ב) נר ירוק ואחריו נר אדום שבולע אותו לחלוטין
+  //         (ג) גוף הנר האדום > 60% מטווחו
+  //         (ד) נפח הנר האדום גבוה מהממוצע
+  if(N>=5){
+    const trendBefore = trendDir(N-5, 3);
+    const greenIdx = i2;
+    const redIdx   = i1;
+
+    const fullyEngulfs = isBear(redIdx) && isBull(greenIdx) &&
+                         o[redIdx] >= c[greenIdx] && c[redIdx] <= o[greenIdx];
+    const strongBody   = range(redIdx)>0 && body(redIdx)/range(redIdx) > 0.6;
+    const hasVolume    = v[redIdx] > avgVol() * 1.1;
+
+    if(trendBefore==="up" && fullyEngulfs && strongBody && hasVolume){
+      patterns.push({
+        icon:"🔴",
+        name:"Bearish Engulfing מאושר — בליעה דובית",
+        desc:"עלייה לפני + נר אדום בולע נר ירוק + נפח גבוה. מוכרים השתלטו לחלוטין — אחד האיתותים השליליים החזקים.",
+        bull:false, strength:2
+      });
+    }
+  }
+
+  // 8. EVENING STAR מאושר
+  // תנאים: (א) טרנד עולה ב-3 נרות לפני
+  //         (ב) נר 1: ירוק גדול (גוף > 60% טווח)
+  //         (ג) נר 2: קטן מאוד (גוף < 30% טווח) — חוסר החלטה
+  //         (ד) נר 3: אדום שסוגר מתחת לאמצע נר 1
+  //         (ה) נר מאשר: אדום נוסף
+  if(N>=6){
+    const trendBefore = trendDir(N-6, 3);
+    const n1=N-4, n2=N-3, n3=N-2;
+    const confirm=N-1;
+
+    const bigGreen = isBull(n1) && range(n1)>0 && body(n1)/range(n1)>0.6;
+    const smallMid = range(n2)>0 && body(n2)/range(n2)<0.3;
+    const midClose = (o[n1]+c[n1])/2;
+    const bigRed   = isBear(n3) && c[n3]<midClose;
+    const confirmed= isBear(confirm) && c[confirm]<c[n3];
+
+    if(trendBefore==="up" && bigGreen && smallMid && bigRed && confirmed){
+      patterns.push({
+        icon:"🌇",
+        name:"Evening Star מאושר — כוכב ערב",
+        desc:"עלייה חזקה + עצירה + ירידה חזקה + אישור. תבנית היפוך דובי קלאסית ואמינה.",
+        bull:false, strength:3
+      });
+    }
+  }
+
+  // 9. THREE BLACK CROWS מאושר
+  // תנאים: (א) טרנד עולה לפני
+  //         (ב) 3 נרות אדומים ברצף, כל אחד סוגר נמוך מהקודם
+  //         (ג) גוף כל נר > 60% מטווחו
+  //         (ד) כל נר נפתח בתוך גוף הקודם
+  //         (ה) נפח גדל בכל נר
+  if(N>=7){
+    const trendBefore = trendDir(N-7, 3);
+    const s1=N-4, s2=N-3, s3=N-2;
+
+    const allBear     = isBear(s1)&&isBear(s2)&&isBear(s3);
+    const fallingClose= c[s3]<c[s2]&&c[s2]<c[s1];
+    const strongBodies= [s1,s2,s3].every(i=>range(i)>0&&body(i)/range(i)>0.6);
+    const orderedOpen = o[s2]<o[s1]&&o[s2]>c[s1] && o[s3]<o[s2]&&o[s3]>c[s2];
+    const risingVol   = v.length>s3 && v[s3]>=v[s2]&&v[s2]>=v[s1];
+
+    if(trendBefore==="up" && allBear && fallingClose && strongBodies && orderedOpen && risingVol){
+      patterns.push({
+        icon:"📉",
+        name:"Three Black Crows מאושר — 3 עורבים",
+        desc:"עלייה לפני + 3 נרות אדומים חזקים יורדים עם נפח גדל. מומנטום מכירה חזק מאוד — מגמת ירידה מתחזקת.",
+        bull:false, strength:3
+      });
+    }
+  }
+
+  // ── Doji — ניטרלי תמיד ───────────────────────────────────
+  const lC=c[N-1],lO=o[N-1]||lC,lH=h[N-1]||lC,lL=l[N-1]||lC;
+  const lRange=lH-lL,lBody=Math.abs(lC-lO);
   if(lRange>0&&lBody/lRange<0.1)
-    patterns.push({icon:"⚖️",name:"Doji",desc:"גוף נר קטן מאוד — אי-החלטיות בשוק.",bull:null,strength:1});
-  if(lRange>0&&lwik>lBody*2&&uwik<lBody*0.5&&lC<c[N-4])
-    patterns.push({icon:"🔨",name:"Hammer",desc:"פתיל תחתון ארוך אחרי ירידה.",bull:true,strength:1});
-  if(lRange>0&&uwik>lBody*2&&lwik<lBody*0.5&&lC>c[N-4])
-    patterns.push({icon:"🌟",name:"Shooting Star",desc:"פתיל עליון ארוך אחרי עלייה.",bull:false,strength:1});
-  if(lC<lO&&c[N-2]>o[N-2]&&lO>c[N-2]&&lC<o[N-2])
-    patterns.push({icon:"🔴",name:"Bearish Engulfing",desc:"נר אדום בולע נר ירוק.",bull:false,strength:1});
-  if(c[N-1]<o[N-1]&&c[N-2]<o[N-2]&&c[N-3]<o[N-3]&&c[N-1]<c[N-2]&&c[N-2]<c[N-3])
-    patterns.push({icon:"📉",name:"Three Black Crows",desc:"שלושה נרות אדומים יורדים ברצף.",bull:false,strength:1});
-  if(N>=3&&c[N-3]<o[N-3]&&Math.abs(c[N-2]-o[N-2])<(h[N-2]-l[N-2])*0.3&&c[N-1]>o[N-1]&&c[N-1]>((o[N-3]+c[N-3])/2))
-    patterns.push({icon:"🌅",name:"Morning Star",desc:"נר אדום, נר קטן, נר ירוק.",bull:true,strength:1});
+    patterns.push({icon:"⚖️",name:"Doji",desc:"גוף נר קטן מאוד — אי-החלטיות בשוק. קונים ומוכרים בכוחות שווים.",bull:null,strength:1});
 
   if(!patterns.length)
     patterns.push({icon:"📊",name:"ללא תבנית ברורה",desc:`${c[N-1]>c[N-5]?"מגמה כללית עולה":"מגמה כללית יורדת"} ב-5 הנרות האחרונים.`,bull:null,strength:0});
