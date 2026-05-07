@@ -1519,7 +1519,9 @@ function calcTargets(p){
   if(isStrong) holdDays *= 1.5;
 
   // ── שלב 3 — Earnings: TP לא יעבור את תאריך הדוח ─────────
-  if(hasEarnings) holdDays = Math.min(holdDays, 3); // לא נשאר בתוך הדוח
+  // רק אם Timeframe קצר/בינוני — בארוך לא חותכים, רק מזהירים
+  const _scanTf = typeof scannerTimeframe !== 'undefined' ? scannerTimeframe : 'medium';
+  if(hasEarnings && _scanTf !== 'long') holdDays = Math.min(holdDays, 3);
 
   // עוגן TP: 0.5% לפני ההתנגדות (לקנייה) / 0.5% לפני התמיכה (למכירה)
   const tpAnchorPct = isBuy
