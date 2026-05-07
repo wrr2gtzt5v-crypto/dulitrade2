@@ -2503,11 +2503,11 @@ async function runScanner(auto=false){
         // Confluence — ישירות מ-scoreAll (אותו חישוב כמו בדף המניה)
         const confScore = scores.confluence || 0;
 
-        // ── פילטר ראשוני: איתות + הסכמה > 3 + סיכון < 50 ──
+        // ── פילטר ראשוני: איתות בלבד ──────────────────────
+        // הדירוג היחסי (conf + risk) עושה את הסינון — לא צריך פילטר קשה
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;
-        if(confScore <= 3 && scores.risk >= 50) return;
 
         // ── שלב 5 — R/R filter: פחות מ-1.5 = לא מוצג ────────
         if(scores.rrRatio < 1.5) return;
