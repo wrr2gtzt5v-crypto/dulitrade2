@@ -2595,7 +2595,7 @@ let scannerTimeframe = 'medium'; // ברירת מחדל
 // אסטרטגיות לפי טווח זמן
 const TF_STRATEGIES = {
   short:  ["Breakout","Support Bounce","Mean Reversion","Short/Exit","Conservative"],
-  medium: ["Momentum","Swing","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce"],
+  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce"],
   long:   ["Trend","RS Leader","Earnings Momentum","Short/Exit","Conservative"]
 };
 
@@ -2661,33 +2661,66 @@ async function runScanner(auto=false){
   btn.textContent = "⏳ סורק...";
   progress.style.display = "block";
   fill.style.width = "0%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/2 — סורק ${SCAN_LIST.length} מניות...</div>`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/3 — סורק ${SCAN_LIST.length} מניות במהירות...</div>`;
 
   const ms = getMarketStatus();
 
   // ══════════════════════════════════════════════════════════
-  // שלב 1 — סרוק את כולם בלי חדשות, סנן מועמדות
+  // שלב 1 — מסנן כמותי מהיר (quote בלבד)
+  // בודק: נפח, תנועה, מחיר vs MA — ללא API יקרים
   // ══════════════════════════════════════════════════════════
-  const candidates = [];
-  const BATCH1 = 5; // מהיר יותר בלי חדשות
+  const pass1 = [];
+  const BATCH1 = 8; // מהיר — רק quote
 
   for(let i = 0; i < SCAN_LIST.length; i += BATCH1){
     const batch = SCAN_LIST.slice(i, i+BATCH1);
-    const pct = Math.round((i/SCAN_LIST.length)*50); // 0-50%
-    fill.style.width = pct + "%";
-    status.textContent = `שלב 1/2 — סורק ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
+    fill.style.width = Math.round((i/SCAN_LIST.length)*30) + "%"; // 0-30%
+    status.textContent = `שלב 1/3 — ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
 
     await Promise.allSettled(batch.map(async sym => {
       try {
-        const [quote, candles, profile, earnings, insider] = await Promise.all([
-          api(sym,"quote"), api(sym,"candle"), api(sym,"profile"),
-          api(sym,"earnings"), api(sym,"insider")
-        ]);
+        const quote = await api(sym, "quote");
         if(!quote.c || quote.c === 0) return;
 
         const scanQuote = (ms.status === "pre" || ms.status === "after" || ms.status === "closed")
           ? { ...quote, c: quote.pc || quote.c }
           : quote;
+
+        const pct = scanQuote.dp || 0;
+        const vr  = scanQuote.vr || 1;
+
+        // פילטר כמותי בסיסי — האם שווה לבדוק?
+        const hasMovement = Math.abs(pct) >= 0.3; // זזה לפחות 0.3%
+        const hasVolume   = true;                  // נבדוק נפח בשלב 2
+        const notFlat     = scanQuote.c > 1;       // לא penny stock
+
+        if(!notFlat) return;
+
+        pass1.push({ sym, scanQuote });
+      } catch(e){}
+    }));
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // שלב 2 — מסנן טכני (candle + profile + earnings + insider)
+  // בודק: RSI, MACD, נרות, ציון טכני >= 48
+  // ══════════════════════════════════════════════════════════
+  const candidates = [];
+  fill.style.width = "30%";
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/3 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
+
+  const BATCH2 = 5;
+  for(let i = 0; i < pass1.length; i += BATCH2){
+    const batch = pass1.slice(i, i+BATCH2);
+    fill.style.width = 30 + Math.round((i/Math.max(pass1.length,1))*35) + "%"; // 30-65%
+    status.textContent = `שלב 2/3 — טכני ${i+1}-${Math.min(i+BATCH2,pass1.length)} מתוך ${pass1.length}...`;
+
+    await Promise.allSettled(batch.map(async ({sym, scanQuote}) => {
+      try {
+        const [candles, profile, earnings, insider] = await Promise.all([
+          api(sym,"candle"), api(sym,"profile"),
+          api(sym,"earnings"), api(sym,"insider")
+        ]);
 
         const sector = profile.sector
           ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
@@ -2697,60 +2730,54 @@ async function runScanner(auto=false){
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
 
-        // ── פילטר מועמדות: איתות + ציון מינימלי + R/R ────────
+        // ── פילטר טכני ──────────────────────────────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;
         if(scores.totalScore < 48) return;
         if(scores.rrRatio < 1.5) return;
 
-        // ── פילטר Timeframe — רק אסטרטגיות מתאימות לטווח ────
+        // ── פילטר Timeframe ──────────────────────────────────
         const tfAllowed = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
         const stratMatch = tfAllowed.some(s => scores.strategy?.includes(s));
         if(!stratMatch) return;
 
-        // בדיקת holdDays מתאים לטווח
         const tfHold = TF_HOLD[scannerTimeframe];
         if(scores.holding){
-          // scores.holding = "3-7 ימים" — חלץ את המספר
-          const holdNum = parseInt((scores.holding||"").replace(/[^\d]/,"")) || 0;
-          if(holdNum > tfHold.max * 1.5) return; // יותר מדי ארוך
+          const holdNum = parseInt((scores.holding||"").replace(/\D/g,"")) || 0;
+          if(holdNum > tfHold.max * 1.5) return;
         }
 
-        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector });
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider });
       } catch(e){}
     }));
   }
 
   // ══════════════════════════════════════════════════════════
-  // שלב 2 — על המועמדות בלבד: מושך חדשות ומחשב מחדש
+  // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
   // ══════════════════════════════════════════════════════════
   const results = [];
-  fill.style.width = "50%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/2 — מנתח חדשות על ${candidates.length} מועמדות...</div>`;
+  fill.style.width = "65%";
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 3/3 — חדשות ו-Confluence על ${candidates.length} מועמדות...</div>`;
 
-  const BATCH2 = 3;
-  for(let i = 0; i < candidates.length; i += BATCH2){
-    const batch = candidates.slice(i, i+BATCH2);
-    const pct = 50 + Math.round((i/Math.max(candidates.length,1))*50); // 50-100%
-    fill.style.width = pct + "%";
-    status.textContent = `שלב 2/2 — חדשות ${i+1}-${Math.min(i+BATCH2,candidates.length)} מתוך ${candidates.length}...`;
+  const BATCH3 = 3;
+  for(let i = 0; i < candidates.length; i += BATCH3){
+    const batch = candidates.slice(i, i+BATCH3);
+    fill.style.width = 65 + Math.round((i/Math.max(candidates.length,1))*35) + "%"; // 65-100%
+    status.textContent = `שלב 3/3 — ${i+1}-${Math.min(i+BATCH3,candidates.length)} מתוך ${candidates.length}...`;
 
-    await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector}) => {
+    await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider}) => {
       try {
-        // מושך חדשות עכשיו
         const [newsArr, extNewsArr] = await Promise.all([
           api(sym,"news"), api(sym,"extnews")
         ]);
 
-        // earnings ו-insider כבר יש מהשלב הראשון (בתוך s1)
-        const earnings = { available: s1.posNews !== undefined };
-        const insider  = {};
-
-        // מחשב מחדש עם חדשות
-        const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, {available:false}, {available:false}, sector);
-
+        // חישוב מחדש עם חדשות מלאות
+        const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
+
+        // ── פילטר שלב 3: Confluence מינימלי 3 ──────────────
+        if(confScore < 3) return;
 
         // תגיות
         const tags = [];
@@ -2759,14 +2786,11 @@ async function runScanner(auto=false){
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
         if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
-        if(confScore >= 8) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
+        if(confScore >= 7) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
         if(scores.posNews > 0) tags.push({t:`📰 ${scores.posNews} חדשות+`,cls:"mom"});
 
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
-
-        // ── פילטר שלב 2: Confluence מינימלי 4 ──────────────
-        if(confScore < 4) return;
 
         results.push({
           sym, price: scanQuote.c, pct: scores.pct,
