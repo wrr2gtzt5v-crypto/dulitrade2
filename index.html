@@ -1,0 +1,2429 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DULITRADE</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e14;--bg2:#0f1520;--bg3:#151d2e;
+  --border:#1e2d47;--border2:#2a3f60;
+  --text:#e8edf5;--text2:#8899bb;--text3:#4a5e80;
+  --green:#00d97e;--gdim:#003d20;
+  --red:#ff4757;--rdim:#3d0010;
+  --amber:#ffa502;--adim:#3d2500;
+  --blue:#1e90ff;--bdim:#001a3d;
+}
+body.light{
+  --bg:#f0f4fa;--bg2:#fff;--bg3:#e8edf7;
+  --border:#ccd3e0;--border2:#aab3c8;
+  --text:#1a202c;--text2:#4a5568;--text3:#94a3b8;
+  --gdim:#dcfce7;--rdim:#fee2e2;--adim:#fef3c7;--bdim:#dbeafe;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;min-height:100vh;direction:rtl;transition:background .25s,color .25s;}
+body:not(.light)::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,217,126,.025)1px,transparent 1px),linear-gradient(90deg,rgba(0,217,126,.025)1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:1.5rem;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:200;}
+.logo{display:flex;align-items:center;gap:10px;}
+.lbox{width:32px;height:32px;border:2px solid var(--green);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--green);font-weight:700;}
+.ltxt{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--text);letter-spacing:.08em;}
+.ltxt span{color:var(--green);}
+.hright{display:flex;align-items:center;gap:8px;}
+.live{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.tbtn{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:14px;color:var(--text);transition:border-color .15s;}
+.tbtn:hover{border-color:var(--green);}
+
+/* INDICES */
+.indices{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto;}
+.idx{padding:8px 18px;border-left:1px solid var(--border);font-size:12px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;cursor:pointer;transition:background .15s;min-width:90px;}
+.idx:last-child{border-left:none;}
+.idx:hover{background:var(--bg3);}
+.idx-name{color:var(--text3);margin-bottom:2px;font-size:10px;}
+.idx-price{color:var(--text);font-weight:600;}
+.idx-chg{font-size:10px;}
+
+/* MACRO BAR */
+.macro-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+.macro-cell{background:var(--bg2);padding:8px 14px;text-align:center;}
+.macro-lbl{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;cursor:pointer;}
+.macro-lbl:hover{color:var(--green);}
+.macro-val{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+
+/* HOT */
+.hot-section{margin:1.5rem 0 1rem;}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sec-head h3{font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:6px;}
+.hot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.hot-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .15s;}
+.hot-card:hover{border-color:var(--green);}
+.hot-sym{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}
+.hot-name{font-size:11px;color:var(--text3);margin-bottom:5px;}
+.hot-reason{font-size:11px;color:var(--text2);line-height:1.4;}
+.hot-sig{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--green);margin-top:6px;}
+
+/* SEARCH */
+.sarea{margin:1rem 0;}
+.slbl{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);letter-spacing:.08em;margin-bottom:7px;}
+.sbox{display:flex;border:1px solid var(--border2);border-radius:8px;overflow:visible;background:var(--bg2);transition:border-color .2s;position:relative;}
+.sbox:focus-within{border-color:var(--green);}
+.sbox input{flex:1;background:none;border:none;outline:none;padding:11px 15px;font-family:'Heebo',sans-serif;font-size:15px;color:var(--text);direction:rtl;}
+.sbox input::placeholder{color:var(--text3);}
+.sbtn{background:var(--green);border:none;color:#000;padding:0 22px;font-size:14px;font-weight:700;cursor:pointer;border-radius:0 8px 8px 0;white-space:nowrap;}
+.sbtn:hover{background:#00f58e;}
+.sbtn:disabled{background:var(--border);color:var(--text3);cursor:not-allowed;}
+.ac{position:absolute;top:calc(100% + 2px);right:0;left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;z-index:300;display:none;box-shadow:0 8px 24px rgba(0,0,0,.3);max-height:240px;overflow-y:auto;}
+.ac-row{padding:9px 15px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+.ac-row:last-child{border-bottom:none;}
+.ac-row:hover{background:var(--bg3);}
+.ac-s{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green);font-size:13px;}
+.ac-n{font-size:12px;color:var(--text2);}
+.quick{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+.qbtn{padding:4px 11px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;transition:all .12s;}
+.qbtn:hover{border-color:var(--green);color:var(--green);}
+
+/* ALERTS */
+.alert-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin:1rem 0;}
+.alert-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;}
+.arow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.arow input,.arow select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 11px;font-size:12px;color:var(--text);outline:none;flex:1;min-width:150px;font-family:'Heebo',sans-serif;}
+.arow input:focus{border-color:var(--green);}
+.asave{background:var(--green);border:none;color:#000;padding:7px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;}
+.asave:hover{background:#00f58e;}
+.atags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.atag{display:flex;align-items:center;gap:5px;padding:3px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text2);}
+.atag .x{cursor:pointer;color:var(--text3);}
+.atag .x:hover{color:var(--red);}
+
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;overflow:hidden;animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.chead{padding:1rem 1.25rem;display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--bg3);}
+.csym{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;}
+.cname{font-size:12px;color:var(--text3);margin-top:2px;}
+.rbadge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--green);background:var(--gdim);border:1px solid var(--green);border-radius:4px;padding:2px 7px;margin-top:5px;}
+.siga{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.pill{padding:8px 22px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;}
+.pbuy{background:var(--gdim);color:var(--green);border:1.5px solid var(--green);}
+.psell{background:var(--rdim);color:var(--red);border:1.5px solid var(--red);}
+.phold{background:var(--adim);color:var(--amber);border:1.5px solid var(--amber);}
+.psbuy{background:#003d20;color:#00ff9d;border:2px solid #00ff9d;box-shadow:0 0 10px rgba(0,255,157,.3);}
+.pssell{background:#3d0010;color:#ff2d44;border:2px solid #ff2d44;box-shadow:0 0 10px rgba(255,45,68,.3);}
+.cconf{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
+
+/* SCORE SUMMARY */
+.score-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+.score-cell{background:var(--bg2);padding:10px 14px;text-align:center;}
+.score-lbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:3px;cursor:pointer;}
+.score-lbl:hover{color:var(--amber);}
+.score-val{font-size:18px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+.score-sub{font-size:9px;color:var(--text3);margin-top:2px;}
+
+/* RISK */
+.risk-strip{padding:10px 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg2);}
+.rlbl{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);min-width:70px;cursor:pointer;}
+.rlbl:hover{color:var(--amber);}
+.rtrack{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.rfill{height:100%;border-radius:4px;transition:width .5s;}
+.rval{font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:600;min-width:100px;text-align:left;}
+.rwarn{margin:0 1.25rem .75rem;padding:9px 13px;background:var(--adim);border:1px solid var(--amber);border-radius:7px;font-size:12px;color:var(--amber);line-height:1.55;}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);}
+.metric{background:var(--bg2);padding:11px 14px;text-align:center;}
+.mlbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:3px;cursor:pointer;}
+.mlbl:hover{color:var(--amber);}
+.mval{font-size:15px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.up{color:var(--green);}.dn{color:var(--red);}.warn{color:var(--amber);}
+
+/* BODY */
+.cbody{padding:1.25rem;}
+.stitle{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.stitle::after{content:'';flex:1;height:1px;background:var(--border);}
+.stitle .info-icon{cursor:pointer;color:var(--text3);font-size:12px;}
+.stitle .info-icon:hover{color:var(--amber);}
+
+/* TARGETS */
+.hbar{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 15px;margin-bottom:1.25rem;display:flex;align-items:center;gap:14px;}
+.hval{font-size:16px;font-weight:700;color:var(--amber);font-family:'IBM Plex Mono',monospace;}
+.hlbl{font-size:11px;color:var(--text3);margin-bottom:2px;}
+.targets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem;}
+.tbox{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;}
+.tlbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:3px;cursor:pointer;}
+.tlbl:hover{color:var(--amber);}
+.tval{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.tval.tp{color:var(--green);}.tval.sl{color:var(--red);}.tval.en{color:var(--blue);}
+.tpct{font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:700;margin-top:3px;}
+
+/* CANDLE */
+.chart-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:1.25rem;}
+.candle-explain{background:var(--bg2);border:1px solid var(--blue);border-radius:10px;padding:14px 16px;margin-bottom:1.25rem;}
+.candle-explain h4{font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--blue);margin-bottom:8px;}
+.candle-explain p{font-size:13px;color:var(--text2);line-height:1.75;margin-bottom:6px;}
+.candle-explain p:last-child{margin-bottom:0;}
+
+/* FUNDAMENTAL GRID */
+.fund-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem;}
+.fund-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.fund-card-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--amber);margin-bottom:10px;font-weight:600;}
+.fund-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
+.fund-row:last-child{border-bottom:none;}
+.fund-key{font-size:12px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px;}
+.fund-key:hover{color:var(--text);}
+.fund-val{font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.fund-bar{height:4px;border-radius:2px;margin-top:3px;}
+
+/* COMPETITORS */
+.comp-table{width:100%;border-collapse:collapse;margin-bottom:1.25rem;font-size:12px;}
+.comp-table th{text-align:right;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);cursor:pointer;}
+.comp-table th:hover{color:var(--amber);}
+.comp-table td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);}
+.comp-table tr:last-child td{border-bottom:none;}
+.comp-table tr.highlight td{background:var(--bg3);}
+.comp-table td:first-child{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--text);}
+
+/* PATTERNS */
+.candle-analysis{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;}
+.candle-analysis h4{font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--amber);margin-bottom:8px;}
+.pattern{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text2);margin-bottom:6px;padding:7px 10px;background:var(--bg3);border-radius:6px;}
+.pattern:last-child{margin-bottom:0;}
+.pattern-icon{font-size:16px;flex-shrink:0;}
+
+/* FACTORS */
+.factors{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:1.25rem;}
+.factor{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text2);padding:7px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);}
+.fdot{width:6px;height:6px;border-radius:50%;margin-top:3px;flex-shrink:0;}
+
+/* NEWS */
+.news-item{padding:9px 0;border-bottom:1px solid var(--border);display:flex;gap:9px;}
+.news-item:last-child{border-bottom:none;}
+.nbar{width:4px;border-radius:2px;flex-shrink:0;min-height:36px;}
+.ntop{display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;}
+.nsrc-badge{font-size:10px;color:#fff;padding:1px 7px;border-radius:3px;white-space:nowrap;}
+.nsent{font-size:10px;color:var(--text3);}
+.ntitle{font-size:13px;color:var(--text2);text-decoration:none;line-height:1.4;display:block;}
+.ntitle:hover{color:var(--text);}
+
+/* LINKS */
+.links{display:flex;gap:8px;margin-top:1.25rem;flex-wrap:wrap;}
+.lnk{padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);text-decoration:none;font-size:11px;font-family:'IBM Plex Mono',monospace;transition:all .12s;}
+.lnk:hover{border-color:var(--green);color:var(--green);}
+
+/* TOOLTIP */
+.term{border-bottom:1px dashed var(--text3);cursor:help;}
+.tip-modal{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.65);align-items:center;justify-content:center;}
+.tip-modal.show{display:flex;}
+.tip-box{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:1.5rem;max-width:400px;width:92%;position:relative;animation:fadeUp .2s ease;}
+.tip-box h4{font-size:15px;font-weight:600;color:var(--green);margin-bottom:8px;font-family:'IBM Plex Mono',monospace;}
+.tip-box p{font-size:13px;color:var(--text2);line-height:1.75;}
+.tip-box .ex{margin-top:10px;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--amber);font-family:'IBM Plex Mono',monospace;line-height:1.5;}
+.tip-box .scale{margin-top:10px;display:flex;gap:4px;align-items:center;font-size:11px;color:var(--text3);}
+.tip-close{position:absolute;top:12px;left:14px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;}
+
+/* CONFLUENCE */
+.confluence-bar{margin:0 1.25rem .75rem;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.conf-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+.conf-score{font-size:16px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+.conf-track{height:8px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:10px;}
+.conf-fill{height:100%;border-radius:5px;transition:width .5s;}
+.conf-dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+.conf-dot{font-size:9px;color:var(--text2);padding:2px 6px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap;font-family:'IBM Plex Mono',monospace;}
+.conf-dot.agree{border-color:var(--green);color:var(--green);background:var(--gdim);}
+.conf-dot.disagree{border-color:var(--red);color:var(--red);background:var(--rdim);}
+
+/* EARNINGS WARNING */
+.earnings-warn{margin:0 1.25rem .75rem;padding:10px 14px;background:#1a0a00;border:1px solid var(--amber);border-radius:7px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px;}
+
+/* POSITION SIZING */
+.pos-size-box{margin:0 1.25rem 1.25rem;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;}
+.pos-size-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px;}
+.pos-size-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.pos-size-row input{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);font-family:'IBM Plex Mono',monospace;outline:none;width:160px;}
+.pos-size-row input:focus{border-color:var(--green);}
+.pos-size-row button{background:var(--green);border:none;color:#000;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
+.pos-result{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px;}
+.pos-cell{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center;}
+.pos-lbl{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:3px;}
+.pos-val{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--blue);}
+
+/* TRAILING STOP */
+.trailing-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:1.25rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.trailing-lbl{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;}
+.trailing-val{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--amber);}
+
+/* HISTORY */
+.hist-section{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;}
+.hist-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px;}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.hist-row:last-child{border-bottom:none;}
+.confluence-bar{padding:12px 1.25rem;border-bottom:1px solid var(--border);background:var(--bg2);}
+.conf-title{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.conf-track{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:6px;}
+.conf-fill{height:100%;border-radius:5px;transition:width .6s;}
+.conf-dots{display:flex;gap:5px;flex-wrap:wrap;}
+.conf-dot{width:10px;height:10px;border-radius:50%;}
+.conf-label{font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+
+/* EARNINGS WARNING */
+.earnings-warn{margin:0 1.25rem .75rem;padding:10px 14px;background:#1a0a00;border:1px solid var(--amber);border-radius:7px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px;}
+
+/* POSITION SIZING */
+.pos-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem;}
+.pos-title{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.pos-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pos-input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:13px;color:var(--text);outline:none;width:160px;font-family:'IBM Plex Mono',monospace;}
+.pos-input:focus{border-color:var(--green);}
+.pos-result{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace;flex:1;}
+.pos-result strong{color:var(--green);}
+
+/* TRAILING STOP */
+.trail-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--text2);}
+
+/* WATCHLIST */
+.watchlist-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin:1rem 0;}
+.wl-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.wl-add{display:flex;gap:8px;margin-bottom:10px;}
+.wl-add input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:13px;color:var(--text);outline:none;font-family:'IBM Plex Mono',monospace;}
+.wl-add input:focus{border-color:var(--green);}
+.wl-add button{background:var(--green);border:none;color:#000;padding:7px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;}
+.wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+.wl-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;transition:border-color .15s;position:relative;}
+.wl-card:hover{border-color:var(--green);}
+.wl-sym{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+.wl-price{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-top:2px;}
+.wl-sig{font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:600;margin-top:3px;}
+.wl-rm{position:absolute;top:4px;left:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;}
+.wl-rm:hover{color:var(--red);}
+
+/* HISTORY */
+.hist-section{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:1.25rem;}
+.hist-title{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:8px;}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.hist-row:last-child{border-bottom:none;}
+.hist-date{color:var(--text3);}
+.hist-price{color:var(--text2);}
+
+/* SCANNER */
+.scanner-section{margin:1.5rem 0 1rem;}
+.scanner-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+.scanner-head h3{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;}
+.scanner-status{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
+.scanner-progress{height:3px;background:var(--border);border-radius:2px;margin-bottom:12px;overflow:hidden;display:none;}
+.scanner-progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s;}
+.scanner-grid{display:flex;flex-direction:column;gap:8px;}
+.scan-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .15s;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;}
+.scan-card:hover{border-color:var(--green);}
+.scan-card.buy{border-right:3px solid var(--green);}
+.scan-card.sell{border-right:3px solid var(--red);}
+.scan-left{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px;}
+.scan-sym{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;color:var(--text);}
+.scan-price{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);}
+.scan-mid{display:flex;flex-direction:column;gap:4px;}
+.scan-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;width:fit-content;}
+.scan-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;}
+.scan-tag{font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--border);color:var(--text3);font-family:'IBM Plex Mono',monospace;}
+.scan-tag.hot{border-color:var(--amber);color:var(--amber);}
+.scan-tag.rr{border-color:var(--blue);color:var(--blue);}
+.scan-tag.mom{border-color:var(--green);color:var(--green);}
+.scan-tag.safe{border-color:#00d97e88;color:var(--green);}
+.scan-reason{font-size:11px;color:var(--text2);line-height:1.4;margin-top:3px;}
+.scan-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;}
+.scan-score{font-size:18px;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+.scan-rr{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
+.scan-risk{font-size:10px;font-family:'IBM Plex Mono',monospace;}
+.scan-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px;font-family:'IBM Plex Mono',monospace;line-height:2;}
+.scan-loading{display:flex;align-items:center;gap:10px;padding:1.5rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:12px;}
+
+.empty{text-align:center;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:2.2;}
+.loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;}
+.dots span{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:b 1.2s infinite;}
+.dots span:nth-child(2){animation-delay:.2s;}.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes b{0%,80%,100%{transform:scale(.6);opacity:.3;}40%{transform:scale(1);opacity:1;}}
+.errmsg{background:var(--rdim);border:1px solid var(--red);border-radius:10px;padding:1.25rem;font-size:13px;color:var(--red);line-height:1.7;}
+.disclaimer{margin-top:2rem;padding:11px 15px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;line-height:1.6;}
+@media(max-width:640px){
+  .hot-grid{grid-template-columns:1fr 1fr;}
+  .metrics{grid-template-columns:repeat(2,1fr);}
+  .targets{grid-template-columns:1fr 1fr;}
+  .factors{grid-template-columns:1fr;}
+  .fund-grid{grid-template-columns:1fr;}
+  .score-summary{grid-template-columns:repeat(2,1fr);}
+  .macro-bar{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- TOOLTIP MODAL -->
+<div class="tip-modal" id="tipModal" onclick="closeTip(event)">
+  <div class="tip-box">
+    <button class="tip-close" onclick="document.getElementById('tipModal').classList.remove('show')">✕</button>
+    <h4 id="tipTitle"></h4>
+    <p id="tipDesc"></p>
+    <div class="ex" id="tipEx" style="display:none"></div>
+    <div class="scale" id="tipScale" style="display:none"></div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="lbox">DT</div>
+    <div class="ltxt">DULI<span>TRADE</span></div>
+  </div>
+  <div class="hright">
+    <div class="live"><div class="dot"></div>Live Data</div>
+    <div id="marketStatus" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--border);cursor:default;" title="שעות מסחר NYSE/NASDAQ">
+      <span id="marketDot" style="width:7px;height:7px;border-radius:50%;background:var(--text3)"></span>
+      <span id="marketLabel">בודק...</span>
+    </div>
+    <button class="tbtn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+  </div>
+</header>
+
+<!-- MACRO BAR -->
+<div class="macro-bar">
+  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('VIX')">VIX — מדד הפחד ℹ</div><div class="macro-val" id="vixV">—</div></div>
+  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('TNX')">אג"ח 10Y ℹ</div><div class="macro-val" id="tnxV">—</div></div>
+  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('DXY')">דולר (DXY) ℹ</div><div class="macro-val" id="dxyV">—</div></div>
+  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('SP500')">S&P 500 ℹ</div><div class="macro-val" id="sp5V">—</div></div>
+</div>
+
+<!-- INDICES -->
+<div class="indices">
+  <div class="idx" onclick="q('SPY')"><div class="idx-name">S&P 500</div><div class="idx-price" id="spyP">—</div><div class="idx-chg" id="spyC">—</div></div>
+  <div class="idx" onclick="q('QQQ')"><div class="idx-name">נאסד"ק</div><div class="idx-price" id="qqqP">—</div><div class="idx-chg" id="qqqC">—</div></div>
+  <div class="idx" onclick="q('DIA')"><div class="idx-name">דאו ג'ונס</div><div class="idx-price" id="diaP">—</div><div class="idx-chg" id="diaC">—</div></div>
+  <div class="idx" onclick="q('GLD')"><div class="idx-name">זהב</div><div class="idx-price" id="gldP">—</div><div class="idx-chg" id="gldC">—</div></div>
+  <div class="idx" onclick="q('TLT')"><div class="idx-name">אג"ח 20Y</div><div class="idx-price" id="tltP">—</div><div class="idx-chg" id="tltC">—</div></div>
+</div>
+
+<div class="wrap">
+  <!-- SCANNER -->
+  <div class="scanner-section">
+    <div class="scanner-head">
+      <h3>🔍 סורק עסקאות — מוצא הזדמנויות בזמן אמת</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="scanner-status" id="scanStatus">לא סרוק עדיין</span>
+        <button class="tbtn" onclick="runScanner()" id="scanBtn" style="font-size:11px;background:var(--green);color:#000;border:none;padding:5px 14px;font-weight:700;">▶ סרוק עכשיו</button>
+      </div>
+    </div>
+    <div class="scanner-progress" id="scanProgress">
+      <div class="scanner-progress-fill" id="scanFill"></div>
+    </div>
+    <div class="scanner-grid" id="scanGrid">
+      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות מעולות<br><span style="font-size:11px">המערכת תנתח 30 מניות ותמיין את הטובות ביותר</span></div>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="sarea">
+    <div class="slbl">חפש מניה לפי שם או סימבול</div>
+    <div class="sbox" id="sboxWrap">
+      <input id="inp" type="text" placeholder="Apple, Tesla, AAPL, NVDA..." oninput="onInp()" onkeydown="onKey(event)" autocomplete="off" spellcheck="false"/>
+      <button class="sbtn" id="abtn" onclick="go()">נתח ←</button>
+      <div class="ac" id="ac"></div>
+    </div>
+    <div class="quick">
+      <button class="qbtn" onclick="q('AAPL')">AAPL</button>
+      <button class="qbtn" onclick="q('NVDA')">NVDA</button>
+      <button class="qbtn" onclick="q('TSLA')">TSLA</button>
+      <button class="qbtn" onclick="q('MSFT')">MSFT</button>
+      <button class="qbtn" onclick="q('AMZN')">AMZN</button>
+      <button class="qbtn" onclick="q('META')">META</button>
+      <button class="qbtn" onclick="q('GOOGL')">GOOGL</button>
+      <button class="qbtn" onclick="q('AMD')">AMD</button>
+      <button class="qbtn" onclick="q('TEVA')">TEVA</button>
+      <button class="qbtn" onclick="q('CHKP')">CHKP</button>
+      <button class="qbtn" onclick="q('MNDY')">MNDY</button>
+      <button class="qbtn" onclick="q('SPY')">S&P500</button>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="alert-box">
+    <div class="alert-title">🔔 התראות — קבל הודעה כשמופיע איתות</div>
+    <div class="arow">
+      <input id="aEmail" type="email" placeholder="מייל: you@gmail.com" dir="ltr"/>
+      <input id="aPhone" type="tel" placeholder="WhatsApp: 972501234567" dir="ltr"/>
+      <select id="aSig">
+        <option value="both">קנייה + מכירה</option>
+        <option value="BUY">קנייה בלבד</option>
+        <option value="SELL">מכירה בלבד</option>
+      </select>
+      <button class="asave" onclick="saveAlert()">שמור ✓</button>
+    </div>
+    <div class="atags" id="atags"></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span>💼 גודל תיק:</span>
+      <input id="portfolioInput" type="number" placeholder="לדוגמה: 50000" dir="ltr"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text);outline:none;width:140px;font-family:'IBM Plex Mono',monospace"
+        onchange="savePortfolio()" value=""/>
+      <span id="portfolioDisplay" style="font-size:11px;color:var(--green);font-family:'IBM Plex Mono',monospace"></span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">📧 מייל דרך FormSubmit · 📱 WhatsApp קישור ישיר · 💼 גודל תיק לחישוב Position Size</div>
+  </div>
+
+  <!-- WATCHLIST -->
+  <div class="watchlist-section">
+    <div class="wl-title">
+      <span>⭐ Watchlist — מניות במעקב</span>
+      <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="wlCount">0/10</span>
+    </div>
+    <div class="wl-add">
+      <input id="wlInp" type="text" placeholder="הוסף סימבול..." onkeydown="if(event.key==='Enter')addWL()" autocomplete="off" spellcheck="false"/>
+      <button onclick="addWL()">+ הוסף</button>
+    </div>
+    <div class="wl-grid" id="wlGrid"><div style="font-size:12px;color:var(--text3);font-family:'IBM Plex Mono',monospace">הוסף מניות למעקב ↑</div></div>
+  </div>
+
+  <div id="out">
+    <div class="empty">
+      <div style="font-size:40px;margin-bottom:10px">📡</div>
+      חפש כל מניה לניתוח מקצועי מלא<br>
+      <span style="font-size:11px;color:var(--text3)">טכני · פונדמנטלי · מאקרו · מתחרות · נרות יפניים · חדשות</span>
+    </div>
+  </div>
+
+  <div class="disclaimer">⚠ המידע לצרכי לימוד בלבד ואינו ייעוץ השקעות מוסמך. מסחר בניירות ערך כרוך בסיכון. תמיד בדוק ב-Yahoo Finance ו-guynatan.com לפני כל החלטה.</div>
+</div>
+
+<script>
+// ── COMPANIES ─────────────────────────────────────────────
+const COS=[
+  {s:"AAPL",n:"Apple Inc."},{s:"NVDA",n:"NVIDIA"},{s:"TSLA",n:"Tesla"},
+  {s:"MSFT",n:"Microsoft"},{s:"AMZN",n:"Amazon"},{s:"META",n:"Meta"},
+  {s:"GOOGL",n:"Alphabet (Google)"},{s:"AMD",n:"AMD"},{s:"INTC",n:"Intel"},
+  {s:"NFLX",n:"Netflix"},{s:"DIS",n:"Disney"},{s:"UBER",n:"Uber"},
+  {s:"COIN",n:"Coinbase"},{s:"PLTR",n:"Palantir"},{s:"SOFI",n:"SoFi"},
+  {s:"PYPL",n:"PayPal"},{s:"V",n:"Visa"},{s:"MA",n:"Mastercard"},
+  {s:"JPM",n:"JPMorgan"},{s:"BAC",n:"Bank of America"},{s:"GS",n:"Goldman Sachs"},
+  {s:"TEVA",n:"Teva"},{s:"NICE",n:"NICE Ltd."},{s:"CHKP",n:"Check Point"},
+  {s:"WIX",n:"Wix.com"},{s:"MNDY",n:"Monday.com"},{s:"GLBE",n:"Global-E"},
+  {s:"SPY",n:"S&P 500 ETF"},{s:"QQQ",n:"Nasdaq ETF"},{s:"GLD",n:"Gold ETF"},
+  {s:"DIA",n:"Dow Jones ETF"},{s:"TLT",n:"Treasury Bond ETF"},
+];
+
+// ── SAFE NUMBER HELPERS ───────────────────────────────────
+const safe = (v, decimals=2, fallback="—") => {
+  if(v==null||isNaN(v)||!isFinite(v)) return fallback;
+  return (+v).toFixed(decimals);
+};
+const safeN = (v, fallback=0) => {
+  if(v==null||isNaN(v)||!isFinite(v)) return fallback;
+  return +v;
+};
+
+// ── TERMS ──────────────────────────────────────────────────
+const TERMS={
+  "RSI":{t:"RSI — מדד כוח יחסי (Relative Strength Index)",
+    d:"מדד מ-0 עד 100 שמודד עוצמת המגמה ומזהה קנייה/מכירת יתר. מעל 70 = קניית יתר, סיכון לתיקון. מתחת 30 = מכירת יתר, הזדמנות קנייה. בין 30–70 = אזור נורמלי.",
+    e:"📊 0–30: מכירת יתר (ירוק) | 30–70: ניטרלי | 70–100: קניית יתר (אדום)"},
+  "MACD":{t:"MACD — מדד מומנטום ומגמה",
+    d:"מחושב מהפרש בין ממוצע נע 12 ו-26 יום. קו ה-MACD מעל קו האות = מומנטום חיובי, קנייה. מתחת = מומנטום שלילי. חיתוך מלמטה למעלה = אות כניסה.",
+    e:"📈 MACD חיובי + עולה = כוח קנייה | MACD שלילי + יורד = כוח מכירה"},
+  "MA50":{t:"ממוצע נע 50 יום (MA50)",
+    d:"ממוצע מחירי הסגירה של 50 הימים האחרונים. מחיר מעליו = מגמה קצרת טווח חיובית. מתחת = שלילית. פריצה מעלה = אות קנייה קלאסי.",
+    e:"💡 MA50 > MA200 = Golden Cross = אות שורי חזק"},
+  "MA200":{t:"ממוצע נע 200 יום (MA200)",
+    d:"הממוצע החשוב ביותר. מחיר מעל MA200 = שוק שורי. מתחת = שוק דובי. משקיעים מוסדיים עוקבים אחריו מקרוב. חיתוך MA50 מעל MA200 = Golden Cross.",
+    e:"📌 מניות מעל MA200 נחשבות בריאות. מתחת = אזהרה"},
+  "Bollinger":{t:"רצועות בולינג'ר (Bollinger Bands)",
+    d:"שלושה קווים: ממוצע 20 יום + סטיית תקן כפולה מעל ומתחת. מחיר נוגע ברצועה העליונה = יקר, אפשרי תיקון. נוגע בתחתונה = זול, אפשרי קפיצה.",
+    e:"🎯 Squeeze = רצועות צרות = פיצוץ מגמה מתקרב"},
+  "ATR":{t:"ATR — טווח אמיתי ממוצע (Average True Range)",
+    d:"מודד את התנודתיות הממוצעת של המניה בימים האחרונים. ATR גבוה = מניה תנודתית מאוד. ATR נמוך = יציבה. משמש לחישוב Stop Loss מדויק.",
+    e:"💡 Stop Loss מומלץ = מחיר כניסה - (1.5 × ATR)"},
+  "Stochastic":{t:"Stochastic RSI — מדד מומנטום מדויק",
+    d:"גרסה רגישה יותר של RSI. מודד את RSI ביחס לטווח שלו בתקופה מסוימת. מעל 80 = קניית יתר. מתחת 20 = מכירת יתר. מגיב מהר יותר לשינויים.",
+    e:"⚡ Stoch RSI מתחת ל-20 + עולה = אות כניסה מוקדם"},
+  "Williams":{t:"Williams %R — אינדיקטור מומנטום",
+    d:"מדד דומה ל-Stochastic, בטווח -100 עד 0. קרוב ל-0 = קניית יתר. קרוב ל-100 = מכירת יתר. שימושי לזיהוי היפוכי מגמה קצרי טווח.",
+    e:"📉 Williams %R מתחת -80 = מכירת יתר = הזדמנות"},
+  "CCI":{t:"CCI — מדד ערוץ סחורות (Commodity Channel Index)",
+    d:"מודד מרחק המחיר מהממוצע שלו. מעל +100 = מגמת עלייה חזקה, שקול לקנות. מתחת -100 = מגמת ירידה חזקה. מעל +200 = קניית יתר קיצונית.",
+    e:"🎯 CCI = (מחיר - ממוצע) ÷ (0.015 × סטיית תקן)"},
+  "Fibonacci":{t:"Fibonacci Retracements — רמות תמיכה/התנגדות",
+    d:"מבוסס על סדרת פיבונאצ'י. הרמות 23.6%, 38.2%, 50%, 61.8% ו-78.6% הן רמות תמיכה/התנגדות טבעיות. מחיר שמגיע לרמת 61.8% ומוחזר — נקודת כניסה קלאסית.",
+    e:"✨ 61.8% = Golden Ratio — הרמה החשובה ביותר"},
+  "Ichimoku":{t:"Ichimoku Cloud — מערכת ניתוח יפנית",
+    d:"מציג תמיכה, התנגדות, מגמה ומומנטום בגרף אחד. מחיר מעל הענן = מגמה חיובית. מתחת = שלילית. ענן ירוק עבה = תמיכה חזקה.",
+    e:"☁️ ענן ירוק = שורי | ענן אדום = דובי | מחיר מעל = קנייה"},
+  "PE":{t:"P/E Ratio — מכפיל רווח",
+    d:"מחיר המניה חלקי הרווח למניה. מראה כמה משקיעים משלמים על כל דולר רווח. P/E גבוה = ציפיות גדולות לצמיחה (יקר). P/E נמוך = מניה זולה יחסית.",
+    e:"📊 ממוצע S&P500: ~20. טכנולוגיה: 25-40. ערך: מתחת 15"},
+  "PB":{t:"P/B Ratio — מכפיל ספרים",
+    d:"מחיר המניה חלקי שווי הנכסים נטו. P/B מתחת 1 = מניה נסחרת מתחת לשווי נכסיה — מציאה אפשרית. P/B גבוה = השוק מתמחר ערך מותג ואינטנגיבלי.",
+    e:"💎 P/B < 1 = עשוי להיות undervalued"},
+  "PS":{t:"P/S Ratio — מכפיל מכירות",
+    d:"מחיר המניה חלקי ההכנסות למניה. שימושי לחברות שאינן רווחיות עדיין. P/S נמוך = מניה זולה ביחס להכנסות.",
+    e:"🚀 חברות צמיחה: P/S 5-20 | ערך: P/S מתחת 2"},
+  "ROE":{t:"ROE — תשואה על ההון (Return on Equity)",
+    d:"כמה רווח החברה מייצרת מכל דולר הון עצמי. ROE גבוה = הנהלה יעילה. ROE > 15% = טוב. ROE > 25% = מצוין. משקיעי ערך מחפשים ROE עקבי וגבוה.",
+    e:"⭐ Warren Buffett מחפש ROE > 15% לאורך שנים"},
+  "DebtEquity":{t:"Debt/Equity — יחס חוב להון",
+    d:"סך החוב חלקי ההון העצמי. גבוה = חברה ממונפת, סיכון גבוה בעת ריבית עולה. נמוך = חברה יציבה. בענפים כמו בנקאות ונדל\"ן — חוב גבוה נורמלי.",
+    e:"⚠️ D/E > 2 = ממונף. D/E < 0.5 = שמרני ויציב"},
+  "CurrentRatio":{t:"Current Ratio — יחס נזילות",
+    d:"נכסים שוטפים חלקי התחייבויות שוטפות. מודד יכולת החברה לשלם חובות קצרי טווח. מעל 2 = בריא. מתחת 1 = בעיית נזילות אפשרית.",
+    e:"✅ Current Ratio > 1.5 = נזילות טובה"},
+  "Beta":{t:"Beta — רגישות לשוק",
+    d:"מודד כמה המניה נעה ביחס לשוק. Beta=1 = זהה לשוק. Beta>1 = תנודתית יותר (סיכון גבוה, פוטנציאל גבוה). Beta<1 = יציבה יותר. Beta שלילי = זז הפוך לשוק.",
+    e:"📊 Beta 1.5 = אם S&P עולה 10%, המניה עולה ~15%"},
+  "ShortRatio":{t:"Short Ratio — יחס שורט",
+    d:"מספר הימים שייקח לסגור את כל פוזיציות השורט לפי נפח מסחר. גבוה = הרבה מהמרים נגד המניה. אם המניה תעלה — Short Squeeze אפשרי.",
+    e:"🚀 Short Ratio > 10 = Short Squeeze אפשרי"},
+  "RevenueGrowth":{t:"Revenue Growth — צמיחת הכנסות",
+    d:"שיעור גידול ההכנסות שנה על שנה. זהו הפרמטר החשוב ביותר לחברות צמיחה. צמיחה > 20% = חברת צמיחה גבוהה. 10-20% = טובה. מתחת 5% = בוגרת.",
+    e:"🚀 > 30% = hypergrowth | 15-30% = צמיחה טובה | < 10% = בוגר"},
+  "EarningsGrowth":{t:"Earnings Growth — צמיחת רווחים",
+    d:"שיעור גידול הרווח הנקי שנה על שנה. חשוב יותר מצמיחת הכנסות. חברה שגדלה ברווחים = ניהול טוב. PEG Ratio = P/E חלקי צמיחת רווחים. PEG < 1 = מציאה.",
+    e:"⭐ PEG < 1 = מניה זולה ביחס לצמיחה (Peter Lynch)"},
+  "ProfitMargin":{t:"Profit Margin — מרווח רווח נקי",
+    d:"אחוז ההכנסות שנשאר כרווח נקי. מרווח גבוה = יתרון תחרותי חזק (Moat). תוכנה: 20-40%. קמעונאות: 1-5%. שירותים פיננסיים: 15-30%.",
+    e:"💪 מרווח > 20% = עסק חזק עם יתרון תחרותי"},
+  "AnalystTarget":{t:"יעד מחיר אנליסטים",
+    d:"ממוצע יעדי המחיר של האנליסטים המכסים את המניה. אם הפוטנציאל מהמחיר הנוכחי גבוה מ-15% = המלצת קנייה. פחות מ-5% = נייטרלי.",
+    e:"📈 Upside > 20% = קנייה חזקה לפי אנליסטים"},
+  "VIX":{t:"VIX — מדד הפחד (Fear Index)",
+    d:"מודד את התנודתיות הצפויה של S&P 500. מתחת 15 = שוק רגוע, אופטימיות. 20-30 = חשש מסוים. מעל 30 = פחד בשוק = הזדמנות קנייה היסטורית. מעל 40 = פאניקה.",
+    e:"🎯 VIX > 30 = שוק פוחד = לרוב הזדמנות קנייה"},
+  "TNX":{t:"תשואת אג\"ח 10 שנים (^TNX)",
+    d:"תשואת האג\"ח האמריקאי ל-10 שנים. עולה = כסף זורם מהשוק לאג\"ח = לחץ על מניות. יורד = כסף לשוק. ריבית גבוהה פוגעת במניות צמיחה (P/E גבוה).",
+    e:"⚠️ תשואה > 5% = תחרות חזקה לאג\"ח על מניות"},
+  "DXY":{t:"מדד הדולר (DXY)",
+    d:"מודד עוצמת הדולר מול סל מטבעות. דולר חזק = לחץ על מניות רב-לאומיות ועל חברות המייצאות. דולר חלש = תמיכה בסחורות ובשווקים מתעוררים.",
+    e:"💱 DXY עולה = לחץ על AAPL, MSFT שמרוויחים בחו\"ל"},
+  "SP500":{t:"S&P 500 — מדד 500 החברות הגדולות",
+    d:"מדד המניות החשוב בעולם. 500 החברות הגדולות בארה\"ב. מהווה בנצ'מרק להשוואה. אם מניה עולה פחות מ-S&P = ביצועים חלשים. יותר = ביצועים טובים.",
+    e:"📊 S&P ירד > 20% = bear market | ירד > 10% = תיקון"},
+  "עצירת הפסד":{t:"עצירת הפסד (Stop Loss)",
+    d:"מחיר שבו תמכור אוטומטית כדי להגביל הפסד. חובה בכל עסקה! לעולם אל תסחר בלי SL. מוגדר לרוב ב-1-3% מתחת למחיר הכניסה.",
+    e:"⚠️ כלל זהב: לעולם אל תסחר בלי Stop Loss"},
+  "יעד רווח":{t:"יעד רווח (Take Profit)",
+    d:"מחיר שבו תממש רווח. יחס סיכון/תגמול מומלץ: לפחות 1:2 (מסכן 3% כדי להרוויח 6%). אל תהיה חמדן — ממש רווח בשלבים.",
+    e:"💰 יחס 1:2 = SL ב-3% מתחת + TP ב-6% מעל"},
+  "ביטחון":{t:"ציון ביטחון DULITRADE",
+    d:"ציון מ-50% עד 93% המשקלל 8 פרמטרים: שינוי יומי, מיקום בטווח, RSI, MACD, ממוצעים נעים, נפח, נרות יפניים, וסנטימנט חדשות מ-5 מקורות.",
+    e:"🎯 > 75% = איתות חזק | 60-75% = בינוני | < 60% = חלש"},
+  "סיכון":{t:"מד סיכון DULITRADE",
+    d:"ציון מ-10 עד 90 המחושב לפי RSI, תנודתיות יומית, סנטימנט חדשות, נפח, ו-Beta. מד סיכון גבוה = לא מומלץ להיכנס.",
+    e:"✅ < 35: נמוך | 35-60: בינוני | > 60: גבוה"},
+  "Confluence":{t:"Confluence Score — ציון הסכמה",d:"מודד כמה אינדיקטורים מסכימים ביניהם מתוך 10. ציון 7+ = הסכמה גבוהה, כניסה מומלצת. 5-6 = זהירות, המתן לאישור נוסף. מתחת ל-5 = אינדיקטורים סותרים, אל תיכנס.",e:"🎯 בית השקעות מקצועי נכנס לעסקה רק כשיש Confluence של 6+ מתוך 10"},
+  "TrailingStop":{t:"Trailing Stop — עצירת הפסד נגררת",d:"עצירת הפסד שזזה אוטומטית עם המחיר. אם קנית ב-100$ עם Trailing של 5% — כשהמניה עולה ל-110$, ה-SL עולה ל-104.5$. מגן על רווחים מצטברים.",e:"📈 Trailing Stop = כלי ניהול סיכונים מספר 1 של טריידרים מקצועיים"},
+  "PositionSize":{t:"Position Sizing — גודל פוזיציה",d:"כמה כסף להכניס לכל עסקה. כלל הזהב: לעולם לא לסכן יותר מ-2% מהתיק בעסקה אחת. מחושב: (גודל תיק × 2%) ÷ מרחק ה-Stop Loss = מספר המניות.",e:"💰 תיק של $50,000 × 2% = $1,000 מקסימום סיכון לעסקה"},
+  "Hammer":{t:"פטיש (Hammer)",d:"גוף קטן למעלה + פתיל תחתון ארוך. קונים החזירו את המחיר. סימן חיובי אחרי ירידה.",e:""},
+  "Engulfing":{t:"Engulfing — בליעה",d:"נר גדול בולע את הנר הקודם. Bullish = ירוק בולע אדום = כוח קנייה. Bearish = אדום בולע ירוק = כוח מכירה.",e:""},
+  "מגמה":{t:"מגמה (Trend)",d:"כיוון התנועה הכללי. מגמת עלייה = שיאים ותחתיות עולים. מסחר בכיוון המגמה בטוח יותר.",e:"📈 'Don't fight the trend'"},
+  "נפח":{t:"נפח מסחר (Volume)",d:"כמות המניות שנסחרו. נפח גבוה עם עלייה = קנייה אמיתית. נפח נמוך = תנועה לא משמעותית.",e:"💡 נפח פי 2 מהממוצע = תנועה משמעותית"},
+};
+
+function showTip(key){
+  const t=TERMS[key];
+  if(!t)return;
+  document.getElementById("tipTitle").textContent=t.t;
+  document.getElementById("tipDesc").textContent=t.d;
+  const ex=document.getElementById("tipEx");
+  if(t.e){ex.textContent=t.e;ex.style.display="block";}else ex.style.display="none";
+  document.getElementById("tipModal").classList.add("show");
+}
+function closeTip(e){if(e.target===document.getElementById("tipModal"))document.getElementById("tipModal").classList.remove("show");}
+function T(text,key){return `<span class="term" onclick="showTip('${key}')" title="לחץ להסבר">${text} ℹ</span>`;}
+
+// ── THEME ─────────────────────────────────────────────────
+let dark=localStorage.getItem("ts_theme")!=="light";
+function applyTheme(){document.body.classList.toggle("light",!dark);document.getElementById("themeBtn").textContent=dark?"🌙":"☀️";}
+function toggleTheme(){dark=!dark;localStorage.setItem("ts_theme",dark?"dark":"light");applyTheme();}
+applyTheme();
+
+// ── AUTOCOMPLETE ──────────────────────────────────────────
+function onInp(){
+  const v=document.getElementById("inp").value.trim().toLowerCase();
+  const ac=document.getElementById("ac");
+  if(!v){ac.style.display="none";return;}
+  const m=COS.filter(c=>c.s.toLowerCase().startsWith(v)||c.n.toLowerCase().includes(v)).slice(0,8);
+  if(!m.length){ac.style.display="none";return;}
+  ac.innerHTML=m.map(c=>`<div class="ac-row" onclick="selAC('${c.s}')"><span class="ac-s">${c.s}</span><span class="ac-n">${c.n}</span></div>`).join("");
+  ac.style.display="block";
+}
+function selAC(s){document.getElementById("inp").value=s;document.getElementById("ac").style.display="none";go();}
+function onKey(e){if(e.key==="Enter"){document.getElementById("ac").style.display="none";go();}if(e.key==="Escape")document.getElementById("ac").style.display="none";}
+document.addEventListener("click",e=>{if(!document.getElementById("sboxWrap").contains(e.target))document.getElementById("ac").style.display="none";});
+
+// ── ALERTS ────────────────────────────────────────────────
+let alerts=JSON.parse(localStorage.getItem("ts_alerts")||"[]");
+renderAlerts();
+function saveAlert(){
+  const e=document.getElementById("aEmail").value.trim();
+  const p=document.getElementById("aPhone").value.trim();
+  const s=document.getElementById("aSig").value;
+  if(!e&&!p){alert("הכנס מייל או טלפון");return;}
+  alerts.push({e,p,s,id:Date.now()});
+  localStorage.setItem("ts_alerts",JSON.stringify(alerts));
+  renderAlerts();
+  document.getElementById("aEmail").value="";
+  document.getElementById("aPhone").value="";
+}
+function removeAlert(id){alerts=alerts.filter(a=>a.id!==id);localStorage.setItem("ts_alerts",JSON.stringify(alerts));renderAlerts();}
+function renderAlerts(){
+  document.getElementById("atags").innerHTML=alerts.map(a=>`<div class="atag">${a.e?'✉ '+a.e:''}${a.e&&a.p?' · ':''}${a.p?'📱 '+a.p:''} · ${a.s==="both"?"קנייה+מכירה":a.s==="BUY"?"קנייה":"מכירה"}<span class="x" onclick="removeAlert(${a.id})">✕</span></div>`).join("");
+}
+async function fireAlert(sym,sig,price,conf){
+  alerts.forEach(a=>{
+    if(sig==="HOLD")return;
+    if(a.s!=="both"&&a.s!==sig)return;
+    if(a.e){fetch("https://formsubmit.co/ajax/"+a.e,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({_subject:`DULITRADE: ${sig==="BUY"?"קנייה":"מכירה"} על ${sym}`,מניה:sym,איתות:sig,מחיר:"$"+price,ביטחון:conf+"%",_template:"table"})}).catch(()=>{});}
+    if(a.p){window.open(`https://wa.me/${a.p}?text=${encodeURIComponent(`DULITRADE: ${sig==="BUY"?"קנייה ▲":"מכירה ▼"} על ${sym} | $${price} | ביטחון ${conf}%`)}`,"_blank");}
+  });
+}
+
+// ── API ───────────────────────────────────────────────────
+async function api(sym,ep){
+  const r=await fetch(`/api/stock?symbol=${sym}&endpoint=${ep}`);
+  return r.json();
+}
+
+// ── MACRO ─────────────────────────────────────────────────
+async function loadMacro(){
+  try{
+    const d=await api("^VIX","macro");
+    const fmt=(t,id,inv=false)=>{
+      const v=d[t];if(!v||!v.price||isNaN(v.price))return;
+      const p=+(+v.price).toFixed(2);
+      const prev=+(v.prev||0);
+      const ch=prev>0?+((v.price-prev)/prev*100).toFixed(2):0;
+      const el=document.getElementById(id);
+      if(el){
+        const color=inv?(ch>=0?"var(--red)":"var(--green)"):(ch>=0?"var(--green)":"var(--red)");
+        el.innerHTML=`<span>${p}</span> <span style="font-size:11px;color:${color}">${ch>=0?"+":""}${ch}%</span>`;
+      }
+    };
+    fmt("^VIX","vixV",true);fmt("^TNX","tnxV",true);fmt("^DXY","dxyV");fmt("^GSPC","sp5V");
+  }catch(e){}
+}
+
+// ── INDICES ───────────────────────────────────────────────
+async function loadIndices(){
+  const tickers=[["SPY","spyP","spyC"],["QQQ","qqqP","qqqC"],["DIA","diaP","diaC"],["GLD","gldP","gldC"],["TLT","tltP","tltC"]];
+  for(const [sym,pid,cid] of tickers){
+    try{
+      const q=await api(sym,"quote");
+      if(!q.c||isNaN(q.c))continue;
+      const pct=+((q.c-q.pc)/q.pc*100).toFixed(2);
+      document.getElementById(pid).textContent="$"+(+q.c).toFixed(2);
+      const cel=document.getElementById(cid);
+      cel.textContent=(pct>=0?"+":"")+pct+"%";
+      cel.className="idx-chg "+(pct>=0?"up":"dn");
+    }catch(e){}
+  }
+}
+
+// ── CANDLE CHART ──────────────────────────────────────────
+function drawCandleChart(candles){
+  const wrap=document.getElementById("chartWrap");
+  if(!wrap)return;
+  const c=candles.c||[],o=candles.o||[],h=candles.h||[],l=candles.l||[];
+  if(c.length<2){
+    wrap.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px;font-family:\'IBM Plex Mono\'">אין נתוני נרות זמינים</div>';
+    return;
+  }
+  const N=Math.min(45,c.length);
+  const cs=c.slice(-N),os=o.slice(-N),hs=h.slice(-N),ls=l.slice(-N);
+  const W=wrap.offsetWidth||700,H=220;
+  const canvas=document.createElement("canvas");
+  canvas.width=W*2;canvas.height=H*2;
+  canvas.style.width=W+"px";canvas.style.height=H+"px";
+  wrap.innerHTML="";wrap.appendChild(canvas);
+  const ctx=canvas.getContext("2d");
+  ctx.scale(2,2);
+  const minP=Math.min(...ls)*0.997,maxP=Math.max(...hs)*1.003;
+  const range=maxP-minP;
+  const toY=p=>H-12-((p-minP)/range)*(H-22);
+  const cw=Math.floor((W-10)/N);
+  const bw=Math.max(2,cw-2);
+  ctx.fillStyle=dark?"#151d2e":"#eef1f7";
+  ctx.fillRect(0,0,W,H);
+  // grid
+  for(let i=0;i<5;i++){
+    const y=12+((H-22)/4)*i;
+    ctx.strokeStyle=dark?"rgba(30,45,71,.8)":"rgba(200,210,224,.8)";
+    ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    const price=maxP-((range/4)*i);
+    ctx.fillStyle=dark?"#4a5e80":"#94a3b8";
+    ctx.font="9px 'IBM Plex Mono'";
+    ctx.fillText("$"+price.toFixed(1),3,y-2);
+  }
+  // candles
+  cs.forEach((close,i)=>{
+    const open=os[i]||close,high=hs[i]||close,low=ls[i]||close;
+    const x=5+i*cw+cw/2;
+    const bull=close>=open;
+    const color=bull?(dark?"#00d97e":"#16a34a"):(dark?"#ff4757":"#dc2626");
+    ctx.strokeStyle=color;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,toY(high));ctx.lineTo(x,toY(low));ctx.stroke();
+    const bodyTop=toY(Math.max(open,close));
+    const bodyH=Math.max(1.5,Math.abs(toY(open)-toY(close)));
+    ctx.fillStyle=color;
+    ctx.fillRect(x-bw/2,bodyTop,bw,bodyH);
+  });
+  // last price line
+  ctx.strokeStyle="rgba(255,165,0,.4)";ctx.lineWidth=0.8;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(0,toY(cs[cs.length-1]));ctx.lineTo(W,toY(cs[cs.length-1]));ctx.stroke();
+  ctx.setLineDash([]);
+  // label
+  ctx.fillStyle=dark?"rgba(0,217,126,.9)":"rgba(22,163,74,.9)";
+  ctx.font="bold 10px 'IBM Plex Mono'";
+  ctx.fillText("$"+cs[cs.length-1].toFixed(2),W-60,toY(cs[cs.length-1])-3);
+}
+
+// ── CANDLE PATTERNS ───────────────────────────────────────
+function detectPatterns(candles){
+  const c=candles.c||[],o=candles.o||[],h=candles.h||[],l=candles.l||[];
+  if(c.length<5)return[];
+  const N=c.length,patterns=[];
+  const lC=c[N-1],lO=o[N-1]||lC,lH=h[N-1]||lC,lL=l[N-1]||lC;
+  const lBody=Math.abs(lC-lO),lRange=lH-lL;
+  const pC=c[N-2],pO=o[N-2]||pC,pH=h[N-2]||pC,pL=l[N-2]||pC;
+  const pBody=Math.abs(pC-pO);
+  const lwik=Math.min(lC,lO)-lL,uwik=lH-Math.max(lC,lO);
+
+  if(lRange>0&&lBody/lRange<0.1)patterns.push({icon:"⚖️",name:"Doji",desc:"גוף נר קטן מאוד — אי-החלטיות בשוק. קונים ומוכרים בכוחות שווים. לרוב מסמן עצירה במגמה ואפשרי היפוך.",bull:null});
+  if(lwik>lBody*2&&uwik<lBody*0.5&&lC<c[N-4])patterns.push({icon:"🔨",name:"Hammer — פטיש",desc:"פתיל תחתון ארוך אחרי ירידה. קונים נכנסו בתחתית חזק. סימן חיובי להיפוך כלפי מעלה.",bull:true});
+  if(uwik>lBody*2&&lwik<lBody*0.5&&lC>c[N-4])patterns.push({icon:"🌟",name:"Shooting Star — כוכב יורד",desc:"פתיל עליון ארוך אחרי עלייה. מוכרים לחצו מהשיא. סימן שלילי — אפשרי היפוך כלפי מטה.",bull:false});
+  if(lC>lO&&pC<pO&&lC>pO&&lO<pC)patterns.push({icon:"🟢",name:"Bullish Engulfing — בליעה שורית",desc:"נר ירוק גדול בולע נר אדום קודם. קונים השתלטו לחלוטין. אחד הסימנים החיוביים החזקים.",bull:true});
+  if(lC<lO&&pC>pO&&lO>pC&&lC<pO)patterns.push({icon:"🔴",name:"Bearish Engulfing — בליעה דובית",desc:"נר אדום גדול בולע נר ירוק קודם. מוכרים השתלטו. סימן שלילי חזק — אפשרי המשך ירידה.",bull:false});
+  if(c[N-1]>o[N-1]&&c[N-2]>o[N-2]&&c[N-3]>o[N-3]&&c[N-1]>c[N-2]&&c[N-2]>c[N-3])patterns.push({icon:"🚀",name:"Three White Soldiers — 3 חיילים",desc:"שלושה נרות ירוקים עולים ברצף. מומנטום קנייה חזק מאוד. מגמת עלייה מתחזקת.",bull:true});
+  if(c[N-1]<o[N-1]&&c[N-2]<o[N-2]&&c[N-3]<o[N-3]&&c[N-1]<c[N-2]&&c[N-2]<c[N-3])patterns.push({icon:"📉",name:"Three Black Crows — 3 עורבים",desc:"שלושה נרות אדומים יורדים ברצף. מומנטום מכירה חזק. זהירות — מגמת ירידה מתחזקת.",bull:false});
+  if(N>=3&&c[N-3]<o[N-3]&&Math.abs(c[N-2]-o[N-2])<(h[N-2]-l[N-2])*0.3&&c[N-1]>o[N-1]&&c[N-1]>((o[N-3]+c[N-3])/2))patterns.push({icon:"🌅",name:"Morning Star — כוכב בוקר",desc:"נר אדום, נר קטן, נר ירוק גדול. תבנית היפוך שורי קלאסית אחרי ירידה.",bull:true});
+  if(!patterns.length)patterns.push({icon:"📊",name:"ללא תבנית ברורה",desc:`הנרות האחרונים אינם מראים תבנית ספציפית. ${c[N-1]>c[N-5]?"מגמה כללית עולה":"מגמה כללית יורדת"} ב-5 הנרות האחרונים.`,bull:null});
+  return patterns;
+}
+
+// ── TECHNICAL INDICATORS ─────────────────────────────────
+function calcIndicators(candles, quote, fhInd){
+  const c=candles.c||[],v=candles.v||[];
+  const price = quote?.c || (c.length>0?c[c.length-1]:0);
+  const prev  = quote?.pc || (c.length>1?c[c.length-2]:price);
+  const pctQ  = prev>0?(price-prev)/prev*100:0;
+
+  // נסה להשתמש באינדיקטורים מ-Finnhub אם זמינים
+  const fhTech = fhInd?.technicalAnalysis || {};
+  const fhRsi  = fhInd?.trend?.rsi || null;
+
+  // אם אין מספיק נרות — חשב מנתוני quote + Finnhub indicators
+  if(c.length<5){
+    // RSI מ-Finnhub אם זמין
+    const rsi = fhRsi || (pctQ > 2 ? 62 : pctQ > 0 ? 52 : pctQ < -2 ? 38 : 48);
+    const macdVal = fhTech?.macd || (pctQ > 0 ? 0.5 : -0.5);
+    const hi = quote?.h || price*1.01;
+    const lo = quote?.l || price*0.99;
+    const atr = +(hi - lo).toFixed(2);
+    return {
+      rsi, macdVal, macdTxt: macdVal>0?"חיובי ▲":"שלילי ▼",
+      ma50:fhTech?.sma50||price, ma200:fhTech?.sma200||price,
+      bbU:+(price*1.02).toFixed(2), bbL:+(price*0.98).toFixed(2),
+      atr: atr||+(price*0.015).toFixed(2),
+      stochRsi: rsi>60?65:rsi<40?35:50,
+      williamsR: pctQ>1?-30:pctQ<-1?-70:-50,
+      cci: pctQ*20,
+      vr:1, vLbl:"ממוצע"
+    };
+  }
+  const N=c.length;
+
+  function ema(a,n){if(!a.length)return 0;const k=2/(n+1);let e=a[0];for(let i=1;i<a.length;i++)e=a[i]*k+e*(1-k);return e;}
+  
+  // RSI
+  function rsi14(a){
+    if(a.length<15)return 50;
+    let g=0,l=0;for(let i=a.length-14;i<a.length;i++){const d=a[i]-a[i-1];d>0?g+=d:l-=d;}
+    const ag=g/14,al=l/14;return al===0?100:+(100-100/(1+ag/al)).toFixed(1);
+  }
+  const rsi=rsi14(c);
+
+  // MACD
+  const e12=ema(c,12),e26=ema(c,26),macdVal=+(e12-e26).toFixed(2);
+  const macdSig=ema(c.slice(-9),9),macdTxt=macdVal>macdSig?"חיובי ▲":"שלילי ▼";
+
+  // MA
+  const ma50=c.length>=10?+(c.slice(-Math.min(50,c.length)).reduce((a,b)=>a+b,0)/Math.min(50,c.length)).toFixed(2):c[N-1];
+  const ma200=c.length>=50?+(c.slice(-Math.min(200,c.length)).reduce((a,b)=>a+b,0)/Math.min(200,c.length)).toFixed(2):c[N-1];
+
+  // Bollinger
+  const bS=c.slice(-Math.min(20,c.length));
+  const bM=bS.reduce((a,b)=>a+b,0)/bS.length;
+  const bStd=bS.length>1?Math.sqrt(bS.reduce((a,b)=>a+(b-bM)**2,0)/bS.length):c[N-1]*0.02;
+  const bbU=+(bM+2*bStd).toFixed(2),bbL=+(bM-2*bStd).toFixed(2);
+
+  // ATR אמיתי — מחושב מ-High/Low/Close האמיתיים (14 ימים)
+  const hs=candles.h||[], ls=candles.l||[];
+  let atr;
+  if(hs.length>=2&&ls.length>=2){
+    const atrLen=Math.min(14,hs.length-1);
+    let trSum=0;
+    for(let i=N-atrLen;i<N;i++){
+      const hi=hs[i]||c[i], li=ls[i]||c[i], pc=c[i-1]||c[i];
+      const tr=Math.max(hi-li, Math.abs(hi-pc), Math.abs(li-pc));
+      trSum+=tr;
+    }
+    atr=+(trSum/atrLen).toFixed(2);
+  } else {
+    atr=+(bStd*0.5||c[N-1]*0.015).toFixed(2);
+  }
+
+  // Stochastic RSI
+  const rsiArr=[];
+  for(let i=14;i<c.length;i++){const sub=c.slice(i-14,i+1);let g=0,l=0;for(let j=1;j<sub.length;j++){const d=sub[j]-sub[j-1];d>0?g+=d:l-=d;}const ag=g/14,al=l/14;rsiArr.push(al===0?100:100-100/(1+ag/al));}
+  let stochRsi=50;
+  if(rsiArr.length>=14){const rs=rsiArr.slice(-14);const mn=Math.min(...rs),mx=Math.max(...rs);stochRsi=mx>mn?+((rsiArr[rsiArr.length-1]-mn)/(mx-mn)*100).toFixed(1):50;}
+
+  // Williams %R
+  const wLen=Math.min(14,c.length);
+  const wH=Math.max(...candles.h?.slice(-wLen)||c.slice(-wLen));
+  const wL=Math.min(...candles.l?.slice(-wLen)||c.slice(-wLen));
+  const williamsR=wH>wL?+((wH-c[N-1])/(wH-wL)*-100).toFixed(1):-50;
+
+  // CCI
+  const cLen=Math.min(20,c.length);
+  const cSlice=c.slice(-cLen);
+  const cMean=cSlice.reduce((a,b)=>a+b,0)/cLen;
+  const cMad=cSlice.reduce((a,b)=>a+Math.abs(b-cMean),0)/cLen;
+  const cci=cMad>0?+((c[N-1]-cMean)/(0.015*cMad)).toFixed(0):0;
+
+  // Volume
+  const avgVol=v.length>0?v.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,v.length):1;
+  const vr=+((v[N-1]||0)/avgVol).toFixed(1);
+  const vLbl=vr>1.3?"גבוה":vr<0.7?"נמוך":"ממוצע";
+
+  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl};
+}
+
+// ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
+function calcTargets(p){
+  const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence} = p;
+  const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
+  const isSell = sig==="SELL"||sig==="STRONG_SELL";
+  const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
+
+  // ── 1. ATR% — תנודתיות יחסית ────────────────────────────
+  // ATR מינימום = 1% מהמחיר (ריאלי לכל מניה)
+  const baseAtr = Math.max(atr||0, price*0.01);
+  const atrPct  = baseAtr / price;
+
+  // ── 2. זיהוי אסטרטגיה אוטומטית ──────────────────────────
+  const hasMomentum  = rsi<50 && macdVal>0 && vr>1.2;
+  const hasMeanRev   = rsi<35 || stochRsi<25 || price<bbL;
+  const hasBreakout  = vr>1.8 && pct>1.5 && price>ma50;
+  const hasSwing     = confluence>=5 && confluence<=7 && Math.abs(pct)<1.5;
+
+  let strategy;
+  if(hasBreakout && isBuy)      strategy = "Breakout 🚀";
+  else if(hasMeanRev && isBuy)  strategy = "Mean Reversion 🔄";
+  else if(hasMomentum && isBuy) strategy = "Momentum 📈";
+  else if(hasSwing)             strategy = "Swing 🔀";
+  else if(isSell)               strategy = "Short/Exit 📉";
+  else                          strategy = "Conservative 🛡";
+
+  // ── 3. SL — מיקום חכם לפי נרות + פרמטרים ────────────────
+  // בסיס: ATR × מכפיל בסיסי
+  let slBasePct = atrPct * 1.0; // 1 ATR כבסיס
+
+  // נרות יפניים — SL לפי תבנית
+  const lastC = (candles.c||[]).slice(-1)[0] || price;
+  const lastL = (candles.l||[]).slice(-1)[0] || price*0.99;
+  const lastH = (candles.h||[]).slice(-1)[0] || price*1.01;
+  const prevL = (candles.l||[]).slice(-2,-1)[0] || lastL;
+  const prevH = (candles.h||[]).slice(-2,-1)[0] || lastH;
+
+  let candleSL = null; // SL מדויק לפי נר
+  for(const pat of patterns){
+    if(pat.name.includes("Hammer")||pat.name.includes("Morning Star")){
+      // SL מתחת לתחתית הנר — רמת תמיכה אמיתית
+      candleSL = Math.min(lastL, prevL) * 0.998;
+      break;
+    }
+    if(pat.name.includes("Bullish Engulfing")){
+      candleSL = prevL * 0.998;
+      break;
+    }
+    if(pat.name.includes("Shooting Star")||pat.name.includes("Bearish Engulfing")){
+      candleSL = Math.max(lastH, prevH) * 1.002;
+      break;
+    }
+    if(pat.name.includes("Doji")){
+      slBasePct = atrPct * 0.6; // Doji = SL קרוב
+      break;
+    }
+  }
+
+  // מכפילי SL לפי פרמטרים
+  let slMult = 1.0;
+
+  // Confluence — גבוה = SL יותר רחוק (יותר ביטחון)
+  if(confluence>=8)      slMult *= 1.2;
+  else if(confluence>=6) slMult *= 1.0;
+  else if(confluence<=4) slMult *= 0.75; // ביטחון נמוך = SL קרוב
+
+  // רמת סיכון
+  if(risk>=70)       slMult *= 0.75;
+  else if(risk>=55)  slMult *= 0.9;
+  else if(risk<=35)  slMult *= 1.15;
+
+  // VIX — שוק פוחד = SL קרוב
+  if(vix>30)       slMult *= 0.8;
+  else if(vix>25)  slMult *= 0.9;
+
+  // Earnings — לפני דוח = SL הדוק
+  if(hasEarnings) slMult *= 0.7;
+
+  // Beta — מניה תנודתית = SL קצת יותר גדול
+  if(beta>1.5)      slMult *= 1.1;
+  else if(beta<0.8) slMult *= 0.9;
+
+  // אסטרטגיה
+  if(strategy.includes("Breakout"))      slMult *= 1.1;
+  else if(strategy.includes("Mean Rev")) slMult *= 0.85;
+  else if(strategy.includes("Momentum")) slMult *= 1.0;
+  else if(strategy.includes("Swing"))    slMult *= 0.95;
+
+  // חישוב SL סופי
+  let finalSlPct = slBasePct * slMult;
+  // גבולות: לא פחות מ-0.4% ולא יותר מ-3.5%
+  finalSlPct = Math.max(0.004, Math.min(0.035, finalSlPct));
+
+  let sl;
+  if(candleSL){
+    // השתמש ב-SL לפי נר אם הוא בטווח הגיוני
+    const candleSlPct = Math.abs(price - candleSL) / price;
+    if(candleSlPct >= 0.003 && candleSlPct <= 0.04){
+      sl = +candleSL.toFixed(2);
+    } else {
+      sl = isBuy ? +(price * (1 - finalSlPct)).toFixed(2) : +(price * (1 + finalSlPct)).toFixed(2);
+    }
+  } else {
+    sl = isBuy ? +(price * (1 - finalSlPct)).toFixed(2) : +(price * (1 + finalSlPct)).toFixed(2);
+  }
+
+  const actualSlPct = Math.abs(price - sl) / price;
+
+  // ── 4. TP — לפי תנועה ריאלית + יחס ────────────────────
+  // תנועה יומית ממוצעת של 5 ימים אחרונים
+  const recentC = (candles.c||[]).slice(-6);
+  let avgDailyMove = atrPct; // fallback
+  if(recentC.length>=2){
+    let totalMove = 0;
+    for(let i=1;i<recentC.length;i++) totalMove += Math.abs(recentC[i]-recentC[i-1])/recentC[i-1];
+    avgDailyMove = totalMove / (recentC.length-1);
+  }
+
+  // זמן החזקה צפוי לפי אסטרטגיה
+  let holdDays;
+  if(strategy.includes("Breakout"))      holdDays = 7;
+  else if(strategy.includes("Mean Rev")) holdDays = 5;
+  else if(strategy.includes("Momentum")) holdDays = 14;
+  else if(strategy.includes("Swing"))    holdDays = 10;
+  else if(strategy.includes("Short"))    holdDays = 7;
+  else                                   holdDays = 10;
+  if(isStrong) holdDays *= 1.5;
+  if(hasEarnings) holdDays = Math.min(holdDays, 5);
+
+  // תנועה צפויה = avgDailyMove × √holdDays (Random Walk)
+  let expectedMovePct = avgDailyMove * Math.sqrt(holdDays);
+
+  // מגבילים לפי Confluence
+  if(confluence>=8)      expectedMovePct *= 1.2;
+  else if(confluence>=6) expectedMovePct *= 1.0;
+  else if(confluence<=4) expectedMovePct *= 0.7;
+
+  // מגבילים לפי Bollinger — TP לא יעבור BB העליון/התחתון
+  const bbTarget = isBuy ? bbU : bbL;
+  const bbDistPct = bbTarget > 0 ? Math.abs(price - bbTarget) / price : 0.05;
+
+  // יחס סיכון/תגמול מינימלי
+  let minRR = 1.8;
+  if(confluence>=8)   minRR = 2.5;
+  else if(confluence>=6) minRR = 2.0;
+  if(risk>=70)        minRR = 1.5;
+  if(hasEarnings)     minRR = 1.5;
+
+  // TP = המקסימום מבין: תנועה צפויה ו-minRR × SL
+  const rrBasedTpPct = actualSlPct * minRR;
+  let finalTpPct = Math.max(expectedMovePct, rrBasedTpPct);
+
+  // גבולות: לא פחות מ-2% ולא יותר מ-15%
+  finalTpPct = Math.max(0.02, Math.min(0.15, finalTpPct));
+
+  const tp = isBuy
+    ? +(price * (1 + finalTpPct)).toFixed(2)
+    : +(price * (1 - finalTpPct)).toFixed(2);
+
+  // ── 5. זמן החזקה בשפה ────────────────────────────────
+  const holdingMap = {7:"1-2 שבועות", 10:"1-2 שבועות", 14:"2-3 שבועות", 21:"3-4 שבועות"};
+  const holdKey = Object.keys(holdingMap).map(Number).reduce((a,b)=>Math.abs(b-holdDays)<Math.abs(a-holdDays)?b:a);
+  const holding = holdDays <= 5 ? "3-7 ימים" : holdingMap[holdKey] || "1-2 שבועות";
+
+  // ── 6. יחס סיכון/תגמול ───────────────────────────────
+  const rrRatio = +(finalTpPct / actualSlPct).toFixed(1);
+
+  return { entry: +price.toFixed(2), tp, sl, holding, strategy, trueAtr: baseAtr, rrRatio };
+}
+
+// ── SCORING ───────────────────────────────────────────────
+function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profile, macro, earnings={}, insider={}, sector={}){
+  const price=quote.c,prev=quote.pc;
+  const pct=+((price-prev)/prev*100).toFixed(2);
+  const {rsi,macdVal,macdSig,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl}=ind;
+  const dayRange=quote.h-quote.l;
+  const posInRange=dayRange>0?(price-quote.l)/dayRange:0.5;
+
+  // ── Golden/Death Cross ───────────────────────────────
+  const closes=candles.c||[];
+  let goldenCross=false,deathCross=false,crossRecent=false;
+  if(closes.length>=10){
+    const prevMa50  = closes.length>=11 ? closes.slice(-11,-1).reduce((a,b)=>a+b,0)/10 : ma50;
+    const prevMa200 = closes.length>=51  ? closes.slice(-51,-1).reduce((a,b)=>a+b,0)/50 : ma200;
+    if(ma50>ma200 && prevMa50<=prevMa200){ goldenCross=true; crossRecent=true; }
+    if(ma50<ma200 && prevMa50>=prevMa200){ deathCross=true;  crossRecent=true; }
+  }
+
+  // ── Relative Strength vs S&P ─────────────────────────
+  // מחושב מ-% שינוי 20 ימים אחרונים
+  let relStrength=50; // ברירת מחדל — ניטרלי
+  if(closes.length>=20){
+    const stockChg20 = (closes[closes.length-1]/closes[closes.length-20]-1)*100;
+    // ערך RS: מעל 60 = חזק, מתחת 40 = חלש
+    // משווה לממוצע S&P היסטורי של ~0.5% לחודש
+    const spyBaseline = 2.0; // ציפייה ממוצעת ל-20 ימים
+    relStrength = Math.min(99, Math.max(1, Math.round(50 + (stockChg20 - spyBaseline) * 3)));
+  }
+
+  // ── Support/Resistance ───────────────────────────────
+  let support=null, resistance=null;
+  if(profile.fiftyTwoWeekLow && profile.fiftyTwoWeekHigh){
+    support    = +profile.fiftyTwoWeekLow.toFixed(2);
+    resistance = +profile.fiftyTwoWeekHigh.toFixed(2);
+    // רמות פיבונאצ'י פנימיות
+    const range = resistance - support;
+    const fib382 = +(support + range*0.382).toFixed(2);
+    const fib618 = +(support + range*0.618).toFixed(2);
+    // ציור קרוב לתמיכה/התנגדות
+    const nearSupport    = price <= support*1.03;
+    const nearResistance = price >= resistance*0.97;
+    const atFib382 = Math.abs(price-fib382)/price < 0.02;
+    const atFib618 = Math.abs(price-fib618)/price < 0.02;
+    if(nearSupport)    { /* ישמש ב-calcTargets */ }
+    if(nearResistance) { /* ישמש ב-calcTargets */ }
+  }
+
+  let techScore=0,techFactors=[];
+
+  // 1. שינוי יומי
+  if(pct>3){techScore+=3;techFactors.push({t:`עלייה חזקה +${pct}% היום`,c:"positive"});}
+  else if(pct>1){techScore+=2;techFactors.push({t:`עלייה +${pct}% היום`,c:"positive"});}
+  else if(pct>0.2){techScore+=1;techFactors.push({t:`עלייה קלה +${pct}%`,c:"positive"});}
+  else if(pct<-3){techScore-=3;techFactors.push({t:`ירידה חזקה ${pct}% היום`,c:"negative"});}
+  else if(pct<-1){techScore-=2;techFactors.push({t:`ירידה ${pct}% היום`,c:"negative"});}
+  else if(pct<-0.2){techScore-=1;techFactors.push({t:`ירידה קלה ${pct}%`,c:"negative"});}
+  else{techFactors.push({t:`שינוי זניח ${pct}%`,c:"neutral"});}
+
+  // 2. מיקום בטווח יומי
+  if(posInRange>0.75){techScore+=2;techFactors.push({t:`קרוב לשיא יומי $${+quote.h.toFixed(2)}`,c:"positive"});}
+  else if(posInRange<0.25){techScore-=2;techFactors.push({t:`קרוב לתחתית $${+quote.l.toFixed(2)}`,c:"negative"});}
+  else{techFactors.push({t:`אמצע טווח יומי`,c:"neutral"});}
+
+  // 3. RSI
+  if(rsi<30){techScore+=3;techFactors.push({t:`RSI ${rsi} — מכירת יתר`,c:"positive"});}
+  else if(rsi<45){techScore+=1;techFactors.push({t:`RSI ${rsi} — אזור קנייה`,c:"positive"});}
+  else if(rsi>75){techScore-=3;techFactors.push({t:`RSI ${rsi} — קניית יתר קיצונית`,c:"negative"});}
+  else if(rsi>65){techScore-=2;techFactors.push({t:`RSI ${rsi} — קניית יתר`,c:"negative"});}
+  else{techFactors.push({t:`RSI ${rsi} — ניטרלי`,c:"neutral"});}
+
+  // 4. Stochastic RSI
+  if(stochRsi<20){techScore+=2;techFactors.push({t:`Stoch RSI ${stochRsi} — מכירת יתר`,c:"positive"});}
+  else if(stochRsi>80){techScore-=2;techFactors.push({t:`Stoch RSI ${stochRsi} — קניית יתר`,c:"negative"});}
+  else{techFactors.push({t:`Stoch RSI ${stochRsi} — ניטרלי`,c:"neutral"});}
+
+  // 5. Williams %R
+  if(williamsR<-80){techScore+=1;techFactors.push({t:`Williams %R ${williamsR} — מכירת יתר`,c:"positive"});}
+  else if(williamsR>-20){techScore-=1;techFactors.push({t:`Williams %R ${williamsR} — קניית יתר`,c:"negative"});}
+
+  // 6. CCI
+  if(cci<-100){techScore+=1;techFactors.push({t:`CCI ${cci} — מתחת נורמה, פוטנציאל`,c:"positive"});}
+  else if(cci>100){techScore-=1;techFactors.push({t:`CCI ${cci} — מעל נורמה, זהירות`,c:"negative"});}
+
+  // 7. MACD
+  if(macdVal>0){techScore+=1;techFactors.push({t:`MACD חיובי — מומנטום עולה`,c:"positive"});}
+  else{techScore-=1;techFactors.push({t:`MACD שלילי — מומנטום יורד`,c:"negative"});}
+
+  // 8. MA
+  if(price>ma50&&ma50>ma200){techScore+=2;techFactors.push({t:`מחיר > MA50 > MA200 — מגמה עולה חזקה`,c:"positive"});}
+  else if(price>ma50){techScore+=1;techFactors.push({t:`מחיר מעל MA50 $${ma50}`,c:"positive"});}
+  else if(price<ma50&&ma50<ma200){techScore-=2;techFactors.push({t:`מחיר < MA50 < MA200 — מגמה יורדת`,c:"negative"});}
+  else{techScore-=1;techFactors.push({t:`מחיר מתחת MA50 $${ma50}`,c:"negative"});}
+
+  // 9. Bollinger
+  if(price<bbL){techScore+=2;techFactors.push({t:`מתחת לבולינג'ר תחתון $${bbL}`,c:"positive"});}
+  else if(price>bbU){techScore-=2;techFactors.push({t:`מעל בולינג'ר עליון $${bbU}`,c:"negative"});}
+
+  // 10. נפח
+  if(vr>1.5&&pct>0){techScore+=1;techFactors.push({t:`נפח גבוה (${vr}x) עם עלייה`,c:"positive"});}
+  else if(vr>1.5&&pct<0){techScore-=1;techFactors.push({t:`נפח גבוה (${vr}x) עם ירידה`,c:"negative"});}
+
+  // 11. נרות יפניים
+  const bullPatterns=patterns.filter(p=>p.bull===true);
+  const bearPatterns=patterns.filter(p=>p.bull===false);
+  bullPatterns.forEach(p=>{techScore+=2;techFactors.push({t:`נר: ${p.name} — סימן חיובי`,c:"positive"});});
+  bearPatterns.forEach(p=>{techScore-=2;techFactors.push({t:`נר: ${p.name} — סימן שלילי`,c:"negative"});});
+
+  // 12. Golden/Death Cross
+  if(goldenCross){
+    techScore+=crossRecent?4:2;
+    techFactors.push({t:`✨ Golden Cross! MA50 חצה מעל MA200 — אות שורי חזק מאוד`,c:"positive"});
+  } else if(deathCross){
+    techScore-=(crossRecent?4:2);
+    techFactors.push({t:`💀 Death Cross! MA50 חצה מתחת MA200 — אות דובי חזק`,c:"negative"});
+  } else if(ma50>ma200){
+    techFactors.push({t:`MA50 ($${ma50}) מעל MA200 ($${ma200}) — מגמה שורית`,c:"positive"});
+  } else if(ma50<ma200){
+    techFactors.push({t:`MA50 ($${ma50}) מתחת MA200 ($${ma200}) — מגמה דובית`,c:"negative"});
+  }
+
+  // 13. Relative Strength
+  if(relStrength>=70){
+    techScore+=2;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מניה חזקה מהשוק`,c:"positive"});
+  } else if(relStrength>=55){
+    techScore+=1;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מעל ממוצע`,c:"positive"});
+  } else if(relStrength<=30){
+    techScore-=2;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מניה חלשה מהשוק`,c:"negative"});
+  } else if(relStrength<=45){
+    techScore-=1;
+    techFactors.push({t:`Relative Strength ${relStrength}/99 — מתחת ממוצע`,c:"negative"});
+  }
+
+  // 14. Support/Resistance
+  if(support && resistance){
+    const distFromSupport    = (price-support)/price;
+    const distFromResistance = (resistance-price)/price;
+    if(distFromSupport<0.03){
+      techScore+=2;
+      techFactors.push({t:`קרוב לתמיכה $${support} — הזדמנות כניסה`,c:"positive"});
+    } else if(distFromResistance<0.03){
+      techScore-=2;
+      techFactors.push({t:`קרוב להתנגדות $${resistance} — סיכון לתיקון`,c:"negative"});
+    } else {
+      techFactors.push({t:`תמיכה $${support} | התנגדות $${resistance}`,c:"neutral"});
+    }
+  }
+
+  const maxTech=34; // הגדלנו את המקסימום בגלל האינדיקטורים החדשים
+  // techScore נע בין -maxTech ל-+maxTech. ממיר ל-0-100
+  const techScoreNorm=Math.max(0,Math.min(100,Math.round(50+(techScore/maxTech)*50)));
+
+  // ── FUNDAMENTAL SCORE ──────────────────────────────────
+  let fundScore=0,fundFactors=[];
+
+  // צמיחה
+  if(profile.revenueGrowth!=null){
+    if(profile.revenueGrowth>0.3){fundScore+=3;fundFactors.push({t:`צמיחת הכנסות ${(profile.revenueGrowth*100).toFixed(1)}% — מצוין`,c:"positive"});}
+    else if(profile.revenueGrowth>0.1){fundScore+=2;fundFactors.push({t:`צמיחת הכנסות ${(profile.revenueGrowth*100).toFixed(1)}% — טוב`,c:"positive"});}
+    else if(profile.revenueGrowth>0){fundScore+=1;fundFactors.push({t:`צמיחת הכנסות ${(profile.revenueGrowth*100).toFixed(1)}%`,c:"neutral"});}
+    else{fundScore-=2;fundFactors.push({t:`הכנסות יורדות ${(profile.revenueGrowth*100).toFixed(1)}%`,c:"negative"});}
+  }
+  if(profile.earningsGrowth!=null){
+    if(profile.earningsGrowth>0.2){fundScore+=2;fundFactors.push({t:`צמיחת רווחים ${(profile.earningsGrowth*100).toFixed(1)}%`,c:"positive"});}
+    else if(profile.earningsGrowth<0){fundScore-=2;fundFactors.push({t:`רווחים יורדים ${(profile.earningsGrowth*100).toFixed(1)}%`,c:"negative"});}
+  }
+
+  // רווחיות
+  if(profile.profitMargin!=null){
+    if(profile.profitMargin>0.2){fundScore+=2;fundFactors.push({t:`מרווח רווח ${(profile.profitMargin*100).toFixed(1)}% — חזק`,c:"positive"});}
+    else if(profile.profitMargin>0.05){fundScore+=1;fundFactors.push({t:`מרווח רווח ${(profile.profitMargin*100).toFixed(1)}%`,c:"neutral"});}
+    else if(profile.profitMargin<0){fundScore-=2;fundFactors.push({t:`הפסד — מרווח שלילי`,c:"negative"});}
+  }
+  if(profile.roe!=null){
+    if(profile.roe>0.2){fundScore+=2;fundFactors.push({t:`ROE ${(profile.roe*100).toFixed(1)}% — מצוין`,c:"positive"});}
+    else if(profile.roe>0.1){fundScore+=1;fundFactors.push({t:`ROE ${(profile.roe*100).toFixed(1)}%`,c:"neutral"});}
+    else if(profile.roe<0){fundScore-=1;fundFactors.push({t:`ROE שלילי`,c:"negative"});}
+  }
+
+  // תמחור
+  if(profile.pe!=null){
+    if(profile.pe<15){fundScore+=2;fundFactors.push({t:`P/E ${profile.pe.toFixed(1)} — מניה זולה`,c:"positive"});}
+    else if(profile.pe<25){fundScore+=1;fundFactors.push({t:`P/E ${profile.pe.toFixed(1)} — סביר`,c:"neutral"});}
+    else if(profile.pe>50){fundScore-=2;fundFactors.push({t:`P/E ${profile.pe.toFixed(1)} — יקר מאוד`,c:"negative"});}
+    else{fundFactors.push({t:`P/E ${profile.pe.toFixed(1)}`,c:"neutral"});}
+  }
+  if(profile.targetMeanPrice!=null&&profile.targetMeanPrice>0){
+    const upside=(profile.targetMeanPrice-price)/price;
+    if(upside>0.2){fundScore+=3;fundFactors.push({t:`אנליסטים: יעד $${profile.targetMeanPrice.toFixed(0)} (+${(upside*100).toFixed(0)}%)`,c:"positive"});}
+    else if(upside>0.05){fundScore+=1;fundFactors.push({t:`אנליסטים: יעד $${profile.targetMeanPrice.toFixed(0)} (+${(upside*100).toFixed(0)}%)`,c:"positive"});}
+    else if(upside<0){fundScore-=2;fundFactors.push({t:`אנליסטים: יעד מתחת למחיר`,c:"negative"});}
+  }
+
+  // סיכון פונדמנטלי
+  if(profile.debtToEquity!=null){
+    if(profile.debtToEquity<0.5){fundScore+=1;fundFactors.push({t:`חוב נמוך D/E ${profile.debtToEquity.toFixed(2)}`,c:"positive"});}
+    else if(profile.debtToEquity>2){fundScore-=2;fundFactors.push({t:`חוב גבוה D/E ${profile.debtToEquity.toFixed(2)}`,c:"negative"});}
+  }
+  if(profile.currentRatio!=null){
+    if(profile.currentRatio>2){fundScore+=1;fundFactors.push({t:`נזילות גבוהה CR ${profile.currentRatio.toFixed(1)}`,c:"positive"});}
+    else if(profile.currentRatio<1){fundScore-=2;fundFactors.push({t:`נזילות נמוכה CR ${profile.currentRatio.toFixed(1)}`,c:"negative"});}
+  }
+
+  // ── Earnings Surprise ──────────────────────────────────
+  if(earnings?.available){
+    if(earnings.surprise>10){
+      fundScore+=4;
+      fundFactors.push({t:`🎯 Earnings Surprise +${earnings.surprise.toFixed(1)}% — הפתיע לטובה!`,c:"positive"});
+    } else if(earnings.surprise>2){
+      fundScore+=2;
+      fundFactors.push({t:`Earnings Surprise +${earnings.surprise.toFixed(1)}% — מעל ציפיות`,c:"positive"});
+    } else if(earnings.surprise<-10){
+      fundScore-=4;
+      fundFactors.push({t:`⚠ Earnings Surprise ${earnings.surprise.toFixed(1)}% — איכזב מאוד`,c:"negative"});
+    } else if(earnings.surprise<-2){
+      fundScore-=2;
+      fundFactors.push({t:`Earnings Surprise ${earnings.surprise.toFixed(1)}% — מתחת ציפיות`,c:"negative"});
+    }
+  }
+
+  // ── Insider Buying ─────────────────────────────────────
+  if(insider?.available){
+    if(insider.net>=3){
+      fundScore+=4;
+      fundFactors.push({t:`🏦 Insider Buying! ${insider.buys} קניות מנהלים לאחרונה`,c:"positive"});
+    } else if(insider.net>=1){
+      fundScore+=2;
+      fundFactors.push({t:`Insider Buying: ${insider.buys} קניות vs ${insider.sells} מכירות`,c:"positive"});
+    } else if(insider.net<=-3){
+      fundScore-=3;
+      fundFactors.push({t:`⚠ Insider Selling: ${insider.sells} מכירות מנהלים`,c:"negative"});
+    } else if(insider.net<=-1){
+      fundScore-=1;
+      fundFactors.push({t:`Insider Selling: ${insider.sells} מכירות vs ${insider.buys} קניות`,c:"negative"});
+    }
+  }
+
+  const maxFund=26; // הגדלנו בגלל earnings+insider
+  const fundScoreNorm=Math.max(0,Math.min(100,Math.round(50+(fundScore/maxFund)*50)));
+
+  // ── NEWS SENTIMENT SCORE ───────────────────────────────
+  const allNews=[
+    ...(Array.isArray(extNewsArr)?extNewsArr:[]),
+    ...(Array.isArray(newsArr)?newsArr:[]).map(n=>({source:"Yahoo Finance",sentiment:n.headline?.match(/beat|surge|rise|gain|strong|record|buy|upgrade|rally/i)?"positive":n.headline?.match(/miss|drop|fall|loss|weak|sell|warn|cut|downgrade|crash/i)?"negative":"neutral",title:n.headline,url:n.url}))
+  ];
+  const posNews=allNews.filter(n=>n.sentiment==="positive").length;
+  const negNews=allNews.filter(n=>n.sentiment==="negative").length;
+  const totalNews=allNews.length;
+  const newsBalance=posNews-negNews;
+  const newsScoreNorm=Math.max(0,Math.min(100,Math.round(50+(newsBalance/(Math.max(totalNews,1)))*50)));
+
+  // ── MACRO SCORE ────────────────────────────────────────
+  let macroScore=50;
+  if(macro){
+    const vix=macro["^VIX"]?.price||20;
+    const tnx=macro["^TNX"]?.price||4;
+    if(vix<15)macroScore+=15;
+    else if(vix>30)macroScore-=15;
+    else if(vix>25)macroScore-=8;
+    if(tnx<3.5)macroScore+=10;
+    else if(tnx>5)macroScore-=10;
+  }
+
+  // ── Sector Rotation ────────────────────────────────────
+  if(sector?.available){
+    if(sector.leading){
+      macroScore+=10;
+    } else if(sector.lagging){
+      macroScore-=10;
+    }
+  }
+
+  macroScore=Math.max(0,Math.min(100,macroScore));
+
+  // ── TOTAL SCORE ────────────────────────────────────────
+  const totalScore=Math.round(techScoreNorm*0.35+fundScoreNorm*0.30+newsScoreNorm*0.20+macroScore*0.15);
+
+  // ── SIGNAL ─────────────────────────────────────────────
+  // סף נמוך יותר + שינוי יומי כ-tiebreaker כשהנתונים חלקיים
+  let sig,sigLabel,pillCls;
+  if(totalScore>=72){sig="STRONG_BUY";sigLabel="קנייה חזקה ▲▲";pillCls="psbuy";}
+  else if(totalScore>=55||(totalScore>=48&&pct>1)){sig="BUY";sigLabel="קנייה ▲";pillCls="pbuy";}
+  else if(totalScore<=28){sig="STRONG_SELL";sigLabel="מכירה חזקה ▼▼";pillCls="pssell";}
+  else if(totalScore<=45||(totalScore<=52&&pct<-1)){sig="SELL";sigLabel="מכירה ▼";pillCls="psell";}
+  else{sig="HOLD";sigLabel="המתן ◆";pillCls="phold";}
+
+  // ── RISK ───────────────────────────────────────────────
+  let risk=50;
+  if(rsi>70)risk+=15;if(rsi<30)risk-=10;
+  if(Math.abs(pct)>4)risk+=10;
+  if(negNews>posNews+2)risk+=15;
+  if(vr>2&&pct<0)risk+=10;
+  if(price>ma50)risk-=5;
+  if(profile.beta!=null){if(profile.beta>1.5)risk+=10;else if(profile.beta<0.8)risk-=8;}
+  if(profile.debtToEquity!=null&&profile.debtToEquity>2)risk+=8;
+  if(totalScore>=70)risk-=10;
+  risk=Math.max(10,Math.min(90,risk));
+
+  // ── TARGETS — חישוב חכם לפי כל הפרמטרים ──────────────
+  const targets = calcTargets({
+    price, atr, sig, risk, totalScore,
+    rsi, stochRsi, williamsR, cci, macdVal,
+    ma50, ma200, bbU, bbL, vr, vLbl, pct,
+    patterns, candles,
+    beta: profile.beta,
+    hasEarnings: checkEarnings(sym||""),
+    vix: macro?.["^VIX"]?.price || 20,
+    confluence: (() => {
+      const c = calcConfluence(
+        {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
+        pct, patterns, posNews, negNews, totalNews
+      );
+      return c.score;
+    })(),
+  });
+  const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
+  const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
+  const slPct=+(((sl-entry)/entry)*100).toFixed(1);
+
+  return{
+    sig,sigLabel,pillCls,
+    totalScore,techScoreNorm,fundScoreNorm,newsScoreNorm,macroScore,
+    risk,pct,price:+safeN(price).toFixed(2),
+    high:+safeN(quote.h,price).toFixed(2),low:+safeN(quote.l,price).toFixed(2),
+    entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
+    rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
+    techFactors,fundFactors,allNews,posNews,negNews,totalNews,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,
+    trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
+  };
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}){
+  const d=scores;
+  const p=profile;
+  const chDir=d.pct>=0?"up":"dn",chS=d.pct>=0?"+":"";
+  const rsiCls=d.rsi>70?"dn":d.rsi<30?"up":"warn";
+  const riskColor=d.risk<35?"var(--green)":d.risk<60?"var(--amber)":"var(--red)";
+  const riskLbl=d.risk<35?"נמוך ✓":d.risk<60?"בינוני":"גבוה ⚠";
+  const warnHtml=d.risk>=65?`<div class="rwarn">⚠ ${T("רמת סיכון","סיכון")} גבוהה (${d.risk}/100) — לא מומלץ להיכנס עכשיו. המתן לאיתות חזק יותר.</div>`:"";
+
+  // ── Confluence ──────────────────────────────────────────
+  const conf = calcConfluence(
+    {rsi:d.rsi,stochRsi:d.stochRsi,williamsR:d.williamsR,cci:d.cci,macdVal:d.macdVal,
+     ma50:d.ma50,ma200:d.ma200,bbU:d.bbU,bbL:d.bbL,vr:d.vr,vLbl:d.vLbl},
+    d.pct, patterns, d.posNews, d.negNews, d.totalNews
+  );
+  const confHtml = renderConfluenceHtml(conf, d.sig);
+
+  // ── Earnings Warning ────────────────────────────────────
+  const hasEarnings = checkEarnings(sym);
+  const earningsHtml = hasEarnings ? `<div class="earnings-warn">⚠️ <strong>דוח רווחים צפוי בקרוב!</strong> — הסיכון גבוה לפני דוח. שקול להמתין לאחר הפרסום לפני כניסה לעסקה.</div>` : "";
+
+  // ── Trailing Stop ───────────────────────────────────────
+  const ts = calcTrailingStop(d.price, d.atr, d.sig);
+  const trailingHtml = (d.sig==="BUY"||d.sig==="STRONG_BUY") ? renderTrailingHtml(ts, d.price) : "";
+
+  // ── Position Sizing ─────────────────────────────────────
+  const posHtml = renderPositionHtml(d.price, d.sl);
+
+  // ── Historical Signals ──────────────────────────────────
+  const histHtml = renderHistoryHtml(sym);
+
+  // ── הסבר נרות ──────────────────────────────────────────
+  const bullP=patterns.find(p=>p.bull===true),bearP=patterns.find(p=>p.bull===false);
+  let candleExplain="";
+  const isBuy=d.sig==="BUY"||d.sig==="STRONG_BUY";
+  const isSell=d.sig==="SELL"||d.sig==="STRONG_SELL";
+  if(isBuy){
+    candleExplain=`<div class="candle-explain">
+      <h4>🕯 ניתוח הגרף — למה לקנות?</h4>
+      <p>${bullP?`זוהתה תבנית <strong>${bullP.name}</strong> — ${bullP.desc}`:"הנרות האחרונים מראים כוח קנייה מתגבר."}</p>
+      <p>המחיר ${d.price>d.ma50?`<strong>מעל ${T("MA50","MA50")} ($${d.ma50})</strong> — מגמה חיובית`:`מתקרב ל-${T("MA50","MA50")} ($${d.ma50}) ועשוי לקפוץ ממנו`}.
+      ${T("RSI","RSI")} ${d.rsi} ${d.rsi<45?"— אזור קנייה, יש מקום לעלות":d.rsi<65?"— ניטרלי":"— גבוה, שים לב לקניית יתר"}.
+      ${T("Stochastic RSI","Stochastic")} ${d.stochRsi} ${d.stochRsi<30?"— מכירת יתר = הזדמנות":""}.
+      </p>
+      <p>כניסה: <strong>$${d.entry}</strong> · ${T("יעד רווח","יעד רווח")}: <strong style="color:var(--green)">$${d.tp} (+${d.tpPct}%)</strong> · ${T("עצירת הפסד","עצירת הפסד")}: <strong style="color:var(--red)">$${d.sl} (${d.slPct}%)</strong> · יחס ${T("סיכון/תגמול","יעד רווח")} 1:${d.rrRatio}</p>
+    </div>`;
+  }else if(isSell){
+    candleExplain=`<div class="candle-explain" style="border-color:var(--red)">
+      <h4 style="color:var(--red)">🕯 ניתוח הגרף — למה למכור?</h4>
+      <p>${bearP?`זוהתה תבנית <strong>${bearP.name}</strong> — ${bearP.desc}`:"הנרות האחרונים מראים לחץ מכירה מתגבר."}</p>
+      <p>המחיר ${d.price<d.ma50?`<strong>מתחת ל-${T("MA50","MA50")} ($${d.ma50})</strong> — מגמה שלילית`:`עשוי לשבור את ${T("MA50","MA50")} ($${d.ma50}) כלפי מטה`}.
+      ${T("RSI","RSI")} ${d.rsi} ${d.rsi>65?"— קניית יתר, סיכון לתיקון":d.rsi>50?"— מומנטום מתחלש":"— מומנטום יורד"}.
+      </p>
+      <p>יציאה: <strong>$${d.entry}</strong> · יעד: <strong style="color:var(--green)">$${d.tp} (${d.tpPct}%)</strong> · ${T("עצירת הפסד","עצירת הפסד")}: <strong style="color:var(--red)">$${d.sl}</strong></p>
+    </div>`;
+  }else{
+    candleExplain=`<div class="candle-explain" style="border-color:var(--amber)">
+      <h4 style="color:var(--amber)">🕯 ניתוח הגרף — למה להמתין?</h4>
+      <p>${patterns[0]?`תבנית: <strong>${patterns[0].name}</strong> — ${patterns[0].desc}`:"הנרות אינם מראים כיוון ברור."}</p>
+      <p>${T("RSI","RSI")} ${d.rsi}, ${T("Stochastic RSI","Stochastic")} ${d.stochRsi}, ${T("MACD","MACD")} ${d.macdTxt} — אין הסכמה בין האינדיקטורים. המתן לאיתות ברור יותר.</p>
+    </div>`;
+  }
+
+  // ── נתונים פונדמנטליים ─────────────────────────────────
+  const fmt=(v,sfx="",mult=1)=>v!=null?+(v*mult).toFixed(1)+sfx:"—";
+  const fmtPct=(v)=>v!=null?(v>0?"+":"")+((v*100).toFixed(1))+"%":"—";
+  const fmtColor=(v,good,bad)=>{if(v==null)return"var(--text2)";if(v>good)return"var(--green)";if(v<bad)return"var(--red)";return"var(--amber)";};
+
+  // בדוק אם נתונים חסרים
+  const missingCount = [p.revenueGrowth,p.profitMargin,p.pe,p.roe,p.debtToEquity].filter(v=>v==null).length;
+  const missingNotice = missingCount >= 3 ? `
+    <div style="background:var(--adim);border:1px solid var(--amber);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span>⚠ חלק מהנתונים הפונדמנטליים אינם זמינים כרגע — Yahoo Finance הגביל את הגישה.</span>
+      <a href="https://finance.yahoo.com/quote/${sym}/financials" target="_blank" 
+         style="color:var(--blue);text-decoration:none;font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap">
+        לצפייה בנתונים מלאים ↗
+      </a>
+    </div>` : "";
+
+  const fundHtml=`
+    ${missingNotice}
+    <div class="fund-grid">
+      <div class="fund-card">
+        <div class="fund-card-title">📈 צמיחה</div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('RevenueGrowth')">${T("צמיחת הכנסות","RevenueGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.revenueGrowth,0.15,-0.05)}">${fmtPct(p.revenueGrowth)}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('EarningsGrowth')">${T("צמיחת רווחים","EarningsGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.earningsGrowth,0.1,-0.05)}">${fmtPct(p.earningsGrowth)}</span></div>
+        <div class="fund-row"><span class="fund-key">יעד אנליסטים</span><span class="fund-val" style="color:${p.targetMeanPrice>d.price?"var(--green)":"var(--red)"}">${p.targetMeanPrice?"$"+p.targetMeanPrice.toFixed(0)+" ("+((p.targetMeanPrice-d.price)/d.price*100).toFixed(0)+"%)":"—"}</span></div>
+        <div class="fund-row"><span class="fund-key">המלצה</span><span class="fund-val" style="color:${p.recommendationKey?.includes("buy")?"var(--green)":p.recommendationKey?.includes("sell")?"var(--red)":"var(--amber)"}">${p.recommendationKey?.replace("strong_buy","קנייה חזקה").replace("buy","קנייה").replace("hold","המתן").replace("sell","מכירה").replace("strong_sell","מכירה חזקה")||"—"}</span></div>
+      </div>
+      <div class="fund-card">
+        <div class="fund-card-title">💰 רווחיות</div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('ProfitMargin')">${T("מרווח רווח נקי","ProfitMargin")}</span><span class="fund-val" style="color:${fmtColor(p.profitMargin,0.15,0)}">${fmtPct(p.profitMargin)}</span></div>
+        <div class="fund-row"><span class="fund-key">מרווח תפעולי</span><span class="fund-val" style="color:${fmtColor(p.operatingMargin,0.15,0)}">${fmtPct(p.operatingMargin)}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('ROE')">${T("ROE — תשואה על הון","ROE")}</span><span class="fund-val" style="color:${fmtColor(p.roe,0.15,0)}">${fmtPct(p.roe)}</span></div>
+        <div class="fund-row"><span class="fund-key">ROA</span><span class="fund-val" style="color:${fmtColor(p.roa,0.05,0)}">${fmtPct(p.roa)}</span></div>
+      </div>
+      <div class="fund-card">
+        <div class="fund-card-title">🏷️ תמחור</div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('PE')">${T("P/E מכפיל רווח","PE")}</span><span class="fund-val" style="color:${p.pe?p.pe<20?"var(--green)":p.pe>40?"var(--red)":"var(--amber)":"var(--text2)"}">${p.pe?p.pe.toFixed(1):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('PE')">P/E קדמי</span><span class="fund-val">${p.forwardPE?p.forwardPE.toFixed(1):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('PB')">${T("P/B מכפיל ספרים","PB")}</span><span class="fund-val" style="color:${fmtColor(p.pb?1/p.pb:null,0.5,0.1)}">${p.pb?p.pb.toFixed(2):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('PS')">${T("P/S מכפיל מכירות","PS")}</span><span class="fund-val">${p.ps?p.ps.toFixed(2):"—"}</span></div>
+      </div>
+      <div class="fund-card">
+        <div class="fund-card-title">⚠️ סיכון פיננסי</div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('DebtEquity')">${T("Debt/Equity חוב","DebtEquity")}</span><span class="fund-val" style="color:${p.debtToEquity?p.debtToEquity<0.5?"var(--green)":p.debtToEquity>2?"var(--red)":"var(--amber)":"var(--text2)"}">${p.debtToEquity?p.debtToEquity.toFixed(2):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('CurrentRatio')">${T("Current Ratio נזילות","CurrentRatio")}</span><span class="fund-val" style="color:${p.currentRatio?p.currentRatio>1.5?"var(--green)":p.currentRatio<1?"var(--red)":"var(--amber)":"var(--text2)"}">${p.currentRatio?p.currentRatio.toFixed(2):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('Beta')">${T("Beta — תנודתיות","Beta")}</span><span class="fund-val" style="color:${p.beta?p.beta<1?"var(--green)":p.beta>1.5?"var(--red)":"var(--amber)":"var(--text2)"}">${p.beta?p.beta.toFixed(2):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('ShortRatio')">${T("Short Ratio","ShortRatio")}</span><span class="fund-val" style="color:${p.shortRatio?p.shortRatio>10?"var(--red)":p.shortRatio<3?"var(--green)":"var(--amber)":"var(--text2)"}">${p.shortRatio?p.shortRatio.toFixed(1):"—"}</span></div>
+      </div>
+    </div>`;
+
+  // ── השוואה למתחרות ─────────────────────────────────────
+  let compHtml="";
+  if(competitors&&competitors.length){
+    const allRows=[{symbol:sym,name:p.name||sym,price:d.price,changePct:d.pct,pe:p.pe,pb:p.pb,revenueGrowth:p.revenueGrowth,profitMargin:p.profitMargin,beta:p.beta,marketCap:p.marketCapitalization?p.marketCapitalization/1000:null},...competitors];
+    compHtml=`
+      <div class="stitle">השוואה למתחרות <span class="info-icon" onclick="showTip('PE')">ℹ</span></div>
+      <div style="overflow-x:auto;margin-bottom:1.25rem;">
+      <table class="comp-table">
+        <thead><tr>
+          <th>מניה</th>
+          <th onclick="showTip('PE')">P/E ℹ</th>
+          <th onclick="showTip('RevenueGrowth')">צמיחה ℹ</th>
+          <th onclick="showTip('ProfitMargin')">מרווח ℹ</th>
+          <th onclick="showTip('Beta')">Beta ℹ</th>
+          <th>שינוי היום</th>
+          <th>שווי שוק</th>
+        </tr></thead>
+        <tbody>
+        ${allRows.map((c,i)=>`<tr class="${i===0?"highlight":""}">
+          <td>${i===0?"★ ":""}<span onclick="q('${c.symbol}')" style="cursor:pointer">${c.symbol}</span><br><span style="font-size:10px;color:var(--text3)">${(c.name||"").slice(0,15)}</span></td>
+          <td style="color:${c.pe?c.pe<20?"var(--green)":c.pe>40?"var(--red)":"var(--amber)":"var(--text3)"}">${c.pe?c.pe.toFixed(1):"—"}</td>
+          <td style="color:${c.revenueGrowth!=null?c.revenueGrowth>0.1?"var(--green)":c.revenueGrowth<0?"var(--red)":"var(--amber)":"var(--text3)"}">${c.revenueGrowth!=null?(c.revenueGrowth>0?"+":"")+((c.revenueGrowth||0)*100).toFixed(1)+"%":"—"}</td>
+          <td style="color:${c.profitMargin!=null?c.profitMargin>0.1?"var(--green)":c.profitMargin<0?"var(--red)":"var(--amber)":"var(--text3)"}">${c.profitMargin!=null?((c.profitMargin||0)*100).toFixed(1)+"%":"—"}</td>
+          <td style="color:${c.beta?c.beta<1?"var(--green)":c.beta>1.5?"var(--red)":"var(--amber)":"var(--text3)"}">${c.beta?c.beta.toFixed(2):"—"}</td>
+          <td style="color:${c.changePct>=0?"var(--green)":"var(--red)"}">${(c.changePct>=0?"+":"")+c.changePct}%</td>
+          <td>${c.marketCap?"$"+c.marketCap.toFixed(0)+"B":"—"}</td>
+        </tr>`).join("")}
+        </tbody>
+      </table></div>`;
+  }
+
+  // ── חדשות ──────────────────────────────────────────────
+  const srcColor=s=>s==="CNBC"?"#0057a8":s==="MarketWatch"?"#1a7f3c":s==="Investing.com"?"#e84142":"#6001d2";
+  const nHtml=d.allNews.filter(n=>n.title||n.headline).length?`
+    <div class="stitle">${T("סנטימנט","סנטימנט")} חדשות — ${d.totalNews} כתבות · ${d.posNews} חיוביות · ${d.negNews} שליליות</div>
+    ${d.allNews.filter(n=>n.title||n.headline).map(n=>{
+      const c2=n.sentiment==="positive"?"var(--green)":n.sentiment==="negative"?"var(--red)":"var(--amber)";
+      const src=n.source||"Yahoo Finance";
+      return `<div class="news-item">
+        <div class="nbar" style="background:${c2};opacity:.7;"></div>
+        <div style="flex:1;">
+          <div class="ntop"><span class="nsrc-badge" style="background:${srcColor(src)}">${src}</span><span class="nsent">${n.sentiment==="positive"?"↑ חיובי":n.sentiment==="negative"?"↓ שלילי":"→ נייטרלי"}</span></div>
+          <a href="${n.url||"#"}" target="_blank" class="ntitle">${n.title||n.headline||""}</a>
+        </div>
+      </div>`;
+    }).join("")}`:"";
+
+  // ── גורמים טכניים ──────────────────────────────────────
+  const fHtml=d.techFactors.map(f=>{
+    const c2=f.c==="positive"?"var(--green)":f.c==="negative"?"var(--red)":"var(--amber)";
+    let txt=f.t
+      .replace(/RSI \d+/,t=>T(t,"RSI"))
+      .replace(/MACD/g,T("MACD","MACD"))
+      .replace(/Stoch RSI/g,T("Stoch RSI","Stochastic"))
+      .replace(/Williams/g,T("Williams %R","Williams"))
+      .replace(/CCI/g,T("CCI","CCI"))
+      .replace(/נר: /g,"נר: ");
+    return `<div class="factor"><div class="fdot" style="background:${c2}"></div><span>${txt}</span></div>`;
+  }).join("");
+
+  const fundFHtml=d.fundFactors.map(f=>{
+    const c2=f.c==="positive"?"var(--green)":f.c==="negative"?"var(--red)":"var(--amber)";
+    return `<div class="factor"><div class="fdot" style="background:${c2}"></div><span>${f.t}</span></div>`;
+  }).join("");
+
+  // ── אינדיקטורים חדשים — ללא nested backticks ────────────
+  function srCard(){
+    if(!d.support||!d.resistance) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const pct = (((d.price-d.support)/(d.resistance-d.support))*100).toFixed(0);
+    return '<div style="font-size:12px;font-family:\'IBM Plex Mono\',monospace"><span style="color:var(--green)">▼ $'+d.support+'</span> <span style="color:var(--text3)">|</span> <span style="color:var(--red)">▲ $'+d.resistance+'</span></div><div style="font-size:11px;color:var(--text3)">מחיר נוכחי '+pct+'% בטווח</div>';
+  }
+  function sectorCard(){
+    if(!sector||!sector.available) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const col = sector.leading?"var(--green)":sector.lagging?"var(--red)":"var(--amber)";
+    const lbl = sector.leading?"מוביל ▲":sector.lagging?"פגור ▼":"ניטרלי";
+    const spySign = sector.spyChg1M>0?"+":"";
+    const etfSign = sector.etfChg1M>0?"+":"";
+    return '<div style="font-size:12px;font-weight:600;color:'+col+'">'+sector.etf+' '+lbl+'</div><div style="font-size:11px;color:var(--text3)">'+sector.etf+': '+etfSign+sector.etfChg1M+'% | S&P: '+spySign+sector.spyChg1M+'% (חודש)</div>';
+  }
+  function earningsCard(){
+    if(!earnings||!earnings.available) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const col = earnings.surprise>2?"var(--green)":earnings.surprise<-2?"var(--red)":"var(--amber)";
+    const sign = earnings.surprise>0?"+":"";
+    return '<div style="font-size:15px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:'+col+'">'+sign+earnings.surprise.toFixed(1)+'%</div><div style="font-size:11px;color:var(--text3)">רבעון '+(earnings.quarter||"אחרון")+'</div>';
+  }
+  function insiderCard(){
+    if(!insider||!insider.available) return '<div style="font-size:12px;color:var(--text3)">לא זמין</div>';
+    const col = insider.net>0?"var(--green)":insider.net<0?"var(--red)":"var(--amber)";
+    const lbl = insider.net>0?"קנייה 🏦":"מכירה ⚠";
+    const nm = (insider.transactions&&insider.transactions[0])?insider.transactions[0].name||"":"";
+    const dt = (insider.transactions&&insider.transactions[0])?insider.transactions[0].date||"":"";
+    return '<div style="font-size:13px;font-weight:600;color:'+col+'">'+lbl+' '+insider.buys+'↑ '+insider.sells+'↓</div><div style="font-size:11px;color:var(--text3)">'+nm+' '+dt+'</div>';
+  }
+
+  const gcColor = d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--border)";
+  const gcText  = d.goldenCross?"✨ Golden Cross!":d.deathCross?"💀 Death Cross!":d.ma50>d.ma200?"MA50 > MA200 ↑":"MA50 < MA200 ↓";
+  const gcColor2= d.goldenCross?"var(--green)":d.deathCross?"var(--red)":"var(--text2)";
+  const rsColor = d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--border)";
+  const rsColor2= d.relStrength>=65?"var(--green)":d.relStrength<=35?"var(--red)":"var(--amber)";
+  const rsText  = d.relStrength>=65?"חזקה מהשוק ▲":d.relStrength<=35?"חלשה מהשוק ▼":"ממוצע";
+  const secBorder= (sector&&sector.available)?(sector.leading?"var(--green)":sector.lagging?"var(--red)":"var(--border)"):"var(--border)";
+  const earBorder= (earnings&&earnings.available)?(earnings.surprise>2?"var(--green)":earnings.surprise<-2?"var(--red)":"var(--border)"):"var(--border)";
+  const insBorder= (insider&&insider.available)?(insider.net>0?"var(--green)":insider.net<0?"var(--red)":"var(--border)"):"var(--border)";
+
+  const newIndicatorsHtml = '<div class="stitle">אינדיקטורים מתקדמים</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:1.25rem;">'
+    + '<div style="background:var(--bg3);border:1px solid '+gcColor+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Golden/Death Cross</div>'
+    +   '<div style="font-size:13px;font-weight:600;color:'+gcColor2+'">'+gcText+'</div>'
+    +   '<div style="font-size:11px;color:var(--text3)">MA50 $'+d.ma50+' | MA200 $'+d.ma200+'</div>'
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+rsColor+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Relative Strength vs S&P</div>'
+    +   '<div style="font-size:18px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:'+rsColor2+'">'+d.relStrength+'/99</div>'
+    +   '<div style="font-size:11px;color:var(--text3)">'+rsText+'</div>'
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">תמיכה / התנגדות (52W)</div>'
+    +   srCard()
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+secBorder+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Sector Rotation</div>'
+    +   sectorCard()
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+earBorder+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Earnings Surprise</div>'
+    +   earningsCard()
+    + '</div>'
+    + '<div style="background:var(--bg3);border:1px solid '+insBorder+';border-radius:8px;padding:10px 12px;">'
+    +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Insider Transactions</div>'
+    +   insiderCard()
+    + '</div>'
+    + '</div>';
+
+  const patternsHtml=patterns.length?`
+    <div class="candle-analysis">
+      <h4>🕯 תבניות נרות יפניים שזוהו</h4>
+      ${patterns.map(pt=>`<div class="pattern"><span class="pattern-icon">${pt.icon}</span><div><strong style="cursor:pointer;border-bottom:1px dashed var(--text3)" onclick="showTip('${pt.name.includes("Hammer")?"Hammer":pt.name.includes("Engulfing")?"Engulfing":pt.name.includes("Doji")?"Doji":"מגמה"}')">${pt.name}</strong><br><span style="font-size:12px;color:var(--text2)">${pt.desc}</span></div></div>`).join("")}
+    </div>`:"";
+
+  // ── HTML ───────────────────────────────────────────────
+  document.getElementById("out").innerHTML=`
+  <div class="card">
+    <div class="chead">
+      <div>
+        <div class="csym">${sym}</div>
+        <div class="cname">${p.name||sym} · ${p.sector||"—"} · ${p.industry||"—"}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+          <div class="rbadge"><div class="dot" style="width:5px;height:5px;flex-shrink:0"></div>נתוני Yahoo Finance · ${d.totalNews} כתבות</div>
+          ${(()=>{const ms=lastMarketStatus||getMarketStatus();return ms.status!=="open"?`<div class="rbadge" style="color:${ms.color};background:${ms.bg};border-color:${ms.color}">${ms.label}</div>`:"";})()}
+        </div>
+        ${(()=>{const ms=lastMarketStatus||getMarketStatus();return ms.warning?`<div style="font-size:10px;color:var(--amber);margin-top:4px;line-height:1.4">${ms.warning}</div>`:"";})()}
+      </div>
+      <div class="siga">
+        <div class="pill ${d.pillCls}">${d.sigLabel}</div>
+        <div class="cconf">${T("ציון כולל","ביטחון")}: ${d.totalScore}/100</div>
+        <div class="cconf">שווי שוק: ${p.marketCapitalization?"$"+(p.marketCapitalization/1000).toFixed(1)+"B":"—"}</div>
+        ${p.fiftyTwoWeekLow&&p.fiftyTwoWeekHigh?`<div class="cconf" style="font-size:10px">52W: $${p.fiftyTwoWeekLow.toFixed(0)}–$${p.fiftyTwoWeekHigh.toFixed(0)}</div>`:""}
+      </div>
+    </div>
+
+    <div class="score-summary">
+      <div class="score-cell">
+        <div class="score-lbl" onclick="showTip('RSI')">ניתוח טכני ℹ</div>
+        <div class="score-val" style="color:${d.techScoreNorm>=60?"var(--green)":d.techScoreNorm<=40?"var(--red)":"var(--amber)"}">${d.techScoreNorm}</div>
+        <div class="score-sub">מ-100 | משקל 35%</div>
+      </div>
+      <div class="score-cell">
+        <div class="score-lbl" onclick="showTip('PE')">פונדמנטלי ℹ</div>
+        <div class="score-val" style="color:${d.fundScoreNorm>=60?"var(--green)":d.fundScoreNorm<=40?"var(--red)":"var(--amber)"}">${d.fundScoreNorm}</div>
+        <div class="score-sub">מ-100 | משקל 30%</div>
+      </div>
+      <div class="score-cell">
+        <div class="score-lbl" onclick="showTip('סנטימנט')">סנטימנט חדשות ℹ</div>
+        <div class="score-val" style="color:${d.newsScoreNorm>=60?"var(--green)":d.newsScoreNorm<=40?"var(--red)":"var(--amber)"}">${d.newsScoreNorm}</div>
+        <div class="score-sub">מ-100 | משקל 20%</div>
+      </div>
+      <div class="score-cell">
+        <div class="score-lbl" onclick="showTip('VIX')">מאקרו ℹ</div>
+        <div class="score-val" style="color:${d.macroScore>=60?"var(--green)":d.macroScore<=40?"var(--red)":"var(--amber)"}">${d.macroScore}</div>
+        <div class="score-sub">מ-100 | משקל 15%</div>
+      </div>
+    </div>
+
+    <div class="risk-strip">
+      <div class="rlbl" onclick="showTip('סיכון')">${T("סיכון","סיכון")} ℹ</div>
+      <div class="rtrack"><div class="rfill" style="width:${d.risk}%;background:${riskColor}"></div></div>
+      <div class="rval" style="color:${riskColor}">${riskLbl} (${d.risk}/100)</div>
+    </div>
+
+    ${confHtml}
+    ${earningsHtml}
+    ${warnHtml}
+
+    <div class="metrics">
+      <div class="metric"><div class="mlbl">מחיר</div><div class="mval">$${d.price}</div></div>
+      <div class="metric"><div class="mlbl">שינוי יומי</div><div class="mval ${chDir}">${chS}${d.pct}%</div></div>
+      <div class="metric"><div class="mlbl" onclick="showTip('RSI')">${T("RSI(14)","RSI")}</div><div class="mval ${rsiCls}">${d.rsi}</div></div>
+      <div class="metric"><div class="mlbl" onclick="showTip('MACD')">${T("MACD","MACD")}</div><div class="mval" style="font-size:12px;color:${d.macdVal>0?"var(--green)":"var(--red)"}">${d.macdTxt}</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="mlbl" onclick="showTip('Stochastic')">${T("Stoch RSI","Stochastic")}</div><div class="mval ${d.stochRsi>80?"dn":d.stochRsi<20?"up":"warn"}">${d.stochRsi}</div></div>
+      <div class="metric"><div class="mlbl" onclick="showTip('Williams')">${T("Williams %R","Williams")}</div><div class="mval ${d.williamsR>-20?"dn":d.williamsR<-80?"up":"warn"}">${d.williamsR}</div></div>
+      <div class="metric"><div class="mlbl" onclick="showTip('CCI')">${T("CCI","CCI")}</div><div class="mval ${d.cci>100?"dn":d.cci<-100?"up":"warn"}">${d.cci}</div></div>
+      <div class="metric"><div class="mlbl" onclick="showTip('ATR')">${T("ATR","ATR")}</div><div class="mval warn">$${d.atr}</div></div>
+    </div>
+
+    <div class="cbody">
+      <div class="hbar">
+        <span style="font-size:22px">⏱</span>
+        <div><div class="hlbl">זמן החזקה מומלץ</div><div class="hval">${d.holding}</div></div>
+        <div>
+          <div class="hlbl">אסטרטגיה</div>
+          <div class="hval" style="font-size:13px;color:var(--blue)">${d.strategy||"—"}</div>
+        </div>
+        <div style="margin-right:auto;text-align:left">
+          <div class="hlbl">יחס סיכון/תגמול</div>
+          <div class="hval" style="color:${d.rrRatio>=2.5?"var(--green)":d.rrRatio>=1.5?"var(--amber)":"var(--red)"}">1:${d.rrRatio}</div>
+        </div>
+      </div>
+
+      <div class="stitle">${T("יעדי מחיר","יעד רווח")} <span class="info-icon" onclick="showTip('ATR')">ℹ</span></div>
+      <div class="targets">
+        <div class="tbox"><div class="tlbl">כניסה</div><div class="tval en">$${d.entry}</div><div class="tpct" style="color:var(--text3)">מחיר נוכחי</div></div>
+        <div class="tbox"><div class="tlbl" onclick="showTip('יעד רווח')">${T("יעד רווח","יעד רווח")}</div><div class="tval tp">$${d.tp}</div><div class="tpct" style="color:var(--green)">+${d.tpPct}%</div></div>
+        <div class="tbox"><div class="tlbl" onclick="showTip('עצירת הפסד')">${T("עצירת הפסד","עצירת הפסד")}</div><div class="tval sl">$${d.sl}</div><div class="tpct" style="color:var(--red)">${d.slPct}%</div></div>
+      </div>
+
+      <div class="stitle">אינדיקטורים מתקדמים</div>
+      <div class="targets" style="grid-template-columns:repeat(4,1fr)">
+        <div class="tbox"><div class="tlbl" onclick="showTip('MA50')">${T("MA50","MA50")}</div><div class="tval en" style="font-size:12px">$${d.ma50}</div></div>
+        <div class="tbox"><div class="tlbl" onclick="showTip('MA200')">${T("MA200","MA200")}</div><div class="tval en" style="font-size:12px">$${d.ma200}</div></div>
+        <div class="tbox"><div class="tlbl" onclick="showTip('Bollinger')">BB עליון ℹ</div><div class="tval tp" style="font-size:12px">$${d.bbU}</div></div>
+        <div class="tbox"><div class="tlbl" onclick="showTip('Bollinger')">BB תחתון ℹ</div><div class="tval sl" style="font-size:12px">$${d.bbL}</div></div>
+      </div>
+      ${p.fiftyTwoWeekLow?`<div class="targets" style="grid-template-columns:repeat(4,1fr)">
+        <div class="tbox"><div class="tlbl">שיא 52 שבוע</div><div class="tval tp" style="font-size:12px">$${p.fiftyTwoWeekHigh?.toFixed(0)||"—"}</div></div>
+        <div class="tbox"><div class="tlbl">שפל 52 שבוע</div><div class="tval sl" style="font-size:12px">$${p.fiftyTwoWeekLow?.toFixed(0)||"—"}</div></div>
+        <div class="tbox"><div class="tlbl">מרחק מהשיא</div><div class="tval" style="font-size:12px;color:var(--red)">${p.fiftyTwoWeekHigh?((d.price/p.fiftyTwoWeekHigh-1)*100).toFixed(1)+"%":"—"}</div></div>
+        <div class="tbox"><div class="tlbl">מרחק מהשפל</div><div class="tval" style="font-size:12px;color:var(--green)">${p.fiftyTwoWeekLow?((d.price/p.fiftyTwoWeekLow-1)*100).toFixed(1)+"%":"—"}</div></div>
+      </div>`:""}
+
+      <div class="stitle">נרות יפניים — 90 ימים <span id="candleUpdateTime" style="font-size:10px;color:var(--text3);font-weight:normal;margin-right:8px"></span><span class="info-icon" onclick="showTip('Doji')">ℹ</span></div>
+      <div class="chart-wrap" id="chartWrap" style="height:220px;"></div>
+
+      ${candleExplain}
+      ${newIndicatorsHtml}
+      ${trailingHtml}
+      ${posHtml}
+      ${patternsHtml}
+
+      <div class="stitle">ניתוח טכני — ${d.trend} <span class="info-icon" onclick="showTip('מגמה')">ℹ</span></div>
+      <div class="atxt">${sym} נסחרת ב-$${d.price} (${chS}${d.pct}%). ${T("RSI","RSI")} ${d.rsi} · ${T("MACD","MACD")} ${d.macdTxt} · ${T("Stoch RSI","Stochastic")} ${d.stochRsi} · ${T("Williams","Williams")} ${d.williamsR} · ${T("CCI","CCI")} ${d.cci}. ${T("MA50","MA50")} $${d.ma50} | ${T("MA200","MA200")} $${d.ma200}. ${T("ATR","ATR")} $${d.atr}. ${T("נפח","נפח")} ${d.vLbl} (${d.vr}x). ${d.trend}.</div>
+
+      <div class="stitle">גורמים טכניים (${d.techFactors.length})</div>
+      <div class="factors">${fHtml}</div>
+
+      <div class="stitle">ניתוח פונדמנטלי</div>
+      ${fundHtml}
+
+      ${d.fundFactors.length?`<div class="stitle">גורמים פונדמנטליים (${d.fundFactors.length})</div><div class="factors">${fundFHtml}</div>`:""}
+
+      ${compHtml}
+
+      ${nHtml}
+
+      ${histHtml}
+
+      <div class="links">
+        <a class="lnk" href="https://finance.yahoo.com/quote/${sym}" target="_blank">Yahoo Finance ↗</a>
+        <a class="lnk" href="https://www.guynatan.com" target="_blank">guynatan.com ↗</a>
+        <a class="lnk" href="https://www.cnbc.com/quotes/${sym}" target="_blank">CNBC ↗</a>
+        <a class="lnk" href="https://www.marketwatch.com/investing/stock/${sym.toLowerCase()}" target="_blank">MarketWatch ↗</a>
+        <a class="lnk" href="https://www.investing.com/search/?q=${sym}" target="_blank">Investing.com ↗</a>
+      </div>
+    </div>
+  </div>`;
+
+  setTimeout(()=>{
+    const wrap=document.getElementById("chartWrap");
+    if(wrap){
+      drawCandleChart(candles);
+      // הפעל רענון אוטומטי כל 30 דקות
+      startCandleRefresh(sym, candles);
+      // עדכן זמן
+      const timeEl=document.getElementById("candleUpdateTime");
+      if(timeEl) timeEl.textContent="עודכן: "+new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+    }
+  },200);
+}
+
+// ── MAIN ──────────────────────────────────────────────────
+function q(s){document.getElementById("inp").value=s;go();}
+
+async function go(){
+  let raw=document.getElementById("inp").value.trim();
+  const match=COS.find(c=>c.n.toLowerCase().includes(raw.toLowerCase())&&raw.length>2);
+  const sym=(match?match.s:raw).toUpperCase().replace(/[^A-Z.^]/g,"");
+  if(!sym)return;
+  document.getElementById("inp").value=sym;
+  document.getElementById("ac").style.display="none";
+  const btn=document.getElementById("abtn");
+  btn.disabled=true;btn.textContent="מנתח...";
+  // עצור רענון נרות של מניה קודמת
+  currentSym = null;
+  document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
+  try{
+    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators]=await Promise.all([
+      api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
+      api(sym,"news"),api(sym,"extnews"),
+      api(sym,"competitors"),api(sym,"macro"),
+      api(sym,"earnings"),api(sym,"insider"),
+      api(sym,"indicators")
+    ]);
+    const sector = profile.sector && profile.sector!=="—"
+      ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
+      : {};
+    if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
+    const ind=calcIndicators(candles, quote, fhIndicators);
+    const patterns=detectPatterns(candles);
+    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro,earnings,insider,sector);
+    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector);
+    saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
+    fireAlert(sym,scores.sig,scores.price,scores.totalScore);
+  }catch(e){
+    document.getElementById("out").innerHTML=`<div class="errmsg">⚠ ${e.message}</div>`;
+  }
+  btn.disabled=false;btn.textContent="נתח ←";
+}
+
+// ── WATCHLIST ─────────────────────────────────────────────
+let watchlist = JSON.parse(localStorage.getItem("dt_wl")||"[]");
+renderWL();
+
+function addWL(){
+  const v=document.getElementById("wlInp").value.trim().toUpperCase().replace(/[^A-Z.]/g,"");
+  if(!v||watchlist.includes(v)||watchlist.length>=10)return;
+  watchlist.push(v);
+  localStorage.setItem("dt_wl",JSON.stringify(watchlist));
+  document.getElementById("wlInp").value="";
+  renderWL();
+  refreshWLCard(v);
+}
+
+function removeWL(sym){
+  watchlist=watchlist.filter(s=>s!==sym);
+  localStorage.setItem("dt_wl",JSON.stringify(watchlist));
+  renderWL();
+}
+
+function renderWL(){
+  document.getElementById("wlCount").textContent=watchlist.length+"/10";
+  if(!watchlist.length){
+    document.getElementById("wlGrid").innerHTML=`<div style="font-size:12px;color:var(--text3);font-family:'IBM Plex Mono',monospace">הוסף מניות למעקב ↑</div>`;
+    return;
+  }
+  document.getElementById("wlGrid").innerHTML=watchlist.map(s=>`
+    <div class="wl-card" id="wlc-${s}" onclick="q('${s}')">
+      <button class="wl-rm" onclick="event.stopPropagation();removeWL('${s}')">✕</button>
+      <div class="wl-sym">${s}</div>
+      <div class="wl-price" id="wlp-${s}">טוען...</div>
+      <div class="wl-sig" id="wls-${s}">—</div>
+    </div>`).join("");
+}
+
+async function refreshWLCard(sym){
+  try{
+    const [quote,candles,profile]=await Promise.all([api(sym,"quote"),api(sym,"candle"),api(sym,"profile")]);
+    if(!quote.c||isNaN(quote.c))return;
+    const ind=calcIndicators(candles, quote, {});
+    const patterns=detectPatterns(candles);
+    const scores=scoreAll(sym,quote,candles,ind,patterns,[],[],profile,null);
+    const pct=quote.pc>0?+((quote.c-quote.pc)/quote.pc*100).toFixed(2):0;
+    const sigColor=s=>s==="STRONG_BUY"||s==="BUY"?"var(--green)":s==="SELL"||s==="STRONG_SELL"?"var(--red)":"var(--amber)";
+    const sigLbl=s=>s==="STRONG_BUY"?"קנייה חזקה":s==="BUY"?"קנייה":s==="SELL"?"מכירה":s==="STRONG_SELL"?"מכירה חזקה":"המתן";
+    const pp=document.getElementById("wlp-"+sym);
+    const ps=document.getElementById("wls-"+sym);
+    if(pp) pp.innerHTML=`$${(+quote.c).toFixed(2)} <span style="color:${pct>=0?"var(--green)":"var(--red)"}">${pct>=0?"+":""}${pct}%</span>`;
+    if(ps) ps.innerHTML=`<span style="color:${sigColor(scores.sig)}">${sigLbl(scores.sig)}</span>`;
+  }catch(e){}
+}
+
+function refreshAllWL(){ watchlist.forEach(refreshWLCard); }
+
+// ── SIGNAL HISTORY ────────────────────────────────────────
+function saveHistory(sym, sig, price, score){
+  const key="dt_hist_"+sym;
+  const hist=JSON.parse(localStorage.getItem(key)||"[]");
+  hist.unshift({sig,price,score,date:new Date().toLocaleDateString("he-IL")});
+  localStorage.setItem(key,JSON.stringify(hist.slice(0,5)));
+}
+
+function getHistory(sym){
+  return JSON.parse(localStorage.getItem("dt_hist_"+sym)||"[]");
+}
+
+// ── CONFLUENCE SCORE ──────────────────────────────────────
+// ── EARNINGS CALENDAR ─────────────────────────────────────
+// רשימה סטטית של תאריכי דוחות קרובים (מתעדכנת ידנית)
+const EARNINGS_SOON = ["NVDA","META","GOOGL","MSFT","AMZN","AAPL","TSLA","AMD","NFLX","COIN","PLTR","SOFI"];
+function checkEarnings(sym){
+  // בדיקה אם המניה צפויה לדוח בשבועיים הקרובים
+  return EARNINGS_SOON.includes(sym.toUpperCase());
+}
+
+// ── POSITION SIZING ───────────────────────────────────────
+function calcPositionSize(price, sl, portfolioSize){
+  if(!portfolioSize||portfolioSize<=0)return null;
+  const riskPct = 0.02; // מסכן 2% מהתיק בכל עסקה
+  const riskAmount = portfolioSize * riskPct;
+  const slDist = Math.abs(price - sl);
+  if(slDist <= 0)return null;
+  const shares = Math.floor(riskAmount / slDist);
+  const totalInvest = shares * price;
+  const portfolioPct = (totalInvest / portfolioSize * 100).toFixed(1);
+  return {shares, totalInvest:+totalInvest.toFixed(0), portfolioPct, riskAmount:+riskAmount.toFixed(0)};
+}
+
+// ── PORTFOLIO SIZE ────────────────────────────────────────
+let portfolioSize = +localStorage.getItem("dt_portfolio") || 0;
+function savePortfolio(){
+  const v = +document.getElementById("portfolioInput").value;
+  portfolioSize = v;
+  localStorage.setItem("dt_portfolio", v);
+  document.getElementById("portfolioDisplay").textContent = v > 0 ? `✓ $${v.toLocaleString()} נשמר` : "";
+}
+// load saved
+window.addEventListener("DOMContentLoaded", ()=>{
+  if(portfolioSize > 0){
+    const el = document.getElementById("portfolioInput");
+    if(el) el.value = portfolioSize;
+    document.getElementById("portfolioDisplay").textContent = `✓ $${portfolioSize.toLocaleString()} נשמר`;
+  }
+});
+
+// ── HISTORICAL SIGNALS ────────────────────────────────────
+function saveSignalHistory(sym, sig, price, score){
+  const key = "dt_hist_" + sym;
+  const hist = JSON.parse(localStorage.getItem(key) || "[]");
+  hist.unshift({
+    sig, price, score,
+    date: new Date().toLocaleDateString("he-IL"),
+    time: new Date().toLocaleTimeString("he-IL", {hour:"2-digit", minute:"2-digit"})
+  });
+  localStorage.setItem(key, JSON.stringify(hist.slice(0, 5)));
+}
+function getSignalHistory(sym){
+  return JSON.parse(localStorage.getItem("dt_hist_" + sym) || "[]");
+}
+function renderHistoryHtml(sym){
+  const hist = getSignalHistory(sym);
+  if(!hist.length) return "";
+  const sigColor = s => s.includes("BUY") ? "var(--green)" : s.includes("SELL") ? "var(--red)" : "var(--amber)";
+  const sigHe = s => s==="STRONG_BUY"?"קנייה חזקה ▲▲":s==="BUY"?"קנייה ▲":s==="STRONG_SELL"?"מכירה חזקה ▼▼":s==="SELL"?"מכירה ▼":"המתן ◆";
+  return `<div class="hist-section">
+    <div class="hist-title">📋 היסטוריית איתותים — ${sym} (5 אחרונים)</div>
+    ${hist.map((h,i)=>`<div class="hist-row">
+      <span style="color:${sigColor(h.sig)}">${sigHe(h.sig)}</span>
+      <span>$${h.price}</span>
+      <span style="color:var(--text3)">ציון: ${h.score}</span>
+      <span style="color:var(--text3)">${h.date} ${h.time}</span>
+      ${i===0?"<span style='color:var(--amber);font-size:10px'>← עכשיו</span>":""}
+    </div>`).join("")}
+  </div>`;
+}
+
+// ── CONFLUENCE SCORE ──────────────────────────────────────
+function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
+  const {rsi, stochRsi, williamsR, cci, macdVal, ma50, ma200, bbU, bbL, vr, vLbl} = ind;
+  // כל אינדיקטור מצביע: +1=קנייה, -1=מכירה, 0=ניטרלי
+  const signals = [
+    {name:"RSI",          v: rsi<40?1:rsi>65?-1:0},
+    {name:"Stoch RSI",    v: stochRsi<25?1:stochRsi>75?-1:0},
+    {name:"Williams %R",  v: williamsR<-75?1:williamsR>-25?-1:0},
+    {name:"CCI",          v: cci<-80?1:cci>80?-1:0},
+    {name:"MACD",         v: macdVal>0?1:-1},
+    {name:"MA50/200",     v: ma50>ma200?1:ma50<ma200?-1:0},
+    {name:"בולינג'ר",     v: bbL>0?(rsi<40&&cci<0?1:rsi>65&&cci>0?-1:0):0},
+    {name:"נפח",          v: vr>1.5&&pct>0?1:vr>1.5&&pct<0?-1:0},
+    {name:"נרות יפניים",  v: patterns.some(p=>p.bull===true)?1:patterns.some(p=>p.bull===false)?-1:0},
+    {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0},
+  ];
+  const bulls = signals.filter(s=>s.v===1);
+  const bears = signals.filter(s=>s.v===-1);
+  const neutral = signals.filter(s=>s.v===0);
+  // ציון 0-10
+  const score = bulls.length;
+  return { score, bulls, bears, neutral, total: signals.length };
+}
+
+function renderConfluenceHtml(conf, sig){
+  const pct = (conf.score / conf.total * 100).toFixed(0);
+  const color = conf.score >= 7 ? "var(--green)" : conf.score >= 5 ? "var(--amber)" : "var(--red)";
+  const label = conf.score >= 7 ? "הסכמה גבוהה ✓" : conf.score >= 5 ? "הסכמה חלקית" : "הסכמה נמוכה ⚠";
+  const rec = conf.score < 6 ? `<div style="font-size:11px;color:var(--amber);margin-top:8px">⚠ Confluence ${conf.score}/10 — המתן לאישור נוסף לפני כניסה.</div>` : "";
+
+  // מציג רק שמות קצרים — ירוק=מסכים, אדום=לא מסכים, אפור=ניטרלי
+  const allDots = [
+    ...conf.bulls.map(s=>`<span class="conf-dot agree">▲ ${s.name}</span>`),
+    ...conf.bears.map(s=>`<span class="conf-dot disagree">▼ ${s.name}</span>`),
+    ...conf.neutral.map(s=>`<span class="conf-dot">— ${s.name}</span>`),
+  ].join("");
+
+  return `<div class="confluence-bar">
+    <div class="conf-title">
+      <span style="cursor:pointer" onclick="showTip('Confluence')">🎯 Confluence ℹ</span>
+      <span class="conf-score" style="color:${color}">${conf.score}/10 — ${label}</span>
+    </div>
+    <div class="conf-track"><div class="conf-fill" style="width:${pct}%;background:${color}"></div></div>
+    <div class="conf-dots">${allDots}</div>
+    ${rec}
+  </div>`;
+}
+
+// ── TRAILING STOP ─────────────────────────────────────────
+function calcTrailingStop(price, atr, sig){
+  // Trailing Stop = 1.5 ATR מתחת לשיא (לקנייה) או מעל לשפל (למכירה)
+  const isBuy = sig==="BUY"||sig==="STRONG_BUY";
+  const ts = isBuy ? +(price - atr * 1.5).toFixed(2) : +(price + atr * 1.5).toFixed(2);
+  const tsPct = +((Math.abs(price - ts) / price) * 100).toFixed(1);
+  return { ts, tsPct, isBuy };
+}
+
+function renderTrailingHtml(ts, price){
+  return `<div class="trailing-box">
+    <span style="font-size:18px">📈</span>
+    <div>
+      <div class="trailing-lbl" style="cursor:pointer" onclick="showTip('TrailingStop')">Trailing Stop ℹ — זז עם המחיר</div>
+      <div class="trailing-val">$${ts.ts} <span style="font-size:11px;color:var(--text3)">(${ts.tsPct}% מהמחיר הנוכחי)</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-right:auto;max-width:300px;line-height:1.5">
+      אם המניה עולה ל-$${(price*1.03).toFixed(2)}, ה-Trailing Stop יזוז ל-$${(price*1.03-ts.ts+price).toFixed(2)}.
+      מגן על רווחים אוטומטית.
+    </div>
+  </div>`;
+}
+
+// ── POSITION SIZING RENDER ────────────────────────────────
+function renderPositionHtml(price, sl){
+  const ps = calcPositionSize(price, sl, portfolioSize);
+  if(!ps) return `<div class="pos-size-box">
+    <div class="pos-size-title">💼 Position Sizing — הכנס גודל תיק למעלה לחישוב</div>
+  </div>`;
+  return `<div class="pos-size-box">
+    <div class="pos-size-title" style="cursor:pointer" onclick="showTip('PositionSize')">💼 Position Sizing — כמה להשקיע? ℹ (2% סיכון מהתיק)</div>
+    <div class="pos-result">
+      <div class="pos-cell"><div class="pos-lbl">מספר מניות</div><div class="pos-val">${ps.shares.toLocaleString()}</div></div>
+      <div class="pos-cell"><div class="pos-lbl">השקעה כוללת</div><div class="pos-val">$${ps.totalInvest.toLocaleString()}</div></div>
+      <div class="pos-cell"><div class="pos-lbl">% מהתיק</div><div class="pos-val">${ps.portfolioPct}%</div></div>
+      <div class="pos-cell"><div class="pos-lbl">סיכון מקסימלי</div><div class="pos-val" style="color:var(--red)">$${ps.riskAmount.toLocaleString()}</div></div>
+    </div>
+  </div>`;
+}
+
+// ── SCANNER ENGINE ────────────────────────────────────────
+const SCAN_LIST = [
+  "AAPL","NVDA","TSLA","MSFT","AMZN","META","GOOGL","AMD",
+  "NFLX","COIN","PLTR","SOFI","TEVA","CHKP","MNDY","WIX",
+  "V","MA","JPM","DIS","UBER","INTC","PYPL","BAC","GS",
+  "QCOM","CRM","SNAP","HOOD","AMGN","PANW","CRWD","NOW","SHOP"
+];
+
+let scannerRunning = false;
+let lastScanResults = [];
+let scanInterval = null;
+
+// ── CANDLE AUTO-REFRESH ───────────────────────────────────
+let currentSym = null;
+let lastCandleTime = 0;
+let candleRefreshInterval = null;
+
+function startCandleRefresh(sym, candles){
+  currentSym = sym;
+  lastCandleTime = Date.now();
+
+  // עצור interval קודם אם קיים
+  if(candleRefreshInterval) clearInterval(candleRefreshInterval);
+
+  // בדוק כל 30 דקות אם צריך לרענן
+  candleRefreshInterval = setInterval(async ()=>{
+    // רק אם אותה מניה עדיין מוצגת
+    if(currentSym !== sym) return;
+    const wrap = document.getElementById("chartWrap");
+    if(!wrap) return;
+
+    try{
+      const newCandles = await api(sym, "candle");
+      if(newCandles.c && newCandles.c.length > 0){
+        lastCandleTime = Date.now();
+        drawCandleChart(newCandles);
+        // עדכן תגית זמן
+        const timeEl = document.getElementById("candleUpdateTime");
+        if(timeEl) timeEl.textContent = "עודכן: " + new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+      }
+    }catch(e){}
+  }, 30 * 60 * 1000); // 30 דקות
+}
+
+async function runScanner(auto=false){
+  if(scannerRunning) return;
+  scannerRunning = true;
+
+  const btn = document.getElementById("scanBtn");
+  const status = document.getElementById("scanStatus");
+  const grid = document.getElementById("scanGrid");
+  const progress = document.getElementById("scanProgress");
+  const fill = document.getElementById("scanFill");
+
+  btn.disabled = true;
+  btn.textContent = "⏳ סורק...";
+  progress.style.display = "block";
+  fill.style.width = "0%";
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>סורק ${SCAN_LIST.length} מניות...</div>`;
+
+  const results = [];
+  const BATCH = 4; // 4 מניות במקביל
+
+  for(let i = 0; i < SCAN_LIST.length; i += BATCH){
+    const batch = SCAN_LIST.slice(i, i+BATCH);
+    const pct = Math.round((i/SCAN_LIST.length)*100);
+    fill.style.width = pct + "%";
+    status.textContent = `סורק ${i+1}-${Math.min(i+BATCH,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
+
+    await Promise.allSettled(batch.map(async sym => {
+      try {
+        const [quote, candles, profile] = await Promise.all([
+          api(sym,"quote"), api(sym,"candle"), api(sym,"profile")
+        ]);
+        if(!quote.c || quote.c === 0) return;
+
+        const ind = calcIndicators(candles, quote, {});
+        const patterns = detectPatterns(candles);
+        const scores = scoreAll(sym, quote, candles, ind, patterns, [], [], profile, null);
+
+        // חישוב Confluence
+        const conf = calcConfluence(
+          {rsi:ind.rsi,stochRsi:ind.stochRsi,williamsR:ind.williamsR,cci:ind.cci,
+           macdVal:ind.macdVal,ma50:ind.ma50,ma200:ind.ma200,bbU:ind.bbU,bbL:ind.bbL,vr:ind.vr,vLbl:ind.vLbl},
+          scores.pct, patterns, 0, 0, 0
+        );
+
+        // קריטריונים לעסקה מעולה
+        const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
+        const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
+        if(!isBuy && !isSell) return; // HOLD — לא מעניין
+
+        const passConfluence = conf.score >= 6;
+        const passRisk       = scores.risk < 55;
+        const passRR         = scores.rrRatio >= 1.8;
+        const passScore      = scores.totalScore >= 54;
+        const passRSI        = scores.rsi >= 25 && scores.rsi <= 72;
+
+        // חייב לעבור לפחות 3 מתוך 5 קריטריונים
+        const passed = [passConfluence, passRisk, passRR, passScore, passRSI].filter(Boolean).length;
+        if(passed < 3) return;
+
+        // תגיות
+        const tags = [];
+        if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"🔥 HOT",cls:"hot"});
+        if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
+        if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
+        if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
+        if(conf.score >= 8) tags.push({t:`✓ Conf ${conf.score}/10`,cls:"mom"});
+
+        // סיבה עיקרית
+        const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
+        const reason = topFactor?.t || scores.trend;
+
+        results.push({
+          sym, price: quote.c, pct: scores.pct,
+          sig: scores.sig, sigLabel: scores.sigLabel,
+          score: scores.totalScore, risk: scores.risk,
+          rrRatio: scores.rrRatio, conf: conf.score,
+          rsi: ind.rsi, tags, reason, passed,
+          name: profile.name || sym,
+        });
+      } catch(e){}
+    }));
+
+    // הצג תוצאות ביניים
+    if(results.length > 0) renderScanResults([...results]);
+  }
+
+  // מיון סופי — לפי ציון × confluence × R/R
+  results.sort((a,b)=>{
+    const scoreA = a.score * 0.4 + a.conf * 5 * 0.3 + a.rrRatio * 10 * 0.3;
+    const scoreB = b.score * 0.4 + b.conf * 5 * 0.3 + b.rrRatio * 10 * 0.3;
+    return scoreB - scoreA;
+  });
+
+  lastScanResults = results;
+  renderScanResults(results);
+
+  fill.style.width = "100%";
+  const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+  status.textContent = `נמצאו ${results.length} הזדמנויות · עודכן ${now}`;
+  btn.disabled = false;
+  btn.textContent = "↺ סרוק שוב";
+  setTimeout(()=>progress.style.display="none", 1000);
+  scannerRunning = false;
+}
+
+function renderScanResults(results){
+  const grid = document.getElementById("scanGrid");
+  if(!results.length){
+    grid.innerHTML = `<div class="scan-empty">לא נמצאו עסקאות שעומדות בקריטריונים כרגע<br><span style="font-size:11px;color:var(--text3)">נסה שוב מאוחר יותר — השוק משתנה</span></div>`;
+    return;
+  }
+
+  const sigColor = s => s.includes("BUY")?"var(--green)":s.includes("SELL")?"var(--red)":"var(--amber)";
+  const sigBg    = s => s.includes("BUY")?"var(--gdim)":s.includes("SELL")?"var(--rdim)":"var(--adim)";
+  const chDir    = p => p>=0?"var(--green)":"var(--red)";
+
+  grid.innerHTML = results.slice(0,6).map(r=>`
+    <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
+      <div class="scan-left">
+        <div class="scan-sym">${r.sym}</div>
+        <div class="scan-price">$${r.price.toFixed(2)}</div>
+        <div class="scan-price" style="color:${chDir(r.pct)}">${r.pct>=0?"+":""}${r.pct}%</div>
+      </div>
+      <div class="scan-mid">
+        <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
+        <div class="scan-tags">
+          ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
+        </div>
+        <div class="scan-reason">${r.reason}</div>
+      </div>
+      <div class="scan-right">
+        <div class="scan-score" style="color:${r.score>=65?"var(--green)":r.score>=55?"var(--amber)":"var(--red)"}">${r.score}</div>
+        <div class="scan-rr">R/R 1:${r.rrRatio}</div>
+        <div class="scan-risk" style="color:${r.risk<35?"var(--green)":r.risk<55?"var(--amber)":"var(--red)"}">סיכון ${r.risk}</div>
+        <div class="scan-rr" style="color:var(--blue)">Conf ${r.conf}/10</div>
+      </div>
+    </div>`).join("");
+}
+
+// Auto-scan כל 10 דקות
+function startAutoScan(){
+  if(scanInterval) clearInterval(scanInterval);
+  scanInterval = setInterval(()=>{
+    if(!scannerRunning) runScanner(true);
+  }, 10 * 60 * 1000);
+}
+
+// ── MARKET STATUS ─────────────────────────────────────────
+const US_HOLIDAYS_2025_2026 = [
+  "2025-01-01","2025-01-20","2025-02-17","2025-04-18",
+  "2025-05-26","2025-06-19","2025-07-04","2025-09-01",
+  "2025-11-27","2025-12-25",
+  "2026-01-01","2026-01-19","2026-02-16","2026-04-03",
+  "2026-05-25","2026-06-19","2026-07-03","2026-09-07",
+  "2026-11-26","2026-12-25"
+];
+
+function getMarketStatus(){
+  const now = new Date();
+  // המר לשעון ET (UTC-4 בקיץ, UTC-5 בחורף)
+  const etOffset = isDST(now) ? -4 : -5;
+  const etTime = new Date(now.getTime() + (now.getTimezoneOffset() + etOffset*60) * 60000);
+
+  const day  = etTime.getDay();   // 0=ראשון, 6=שבת
+  const hour = etTime.getHours();
+  const min  = etTime.getMinutes();
+  const timeNum = hour + min/60;  // 9.5 = 9:30
+
+  // תאריך בפורמט YYYY-MM-DD
+  const dateStr = etTime.toISOString().split("T")[0];
+
+  // סוף שבוע
+  if(day === 0 || day === 6){
+    return { status:"closed", label:"שוק סגור 🔴", color:"var(--red)", bg:"var(--rdim)", warning:null };
+  }
+
+  // חג
+  if(US_HOLIDAYS_2025_2026.includes(dateStr)){
+    return { status:"closed", label:"חג אמריקאי 🔴", color:"var(--red)", bg:"var(--rdim)", warning:null };
+  }
+
+  // Pre-Market: 4:00 AM – 9:30 AM ET
+  if(timeNum >= 4 && timeNum < 9.5){
+    const opensIn = Math.round((9.5 - timeNum) * 60);
+    return {
+      status:"pre",
+      label:`Pre-Market 🟡`,
+      color:"var(--amber)", bg:"var(--adim)",
+      warning:`⚠ Pre-Market — נפח נמוך, מחירים פחות אמינים. השוק נפתח בעוד ${opensIn} דקות. האיתותים מבוססים על סגירה אחרונה.`
+    };
+  }
+
+  // שעות מסחר: 9:30 AM – 4:00 PM ET
+  if(timeNum >= 9.5 && timeNum < 16){
+    const closesIn = Math.round((16 - timeNum) * 60);
+    const closeHour = Math.floor(closesIn/60);
+    const closeMin  = closesIn % 60;
+    const closeStr  = closeHour > 0 ? `${closeHour}ש' ${closeMin}ד'` : `${closeMin} דקות`;
+    return {
+      status:"open",
+      label:`שוק פתוח 🟢`,
+      color:"var(--green)", bg:"var(--gdim)",
+      warning:null,
+      extra:`סוגר בעוד ${closeStr}`
+    };
+  }
+
+  // After-Hours: 4:00 PM – 8:00 PM ET
+  if(timeNum >= 16 && timeNum < 20){
+    return {
+      status:"after",
+      label:`After-Hours 🟡`,
+      color:"var(--amber)", bg:"var(--adim)",
+      warning:`⚠ After-Hours — נפח נמוך, מחירים לא רשמיים. האיתותים מבוססים על מחיר סגירה של ${etTime.toLocaleDateString("he-IL")}.`
+    };
+  }
+
+  // לילה — שוק סגור
+  const nextOpen = timeNum < 4 ? "הבוקר ב-9:30" : "מחר ב-9:30";
+  return {
+    status:"closed",
+    label:`שוק סגור 🔴`,
+    color:"var(--red)", bg:"var(--rdim)",
+    warning:null,
+    extra:`נפתח ${nextOpen} ET`
+  };
+}
+
+function isDST(date){
+  // DST בארה"ב: שני ראשון של מרץ עד ראשון הראשון של נובמבר
+  const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+  const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+  return date.getTimezoneOffset() < Math.max(jan, jul);
+}
+
+let lastMarketStatus = null;
+
+function updateMarketStatus(){
+  const ms = getMarketStatus();
+  lastMarketStatus = ms;
+
+  const dot   = document.getElementById("marketDot");
+  const label = document.getElementById("marketLabel");
+  const badge = document.getElementById("marketStatus");
+
+  if(!dot||!label||!badge) return;
+
+  dot.style.background   = ms.color;
+  label.textContent      = ms.label;
+  badge.style.borderColor = ms.color;
+  badge.style.color      = ms.color;
+  badge.style.background = ms.bg;
+
+  // הוסף tooltip עם זמן ET
+  const etNow = new Date(new Date().getTime() + (new Date().getTimezoneOffset() + (isDST(new Date())?-4:-5)*60)*60000);
+  badge.title = `שעון ET: ${etNow.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}${ms.extra?" | "+ms.extra:""}`;
+
+  // הצג/הסתר אזהרת Pre/After
+  let warnEl = document.getElementById("marketWarn");
+  if(ms.warning){
+    if(!warnEl){
+      warnEl = document.createElement("div");
+      warnEl.id = "marketWarn";
+      warnEl.style.cssText = `margin:8px 1.5rem 0;padding:8px 14px;background:var(--adim);border:1px solid var(--amber);border-radius:6px;font-size:11px;color:var(--amber);font-family:'IBM Plex Mono',monospace;line-height:1.6;`;
+      const wrap = document.querySelector(".wrap");
+      if(wrap) wrap.insertBefore(warnEl, wrap.firstChild);
+    }
+    warnEl.textContent = ms.warning;
+  } else if(warnEl){
+    warnEl.remove();
+  }
+}
+
+// עדכן כל דקה
+updateMarketStatus();
+setInterval(updateMarketStatus, 60 * 1000);
+
+// ── INIT ─────────────────────────────────────────────────
+loadIndices();
+loadMacro();
+setTimeout(refreshAllWL, 2000);
+
+// Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
+setInterval(()=>{
+  loadIndices();
+  loadMacro();
+  fetch("/api/stock?symbol=SPY&endpoint=quote").catch(()=>{});
+}, 5 * 60 * 1000); // כל 5 דקות
+
+// הצג הודעה כשהנתונים ישנים מ-20 דקות
+let lastFetch = Date.now();
+setInterval(()=>{
+  const mins = Math.floor((Date.now()-lastFetch)/60000);
+  if(mins >= 20){
+    const el = document.querySelector(".live");
+    if(el) el.innerHTML = `<div class="dot" style="background:var(--amber)"></div><span style="color:var(--amber)">נתונים לפני ${mins} דקות</span>`;
+  }
+}, 60000);
+
+// עדכן lastFetch בכל ניתוח
+const origGo = go;
+window.go = async function(){
+  lastFetch = Date.now();
+  const el = document.querySelector(".live");
+  if(el) el.innerHTML = `<div class="dot"></div>Live Data`;
+  return origGo();
+};
+</script>
+</body>
+</html>
