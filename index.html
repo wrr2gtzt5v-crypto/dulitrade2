@@ -1560,9 +1560,12 @@ function calcTargets(p){
     : +(price * (1 - finalTpPct)).toFixed(2);
 
   // ── 5. זמן החזקה בשפה ────────────────────────────────
-  const holdingMap = {7:"1-2 שבועות", 10:"1-2 שבועות", 14:"2-3 שבועות", 21:"3-4 שבועות"};
-  const holdKey = Object.keys(holdingMap).map(Number).reduce((a,b)=>Math.abs(b-holdDays)<Math.abs(a-holdDays)?b:a);
-  const holding = holdDays <= 5 ? "3-7 ימים" : holdingMap[holdKey] || "1-2 שבועות";
+  const holding = holdDays <= 5  ? "3-7 ימים"
+               : holdDays <= 8  ? "שבוע"
+               : holdDays <= 14 ? "1-2 שבועות"
+               : holdDays <= 21 ? "2-3 שבועות"
+               : holdDays <= 35 ? "חודש"
+               :                  "חודש+";
 
   // ── 6. יחס סיכון/תגמול ───────────────────────────────
   const rrRatio = +(finalTpPct / actualSlPct).toFixed(1);
@@ -2990,6 +2993,7 @@ async function runScanner(auto=false){
           rrRatio: scores.rrRatio, conf: confScore,
           dealStrength,
           strategy: scores.strategy || "",
+          holding: scores.holding || "",
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
@@ -3000,15 +3004,35 @@ async function runScanner(auto=false){
 
   // ── מיון סופי — dealStrength + ציון + R/R + Timeframe ──
   const tfHoldRange = TF_HOLD[scannerTimeframe] || TF_HOLD.medium;
+  const tfAllowed   = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
+
+  // חלץ holdDays מטקסט holding
+  function holdToNum(h){
+    if(!h) return 10;
+    if(h.includes("3-7")) return 5;
+    if(h==="שבוע") return 7;
+    if(h.includes("1-2")) return 10;
+    if(h.includes("2-3")) return 17;
+    if(h==="חודש") return 30;
+    if(h.includes("חודש+")) return 45;
+    return 10;
+  }
+
   results.sort((a,b)=>{
-    // בונוס Timeframe — מניות שמתאימות לטווח שבחרת מקבלות +1
-    const aStrat = a.strategy || "";
-    const bStrat = b.strategy || "";
-    const tfAllowed = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
-    const aTfBonus = tfAllowed.some(s=>aStrat.includes(s)) ? 1 : 0;
-    const bTfBonus = tfAllowed.some(s=>bStrat.includes(s)) ? 1 : 0;
-    const aTotal = (a.dealStrength||0) + aTfBonus;
-    const bTotal = (b.dealStrength||0) + bTfBonus;
+    const aHold = holdToNum(a.holding);
+    const bHold = holdToNum(b.holding);
+
+    // בונוס אם האסטרטגיה מתאימה ל-Timeframe
+    const aTfBonus = tfAllowed.some(s=>(a.strategy||"").includes(s)) ? 1 : 0;
+    const bTfBonus = tfAllowed.some(s=>(b.strategy||"").includes(s)) ? 1 : 0;
+
+    // פנאלטי אם holdDays חורג מהטווח שנבחר
+    const aPenalty = (aHold > tfHoldRange.max * 1.3 || aHold < tfHoldRange.min * 0.5) ? -2 : 0;
+    const bPenalty = (bHold > tfHoldRange.max * 1.3 || bHold < tfHoldRange.min * 0.5) ? -2 : 0;
+
+    const aTotal = (a.dealStrength||0) + aTfBonus + aPenalty;
+    const bTotal = (b.dealStrength||0) + bTfBonus + bPenalty;
+
     if(bTotal !== aTotal) return bTotal - aTotal;
     if(b.score !== a.score) return b.score - a.score;
     return b.rrRatio - a.rrRatio;
