@@ -1179,7 +1179,7 @@ function calcIndicators(candles, quote, fhInd){
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
 function calcTargets(p){
   const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
-         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence} = p;
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={}} = p;
   const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
   const isSell = sig==="SELL"||sig==="STRONG_SELL";
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
@@ -1203,99 +1203,107 @@ function calcTargets(p){
   else if(isSell)               strategy = "Short/Exit 📉";
   else                          strategy = "Conservative 🛡";
 
-  // ── 3. SL — מיקום חכם לפי נרות + פרמטרים ────────────────
-  // בסיס: ATR × מכפיל בסיסי
-  let slBasePct = atrPct * 1.0; // 1 ATR כבסיס
+  // ── 3. תמיכה אמיתית — 3 מקורות ──────────────────────────
+  const lows20  = (candles.l||[]).slice(-20);
+  const highs20 = (candles.h||[]).slice(-20);
+  const min20   = lows20.length  ? Math.min(...lows20)  : price*0.95;
+  const max20   = highs20.length ? Math.max(...highs20) : price*1.05;
 
-  // נרות יפניים — SL לפי תבנית
+  // Fibonacci מ-52W (אם זמין) אחרת מ-20 נרות
+  const w52Lo = profile?.fiftyTwoWeekLow  || min20;
+  const w52Hi = profile?.fiftyTwoWeekHigh || max20;
+  const fibRange = w52Hi - w52Lo;
+  const fib382 = +(w52Lo + fibRange * 0.382).toFixed(2); // תמיכה
+  const fib618 = +(w52Lo + fibRange * 0.618).toFixed(2); // התנגדות
+
+  // תמיכה = הגבוה מבין: מינימום 20 נרות, Fib38.2, MA50
+  // (הגבוה = הקרוב ביותר למחיר מלמטה)
+  const supportCandidates = [min20, fib382, ma50].filter(v => v > 0 && v < price);
+  const trueSupport = supportCandidates.length
+    ? Math.max(...supportCandidates)
+    : price * 0.97;
+
+  // התנגדות = הנמוך מבין: מקסימום 20 נרות, Fib61.8, BB עליון
+  // (הנמוך = הקרוב ביותר למחיר מלמעלה)
+  const resCandidates = [max20, fib618, bbU].filter(v => v > 0 && v > price);
+  const trueResistance = resCandidates.length
+    ? Math.min(...resCandidates)
+    : price * 1.05;
+
+  // ── 4. SL — עוגן בתמיכה/התנגדות + מכפילים ───────────────
+  // עוגן: 0.5% מתחת לתמיכה (לקנייה) / 0.5% מעל התנגדות (למכירה)
+  const slAnchor = isBuy
+    ? trueSupport  * 0.995
+    : trueResistance * 1.005;
+
+  // בדיקה שהעוגן הגיוני — לא פחות מ-0.5% ולא יותר מ-5% מהמחיר
+  const anchorPct = Math.abs(price - slAnchor) / price;
+  const slBasePct = (anchorPct >= 0.005 && anchorPct <= 0.05)
+    ? anchorPct
+    : atrPct * 1.0; // fallback ל-ATR אם העוגן לא הגיוני
+
+  // דפוסי נרות — מחדדים את העוגן אם הם מתאימים
   const lastC = (candles.c||[]).slice(-1)[0] || price;
   const lastL = (candles.l||[]).slice(-1)[0] || price*0.99;
   const lastH = (candles.h||[]).slice(-1)[0] || price*1.01;
   const prevL = (candles.l||[]).slice(-2,-1)[0] || lastL;
   const prevH = (candles.h||[]).slice(-2,-1)[0] || lastH;
 
-  let candleSL = null; // SL מדויק לפי נר
+  let candleAdjust = 0; // התאמה מנרות על גבי העוגן
   for(const pat of patterns){
-    if(pat.name.includes("Hammer")||pat.name.includes("Morning Star")){
-      // SL מתחת לתחתית הנר — רמת תמיכה אמיתית
-      candleSL = Math.min(lastL, prevL) * 0.998;
-      break;
-    }
-    if(pat.name.includes("Bullish Engulfing")){
-      candleSL = prevL * 0.998;
-      break;
-    }
-    if(pat.name.includes("Shooting Star")||pat.name.includes("Bearish Engulfing")){
-      candleSL = Math.max(lastH, prevH) * 1.002;
+    if(pat.bull===true && (pat.name.includes("Hammer")||pat.name.includes("Engulfing")||pat.name.includes("Morning Star"))){
+      // הנר מאשר — SL קרוב יותר לתחתית הנר (אמינות גבוהה)
+      const candleBottom = Math.min(lastL, prevL);
+      if(candleBottom > slAnchor && candleBottom < price)
+        candleAdjust = -(Math.abs(price - candleBottom)/price - slBasePct) * 0.5;
       break;
     }
     if(pat.name.includes("Doji")){
-      slBasePct = atrPct * 0.6; // Doji = SL קרוב
+      candleAdjust = -0.002; // Doji = SL קצת יותר קרוב
       break;
     }
   }
 
-  // מכפילי SL לפי פרמטרים
+  // מכפילי SL — נשארים בדיוק כמו קודם
   let slMult = 1.0;
-
-  // Confluence — גבוה = SL יותר רחוק (יותר ביטחון)
   if(confluence>=8)      slMult *= 1.2;
   else if(confluence>=6) slMult *= 1.0;
-  else if(confluence<=4) slMult *= 0.75; // ביטחון נמוך = SL קרוב
-
-  // רמת סיכון
+  else if(confluence<=4) slMult *= 0.75;
   if(risk>=70)       slMult *= 0.75;
   else if(risk>=55)  slMult *= 0.9;
   else if(risk<=35)  slMult *= 1.15;
-
-  // VIX — שוק פוחד = SL קרוב
   if(vix>30)       slMult *= 0.8;
   else if(vix>25)  slMult *= 0.9;
-
-  // Earnings — לפני דוח = SL הדוק
-  if(hasEarnings) slMult *= 0.7;
-
-  // Beta — מניה תנודתית = SL קצת יותר גדול
   if(beta>1.5)      slMult *= 1.1;
   else if(beta<0.8) slMult *= 0.9;
-
-  // אסטרטגיה
   if(strategy.includes("Breakout"))      slMult *= 1.1;
   else if(strategy.includes("Mean Rev")) slMult *= 0.85;
   else if(strategy.includes("Momentum")) slMult *= 1.0;
   else if(strategy.includes("Swing"))    slMult *= 0.95;
 
-  // חישוב SL סופי
-  let finalSlPct = slBasePct * slMult;
-  // גבולות: לא פחות מ-0.4% ולא יותר מ-3.5%
-  finalSlPct = Math.max(0.004, Math.min(0.035, finalSlPct));
+  // ── שלב 3 — Earnings: SL מתהדק 20% נוסף ─────────────────
+  if(hasEarnings) slMult *= 0.8;
 
-  let sl;
-  if(candleSL){
-    // השתמש ב-SL לפי נר אם הוא בטווח הגיוני
-    const candleSlPct = Math.abs(price - candleSL) / price;
-    if(candleSlPct >= 0.003 && candleSlPct <= 0.04){
-      sl = +candleSL.toFixed(2);
-    } else {
-      sl = isBuy ? +(price * (1 - finalSlPct)).toFixed(2) : +(price * (1 + finalSlPct)).toFixed(2);
-    }
-  } else {
-    sl = isBuy ? +(price * (1 - finalSlPct)).toFixed(2) : +(price * (1 + finalSlPct)).toFixed(2);
-  }
+  let finalSlPct = (slBasePct + candleAdjust) * slMult;
+  finalSlPct = Math.max(0.004, Math.min(0.04, finalSlPct));
+
+  const sl = isBuy
+    ? +(price * (1 - finalSlPct)).toFixed(2)
+    : +(price * (1 + finalSlPct)).toFixed(2);
 
   const actualSlPct = Math.abs(price - sl) / price;
 
-  // ── 4. TP — לפי תנועה ריאלית + יחס ────────────────────
-  // תנועה יומית ממוצעת של 5 ימים אחרונים
+  // ── 5. TP — עוגן בהתנגדות/תמיכה + מכפילים ───────────────
+  // תנועה יומית ממוצעת (fallback)
   const recentC = (candles.c||[]).slice(-6);
-  let avgDailyMove = atrPct; // fallback
+  let avgDailyMove = atrPct;
   if(recentC.length>=2){
     let totalMove = 0;
     for(let i=1;i<recentC.length;i++) totalMove += Math.abs(recentC[i]-recentC[i-1])/recentC[i-1];
     avgDailyMove = totalMove / (recentC.length-1);
   }
 
-  // זמן החזקה צפוי לפי אסטרטגיה
+  // זמן החזקה לפי אסטרטגיה
   let holdDays;
   if(strategy.includes("Breakout"))      holdDays = 7;
   else if(strategy.includes("Mean Rev")) holdDays = 5;
@@ -1304,32 +1312,32 @@ function calcTargets(p){
   else if(strategy.includes("Short"))    holdDays = 7;
   else                                   holdDays = 10;
   if(isStrong) holdDays *= 1.5;
-  if(hasEarnings) holdDays = Math.min(holdDays, 5);
 
-  // תנועה צפויה = avgDailyMove × √holdDays (Random Walk)
+  // ── שלב 3 — Earnings: TP לא יעבור את תאריך הדוח ─────────
+  if(hasEarnings) holdDays = Math.min(holdDays, 3); // לא נשאר בתוך הדוח
+
+  // עוגן TP: 0.5% לפני ההתנגדות (לקנייה) / 0.5% לפני התמיכה (למכירה)
+  const tpAnchorPct = isBuy
+    ? Math.abs(price - trueResistance * 0.995) / price
+    : Math.abs(price - trueSupport   * 1.005) / price;
+
+  // תנועה צפויה (Random Walk)
   let expectedMovePct = avgDailyMove * Math.sqrt(holdDays);
-
-  // מגבילים לפי Confluence
   if(confluence>=8)      expectedMovePct *= 1.2;
   else if(confluence>=6) expectedMovePct *= 1.0;
   else if(confluence<=4) expectedMovePct *= 0.7;
 
-  // מגבילים לפי Bollinger — TP לא יעבור BB העליון/התחתון
-  const bbTarget = isBuy ? bbU : bbL;
-  const bbDistPct = bbTarget > 0 ? Math.abs(price - bbTarget) / price : 0.05;
-
-  // יחס סיכון/תגמול מינימלי
+  // R/R מינימלי
   let minRR = 1.8;
-  if(confluence>=8)   minRR = 2.5;
+  if(confluence>=8)      minRR = 2.5;
   else if(confluence>=6) minRR = 2.0;
-  if(risk>=70)        minRR = 1.5;
-  if(hasEarnings)     minRR = 1.5;
+  if(risk>=70)           minRR = 1.5;
+  if(hasEarnings)        minRR = 1.5;
 
-  // TP = המקסימום מבין: תנועה צפויה ו-minRR × SL
+  // TP = הנמוך מבין: עוגן התנגדות, תנועה צפויה — אבל לא פחות מ-minRR × SL
   const rrBasedTpPct = actualSlPct * minRR;
-  let finalTpPct = Math.max(expectedMovePct, rrBasedTpPct);
-
-  // גבולות: לא פחות מ-2% ולא יותר מ-15%
+  let finalTpPct = Math.min(tpAnchorPct, expectedMovePct);
+  finalTpPct = Math.max(finalTpPct, rrBasedTpPct); // תמיד לפחות minRR
   finalTpPct = Math.max(0.02, Math.min(0.15, finalTpPct));
 
   const tp = isBuy
@@ -1665,6 +1673,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     ma50, ma200, bbU, bbL, vr, vLbl, pct,
     patterns, candles,
     beta: profile.beta,
+    profile: profile,
     hasEarnings: checkEarnings(sym||""),
     vix: macro?.["^VIX"]?.price || 20,
     confluence: (() => {
