@@ -2645,6 +2645,7 @@ function setTimeframe(tf){
     document.getElementById('tf-'+t)?.classList.toggle('active', t===tf);
   });
 }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 let lastScanResults = [];
 let scanInterval = null;
 
@@ -2710,6 +2711,7 @@ async function runScanner(auto=false){
     fill.style.width = Math.round((i/SCAN_LIST.length)*30) + "%"; // 0-30%
     status.textContent = `שלב 1/3 — ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
 
+    await sleep(200);
     await Promise.allSettled(batch.map(async sym => {
       try {
         const quote = await api(sym, "quote");
@@ -2748,6 +2750,7 @@ async function runScanner(auto=false){
     fill.style.width = 30 + Math.round((i/Math.max(pass1.length,1))*35) + "%"; // 30-65%
     status.textContent = `שלב 2/3 — טכני ${i+1}-${Math.min(i+BATCH2,pass1.length)} מתוך ${pass1.length}...`;
 
+    await sleep(400);
     await Promise.allSettled(batch.map(async ({sym, scanQuote}) => {
       try {
         const [candles, profile, earnings, insider] = await Promise.all([
@@ -2799,6 +2802,7 @@ async function runScanner(auto=false){
     fill.style.width = 65 + Math.round((i/Math.max(candidates.length,1))*35) + "%"; // 65-100%
     status.textContent = `שלב 3/3 — ${i+1}-${Math.min(i+BATCH3,candidates.length)} מתוך ${candidates.length}...`;
 
+    await sleep(600);
     await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider}) => {
       try {
         const [newsArr, extNewsArr] = await Promise.all([
