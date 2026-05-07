@@ -2567,20 +2567,26 @@ const SCAN_LIST = [
   "WMT","COST","TGT","HD","LOW","NKE","SBUX","MCD","YUM","AMGN",
   // Financials
   "JPM","BAC","WFC","GS","MS","C","BLK","SCHW","AXP","V","MA","PYPL",
+  "COF","USB","PNC","TFC","ALLY","SQ","HOOD","SOFI","AFRM",
   // Healthcare
   "UNH","JNJ","LLY","ABBV","MRK","PFE","GILD","REGN","VRTX","BMY","TMO","ISRG",
+  "DXCM","MRNA","BIIB","HUM","CVS","ZTS",
   // Communication & Media
   "NFLX","DIS","CMCSA","T","VZ","TMUS","SNAP","PINS","UBER","LYFT",
+  "SPOT","RBLX","TTWO","EA","MTCH",
   // Energy & Materials
   "XOM","CVX","COP","SLB","EOG","FCX","LIN","APD","NEM","DVN",
+  "OXY","MPC","VLO","HAL","CF",
   // Industrials
   "CAT","DE","BA","HON","GE","RTX","LMT","NOC","UPS","FDX",
-  // High Growth / Popular
-  "COIN","HOOD","SOFI","AFRM","RBLX","DKNG","ROKU","APP","SMCI","ARM",
+  "EMR","ETN","PH","ROK","GNRC",
+  // AI / High Growth / Hot
+  "COIN","DKNG","ROKU","APP","SMCI","ARM","MSTR","IONQ","LUNR","SOUN",
+  "AI","BBAI","RXRX","ARKG","ARKK",
   // Israel / Other
-  "TEVA","CHKP","MNDY","WIX",
-  // ETFs
-  "SPY","QQQ","IWM"
+  "TEVA","CHKP","MNDY","WIX","NICE","CYBR",
+  // ETFs (סקטורים)
+  "SPY","QQQ","IWM","XLK","XLF","XLE","XLV","XLI","XLC"
 ];
 
 let scannerRunning = false;
@@ -2759,6 +2765,9 @@ async function runScanner(auto=false){
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
 
+        // ── פילטר שלב 2: Confluence מינימלי 4 ──────────────
+        if(confScore < 4) return;
+
         results.push({
           sym, price: scanQuote.c, pct: scores.pct,
           sig: scores.sig, sigLabel: scores.sigLabel,
@@ -2766,6 +2775,7 @@ async function runScanner(auto=false){
           rrRatio: scores.rrRatio, conf: confScore,
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
+          sector: profile.sector || "Other",
         });
       } catch(e){}
     }));
@@ -2781,8 +2791,25 @@ async function runScanner(auto=false){
   });
   results.sort((a,b)=>a._rankSum - b._rankSum);
 
-  lastScanResults = results;
-  renderScanResults(results);
+  // ── גיוון סקטורים — מקסימום 2 מניות לסקטור ─────────────
+  const sectorCount = {};
+  const diversified = [];
+  for(const r of results){
+    const sec = r.sector || "Other";
+    sectorCount[sec] = (sectorCount[sec]||0) + 1;
+    if(sectorCount[sec] <= 2) diversified.push(r);
+    if(diversified.length >= 8) break;
+  }
+  // אם פחות מ-8 אחרי גיוון — הוסף שאר לפי דירוג
+  if(diversified.length < 8){
+    for(const r of results){
+      if(!diversified.find(x=>x.sym===r.sym)) diversified.push(r);
+      if(diversified.length >= 8) break;
+    }
+  }
+
+  lastScanResults = diversified;
+  renderScanResults(diversified);
 
   fill.style.width = "100%";
   const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
