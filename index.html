@@ -1181,7 +1181,7 @@ function calcIndicators(candles, quote, fhInd){
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
 function calcTargets(p){
   const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
-         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50} = p;
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50,earnings={},insider={}} = p;
   const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
   const isSell = sig==="SELL"||sig==="STRONG_SELL";
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
@@ -1846,6 +1846,8 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     vix: macro?.["^VIX"]?.price || 20,
     confluence: confluenceScore,
     relStrength: relStrength,
+    earnings: earnings,
+    insider: insider,
   });
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
