@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """DULITRADE - Finnhub + Stooq Server"""
-import json, time, re, os, datetime
+import json, time, re, os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from urllib.request import urlopen, Request
@@ -35,43 +35,37 @@ def get_quote(symbol):
     return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0}
 
 def get_candles(symbol):
-    # Stooq — CSV ללא API key
-    try:
-        url = f"https://stooq.com/q/d/l/?s={symbol.lower()}.us&i=d"
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urlopen(req, timeout=12) as r:
-            csv = r.read().decode("utf-8","ignore")
-        lines = [l.strip() for l in csv.strip().split("\n") if l.strip() and not l.startswith("Date") and not l.startswith("No")]
-        if len(lines) >= 5:
-            lines = lines[-90:]
-            c,o,h,l,v,t = [],[],[],[],[],[]
-            for line in lines:
-                p = line.split(",")
-                if len(p) < 5: continue
-                try:
-                    dt = datetime.datetime.strptime(p[0].strip(), "%Y-%m-%d")
-                    o.append(round(float(p[1]),2))
-                    h.append(round(float(p[2]),2))
-                    l.append(round(float(p[3]),2))
-                    c.append(round(float(p[4]),2))
-                    v.append(int(float(p[5])) if len(p)>5 and p[5].strip() else 0)
-                    t.append(int(dt.timestamp()))
-                except: continue
-            if len(c) >= 5:
-                print(f"[Stooq {symbol}] {len(c)} candles OK", flush=True)
-                return {"c":c,"o":o,"h":h,"l":l,"v":v,"t":t,"s":"ok"}
-    except Exception as e:
-        print(f"[Stooq {symbol}] error: {e}", flush=True)
-
-    # Fallback Finnhub
+    # Finnhub candles — נסה כמה טווחים
     to = int(time.time())
-    frm = to - 365*86400
+    
+    # טווח שנה
+    frm = to - 365 * 86400
     d = fh(f"/stock/candle?symbol={symbol}&resolution=D&from={frm}&to={to}")
-    if d.get("s")=="ok" and len(d.get("c",[]))>=5:
+    if d.get("s") == "ok" and len(d.get("c",[])) >= 5:
+        print(f"[FH candles {symbol}] {len(d['c'])} daily OK", flush=True)
         return {"c":[round(x,2) for x in d["c"]],"o":[round(x,2) for x in d["o"]],
                 "h":[round(x,2) for x in d["h"]],"l":[round(x,2) for x in d["l"]],
                 "v":[int(x) for x in d["v"]],"t":d["t"],"s":"ok"}
 
+    # טווח 2 שנים
+    frm2 = to - 2 * 365 * 86400
+    d2 = fh(f"/stock/candle?symbol={symbol}&resolution=D&from={frm2}&to={to}")
+    if d2.get("s") == "ok" and len(d2.get("c",[])) >= 5:
+        print(f"[FH candles {symbol}] {len(d2['c'])} daily 2yr OK", flush=True)
+        return {"c":[round(x,2) for x in d2["c"]],"o":[round(x,2) for x in d2["o"]],
+                "h":[round(x,2) for x in d2["h"]],"l":[round(x,2) for x in d2["l"]],
+                "v":[int(x) for x in d2["v"]],"t":d2["t"],"s":"ok"}
+
+    # נרות שבועיים
+    frm3 = to - 3 * 365 * 86400
+    d3 = fh(f"/stock/candle?symbol={symbol}&resolution=W&from={frm3}&to={to}")
+    if d3.get("s") == "ok" and len(d3.get("c",[])) >= 5:
+        print(f"[FH candles {symbol}] {len(d3['c'])} weekly OK", flush=True)
+        return {"c":[round(x,2) for x in d3["c"]],"o":[round(x,2) for x in d3["o"]],
+                "h":[round(x,2) for x in d3["h"]],"l":[round(x,2) for x in d3["l"]],
+                "v":[int(x) for x in d3["v"]],"t":d3["t"],"s":"ok"}
+
+    print(f"[FH candles {symbol}] no data s={d.get('s')}", flush=True)
     return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
 
 def get_profile(symbol):
