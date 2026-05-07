@@ -1924,6 +1924,165 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   };
 }
 
+// ── CANDLE STORY — ניתוח גרף דינמי לפי אסטרטגיה ────────────
+function buildCandleStory(d, candles, patterns, earnings, insider, sector){
+  const c = candles.c||[], o = candles.o||[], h = candles.h||[], l = candles.l||[], v = candles.v||[];
+  const N = c.length;
+  if(N < 5) return null;
+
+  const strat = d.strategy || "";
+  const lines = [];
+
+  // ── עזרים ─────────────────────────────────────────────────
+  const last5  = c.slice(-5);
+  const last3  = c.slice(-3);
+  const greenDays = last5.filter((x,i)=>x>(o.slice(-5)[i]||x)).length;
+  const redDays   = last5.filter((x,i)=>x<(o.slice(-5)[i]||x)).length;
+  const avgVol10  = v.length>=10 ? v.slice(-10).reduce((a,b)=>a+b,0)/10 : 0;
+  const lastVol   = v[N-1]||0;
+  const volRatio  = avgVol10>0 ? +(lastVol/avgVol10).toFixed(1) : 1;
+  const pctFrom52Lo = d.support>0 ? +(((d.price-d.support)/d.support)*100).toFixed(1) : 0;
+  const pctFrom52Hi = d.resistance>0 ? +(((d.resistance-d.price)/d.resistance)*100).toFixed(1) : 0;
+  const bullPat = patterns.filter(p=>p.bull===true && p.strength>=2);
+  const bearPat = patterns.filter(p=>p.bull===false && p.strength>=2);
+  const isBull  = d.sig==="BUY"||d.sig==="STRONG_BUY";
+
+  // ── ניתוח לפי אסטרטגיה ────────────────────────────────────
+
+  if(strat.includes("Trend")){
+    // מגמה — מסביר את הטרנד הרציף
+    if(d.ma50>d.ma200)
+      lines.push(`📊 MA50 ($${d.ma50}) מעל MA200 ($${d.ma200}) — מגמת עלייה מבוססת.`);
+    if(greenDays>=3)
+      lines.push(`🕯 ${greenDays} מתוך 5 הנרות האחרונים ירוקים — קונים שולטים בשוק.`);
+    if(d.rsi>=45&&d.rsi<=65)
+      lines.push(`📈 RSI ${d.rsi} — אזור הזדמנות בתוך מגמה, לא קניית יתר.`);
+    if(d.macdVal>0)
+      lines.push(`⚡ MACD חיובי — מומנטום עולה תומך בכניסה.`);
+    else
+      lines.push(`⚠️ MACD שלילי — המגמה חיובית אבל מומנטום מתחלש, שים לב.`);
+  }
+
+  else if(strat.includes("Mean Reversion")){
+    // תחתית — מסביר מדוע המניה זולה מדי
+    lines.push(`📉 המניה ירדה ${pctFrom52Lo>0?pctFrom52Lo+"% מעל השפל":"קרוב לשפל"} — פוטנציאל היפוך.`);
+    if(d.rsi<35)
+      lines.push(`🔴 RSI ${d.rsi} — מכירת יתר קיצונית. היסטורית, זה אזור קנייה.`);
+    if(d.stochRsi<25)
+      lines.push(`📊 Stoch RSI ${d.stochRsi} — נמוך מאוד, המניה ב"תחתית טכנית".`);
+    if(d.price<d.bbL)
+      lines.push(`🎯 מחיר מתחת ל-Bollinger תחתון ($${d.bbL}) — תנועה קיצונית, צפי לחזרה לממוצע.`);
+    if(bullPat.length>0)
+      lines.push(`🔨 ${bullPat[0].name} זוהה — ${bullPat[0].desc}`);
+  }
+
+  else if(strat.includes("Breakout")){
+    // פריצה — מסביר את הנפח והרמה
+    if(volRatio>1.5)
+      lines.push(`🐋 נפח היום פי ${volRatio} מהממוצע — כסף גדול נכנס.`);
+    if(d.price>d.resistance*0.99)
+      lines.push(`🚀 פריצת התנגדות $${d.resistance} — שינוי מבנה טכני משמעותי.`);
+    if(d.pct>1.5)
+      lines.push(`📈 עלייה של ${d.pct}% היום עם נפח — סימן לתנועה אמיתית.`);
+    if(d.macdVal>0)
+      lines.push(`⚡ MACD חיובי — מומנטום מאשר את הפריצה.`);
+  }
+
+  else if(strat.includes("Support Bounce")){
+    // תמיכה — מסביר את הרמה ואת הנר
+    lines.push(`🎯 מחיר ב-$${d.price} — ${pctFrom52Lo}% מעל תמיכה $${d.support}.`);
+    if(bullPat.length>0)
+      lines.push(`🔨 ${bullPat[0].name} זוהה על קו התמיכה — ${bullPat[0].desc}`);
+    if(volRatio>1.1)
+      lines.push(`📊 נפח פי ${volRatio} מהממוצע — מאשר את הכניסה.`);
+    lines.push(`🎯 SL מתחת לתמיכה $${d.sl} — סיכון מוגדר ומדויק.`);
+  }
+
+  else if(strat.includes("Fibonacci")){
+    // פיבונאצ'י — מסביר את הרמה
+    const fib382 = +(d.support + (d.resistance-d.support)*0.382).toFixed(2);
+    const fib618 = +(d.support + (d.resistance-d.support)*0.618).toFixed(2);
+    const nearFib = Math.abs(d.price-fib382)<Math.abs(d.price-fib618) ? `38.2% ($${fib382})` : `61.8% ($${fib618})`;
+    lines.push(`📐 מחיר קרוב לרמת Fibonacci ${nearFib} — רמת היפוך קלאסית.`);
+    if(bullPat.length>0)
+      lines.push(`🕯 ${bullPat[0].name} על רמת Fibonacci — אישור טכני חזק.`);
+    if(d.rsi<55)
+      lines.push(`📊 RSI ${d.rsi} — יש מקום לעלות מהרמה.`);
+  }
+
+  else if(strat.includes("Earnings")){
+    // Earnings — מסביר את הדוח
+    const surp = earnings?.surprise||0;
+    if(surp>0)
+      lines.push(`💰 הפתעת רווחים של ${surp}% — החברה עקפה תחזיות.`);
+    if(insider?.net>=2)
+      lines.push(`👔 ${insider.net} רכישות Insider בחודש האחרון — הנהלה קונה בכסף אישי.`);
+    if(d.pct>0)
+      lines.push(`📈 עלייה של ${d.pct}% — השוק ממשיך לתמחר את ההפתעה.`);
+    if(sector?.leading)
+      lines.push(`🏆 הסקטור מוביל את השוק — רוח גבית נוספת.`);
+  }
+
+  else if(strat.includes("RS Leader")){
+    // RS Leader — מסביר את החוזק היחסי
+    lines.push(`🏆 Relative Strength ${d.relStrength}/100 — המניה מנצחת ${d.relStrength}% מהשוק.`);
+    if(d.ma50>d.ma200)
+      lines.push(`📊 MA50 מעל MA200 — מגמה עולה מבוססת.`);
+    if(insider?.net>=1)
+      lines.push(`👔 Insider Buying — הנהלה קונה עם הציבור.`);
+  }
+
+  else if(strat.includes("Momentum")){
+    // מומנטום — מסביר את התנופה
+    if(greenDays>=3)
+      lines.push(`🕯 ${greenDays} נרות ירוקים מתוך 5 — קונים שולטים.`);
+    if(d.macdVal>0)
+      lines.push(`⚡ MACD חיובי — תנופה עולה מאושרת.`);
+    if(volRatio>1.2)
+      lines.push(`📊 נפח פי ${volRatio} — מוסדיים נכנסים.`);
+    if(d.rsi>=45&&d.rsi<=65)
+      lines.push(`📈 RSI ${d.rsi} — מומנטום בריא, לא קניית יתר.`);
+  }
+
+  else if(strat.includes("Swing")){
+    lines.push(`🔀 המניה בין תמיכה $${d.support} להתנגדות $${d.resistance} — טווח של $${+(d.resistance-d.support).toFixed(2)}.`);
+    if(d.rsi>=40&&d.rsi<=60)
+      lines.push(`📊 RSI ${d.rsi} — נקודת כניסה בינונית בתוך הטווח.`);
+    lines.push(`🎯 TP בהתנגדות $${d.tp}, SL מתחת לתמיכה $${d.sl}.`);
+  }
+
+  else if(strat.includes("Short")){
+    // מכירה — מסביר את החולשה
+    if(d.rsi>65)
+      lines.push(`🔴 RSI ${d.rsi} — קניית יתר, לחץ מכירה צפוי.`);
+    if(bearPat.length>0)
+      lines.push(`🕯 ${bearPat[0].name} זוהה — ${bearPat[0].desc}`);
+    if(redDays>=3)
+      lines.push(`📉 ${redDays} נרות אדומים מתוך 5 — מוכרים שולטים.`);
+    if(d.price>d.resistance*0.97)
+      lines.push(`⚠️ קרוב להתנגדות $${d.resistance} — קשה לפרוץ כלפי מעלה.`);
+  }
+
+  else {
+    // Conservative — ניתוח כללי
+    if(isBull){
+      lines.push(`📊 ציון כולל ${d.totalScore}/100 — איתות קנייה עם ${d.conf}/10 הסכמת אינדיקטורים.`);
+      if(greenDays>=3) lines.push(`🕯 ${greenDays}/5 נרות ירוקים — קונים שולטים.`);
+    } else {
+      lines.push(`📊 ציון כולל ${d.totalScore}/100 — איתות מכירה עם ${d.conf}/10 הסכמת אינדיקטורים.`);
+      if(redDays>=3) lines.push(`🕯 ${redDays}/5 נרות אדומים — מוכרים שולטים.`);
+    }
+  }
+
+  // ── הוסף פרטי כניסה לכל אסטרטגיה ────────────────────────
+  if(isBull)
+    lines.push(`💡 כניסה: $${d.entry} · יעד: $${d.tp} (+${d.tpPct}%) · SL: $${d.sl} (${d.slPct}%) · יחס 1:${d.rrRatio}`);
+  else
+    lines.push(`💡 יציאה/שורט: $${d.entry} · יעד: $${d.tp} (${d.tpPct}%) · SL: $${d.sl}`);
+
+  return lines;
+}
+
 // ── RENDER ────────────────────────────────────────────────
 function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}){
   const d=scores;
@@ -1957,36 +2116,26 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const histHtml = renderHistoryHtml(sym);
 
   // ── הסבר נרות ──────────────────────────────────────────
-  const bullP=patterns.find(p=>p.bull===true),bearP=patterns.find(p=>p.bull===false);
-  let candleExplain="";
   const isBuy=d.sig==="BUY"||d.sig==="STRONG_BUY";
   const isSell=d.sig==="SELL"||d.sig==="STRONG_SELL";
-  if(isBuy){
-    candleExplain=`<div class="candle-explain">
-      <h4>🕯 ניתוח הגרף — למה לקנות?</h4>
-      <p>${bullP?`זוהתה תבנית <strong>${bullP.name}</strong> — ${bullP.desc}`:"הנרות האחרונים מראים כוח קנייה מתגבר."}</p>
-      <p>המחיר ${d.price>d.ma50?`<strong>מעל ${T("MA50","MA50")} ($${d.ma50})</strong> — מגמה חיובית`:`מתקרב ל-${T("MA50","MA50")} ($${d.ma50}) ועשוי לקפוץ ממנו`}.
-      ${T("RSI","RSI")} ${d.rsi} ${d.rsi<45?"— אזור קנייה, יש מקום לעלות":d.rsi<65?"— ניטרלי":"— גבוה, שים לב לקניית יתר"}.
-      ${T("Stochastic RSI","Stochastic")} ${d.stochRsi} ${d.stochRsi<30?"— מכירת יתר = הזדמנות":""}.
-      </p>
-      <p>כניסה: <strong>$${d.entry}</strong> · ${T("יעד רווח","יעד רווח")}: <strong style="color:var(--green)">$${d.tp} (+${d.tpPct}%)</strong> · ${T("עצירת הפסד","עצירת הפסד")}: <strong style="color:var(--red)">$${d.sl} (${d.slPct}%)</strong> · יחס ${T("סיכון/תגמול","יעד רווח")} 1:${d.rrRatio}</p>
-    </div>`;
-  }else if(isSell){
-    candleExplain=`<div class="candle-explain" style="border-color:var(--red)">
-      <h4 style="color:var(--red)">🕯 ניתוח הגרף — למה למכור?</h4>
-      <p>${bearP?`זוהתה תבנית <strong>${bearP.name}</strong> — ${bearP.desc}`:"הנרות האחרונים מראים לחץ מכירה מתגבר."}</p>
-      <p>המחיר ${d.price<d.ma50?`<strong>מתחת ל-${T("MA50","MA50")} ($${d.ma50})</strong> — מגמה שלילית`:`עשוי לשבור את ${T("MA50","MA50")} ($${d.ma50}) כלפי מטה`}.
-      ${T("RSI","RSI")} ${d.rsi} ${d.rsi>65?"— קניית יתר, סיכון לתיקון":d.rsi>50?"— מומנטום מתחלש":"— מומנטום יורד"}.
-      </p>
-      <p>יציאה: <strong>$${d.entry}</strong> · יעד: <strong style="color:var(--green)">$${d.tp} (${d.tpPct}%)</strong> · ${T("עצירת הפסד","עצירת הפסד")}: <strong style="color:var(--red)">$${d.sl}</strong></p>
-    </div>`;
-  }else{
-    candleExplain=`<div class="candle-explain" style="border-color:var(--amber)">
-      <h4 style="color:var(--amber)">🕯 ניתוח הגרף — למה להמתין?</h4>
-      <p>${patterns[0]?`תבנית: <strong>${patterns[0].name}</strong> — ${patterns[0].desc}`:"הנרות אינם מראים כיוון ברור."}</p>
-      <p>${T("RSI","RSI")} ${d.rsi}, ${T("Stochastic RSI","Stochastic")} ${d.stochRsi}, ${T("MACD","MACD")} ${d.macdTxt} — אין הסכמה בין האינדיקטורים. המתן לאיתות ברור יותר.</p>
-    </div>`;
-  }
+
+  // ── ניתוח גרף דינמי לפי אסטרטגיה ─────────────────────────
+  const storyLines = buildCandleStory(d, candles, patterns, earnings, insider, sector);
+  const storyHtml = storyLines
+    ? storyLines.map(l=>`<p style="margin:4px 0;font-size:13px;line-height:1.5">${l}</p>`).join("")
+    : "";
+
+  const titleColor = isBuy ? "var(--green)" : isSell ? "var(--red)" : "var(--amber)";
+  const titleText  = isBuy
+    ? `🕯 ניתוח הגרף — למה לקנות? (${d.strategy||""})`
+    : isSell
+    ? `🕯 ניתוח הגרף — למה למכור? (${d.strategy||""})`
+    : `🕯 ניתוח הגרף — המתן (${d.strategy||""})`;
+
+  let candleExplain = `<div class="candle-explain" style="border-color:${titleColor}">
+    <h4 style="color:${titleColor};margin-bottom:8px">${titleText}</h4>
+    ${storyHtml || `<p style="font-size:13px;color:var(--text2)">אין מספיק נתונים לניתוח מלא.</p>`}
+  </div>`;
 
   // ── נתונים פונדמנטליים ─────────────────────────────────
   const fmt=(v,sfx="",mult=1)=>v!=null?+(v*mult).toFixed(1)+sfx:"—";
