@@ -2627,9 +2627,9 @@ let scannerTimeframe = 'medium'; // ברירת מחדל
 
 // אסטרטגיות לפי טווח זמן
 const TF_STRATEGIES = {
-  short:  ["Breakout","Support Bounce","Mean Reversion","Short/Exit","Conservative"],
-  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce"],
-  long:   ["Trend","RS Leader","Earnings Momentum","Short/Exit","Conservative"]
+  short:  ["Breakout","Support Bounce","Mean Reversion","Momentum","Short/Exit","Conservative","Swing"],
+  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce","Trend"],
+  long:   ["Trend","RS Leader","Earnings Momentum","Momentum","Swing","Short/Exit","Conservative"]
 };
 
 // holdDays מותר לפי טווח
@@ -2775,7 +2775,9 @@ async function runScanner(auto=false){
 
         // ── פילטר Timeframe ──────────────────────────────────
         const tfAllowed = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
-        const stratMatch = tfAllowed.some(s => scores.strategy?.includes(s));
+        const strat = scores.strategy || "Conservative 🛡";
+        // Conservative תמיד עובר — הדירוג יסנן אותו בסוף
+        const stratMatch = strat.includes("Conservative") || tfAllowed.some(s => strat.includes(s));
         if(!stratMatch) return;
 
         const tfHold = TF_HOLD[scannerTimeframe];
