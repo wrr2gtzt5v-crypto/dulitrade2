@@ -1693,17 +1693,20 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     sector: sector,
     hasEarnings: checkEarnings(sym||""),
     vix: macro?.["^VIX"]?.price || 20,
-    confluence: (() => {
-      const c = calcConfluence(
-        {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
-        pct, patterns, posNews, negNews, totalNews
-      );
-      return c.score;
-    })(),
+    confluence: confluenceScore,
   });
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
   const slPct=+(((sl-entry)/entry)*100).toFixed(1);
+
+  // חשב confluence אחד פעם אחת — משמש גם ב-return וגם ב-calcTargets
+  const confluenceScore = (() => {
+    const c = calcConfluence(
+      {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
+      pct, patterns, posNews, negNews, totalNews
+    );
+    return c.score;
+  })();
 
   return{
     sig,sigLabel,pillCls,
@@ -1714,6 +1717,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
     goldenCross,deathCross,crossRecent,relStrength,support,resistance,
+    confluence: confluenceScore,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
 }
@@ -2034,7 +2038,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     <div class="metrics">
       <div class="metric"><div class="mlbl" onclick="showTip('Stochastic')">${T("Stoch RSI","Stochastic")}</div><div class="mval ${d.stochRsi>80?"dn":d.stochRsi<20?"up":"warn"}">${d.stochRsi}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('Williams')">${T("Williams %R","Williams")}</div><div class="mval ${d.williamsR>-20?"dn":d.williamsR<-80?"up":"warn"}">${d.williamsR}</div></div>
-      <div class="metric"><div class="mlbl" onclick="showTip('CCI')">${T("CCI","CCI")}</div><div class="mval ${d.cci>100?"dn":d.cci<-100?"up":"warn"}">${d.cci}</div></div>
+      <div class="metric"><div class="mlbl" onclick="showTip('CCI')">${T("CCI","CCI")}</div><div class="mval ${d.cci>100?"dn":d.cci<-100?"up":"warn"}">${(+d.cci).toFixed(1)}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('ATR')">${T("ATR","ATR")}</div><div class="mval warn">$${d.atr}</div></div>
     </div>
 
@@ -2496,18 +2500,14 @@ async function runScanner(auto=false){
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
 
-        // חישוב Confluence
-        const conf = calcConfluence(
-          {rsi:ind.rsi,stochRsi:ind.stochRsi,williamsR:ind.williamsR,cci:ind.cci,
-           macdVal:ind.macdVal,ma50:ind.ma50,ma200:ind.ma200,bbU:ind.bbU,bbL:ind.bbL,vr:ind.vr,vLbl:ind.vLbl},
-          scores.pct, patterns, 0, 0, 0
-        );
+        // Confluence — ישירות מ-scoreAll (אותו חישוב כמו בדף המניה)
+        const confScore = scores.confluence || 0;
 
         // ── פילטר ראשוני: איתות + הסכמה > 3 + סיכון < 50 ──
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;
-        if(conf.score <= 3 && scores.risk >= 50) return;
+        if(confScore <= 3 && scores.risk >= 50) return;
 
         // ── שלב 5 — R/R filter: פחות מ-1.5 = לא מוצג ────────
         if(scores.rrRatio < 1.5) return;
@@ -2519,7 +2519,7 @@ async function runScanner(auto=false){
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
         if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
-        if(conf.score >= 8) tags.push({t:`✓ Conf ${conf.score}/10`,cls:"mom"});
+        if(confScore >= 8) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
 
         // סיבה עיקרית
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
@@ -2529,7 +2529,7 @@ async function runScanner(auto=false){
           sym, price: scanQuote.c, pct: scores.pct,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
-          rrRatio: scores.rrRatio, conf: conf.score,
+          rrRatio: scores.rrRatio, conf: confScore,
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
         });
