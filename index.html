@@ -2766,25 +2766,12 @@ async function runScanner(auto=false){
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
 
-        // ── פילטר טכני ──────────────────────────────────────
+        // ── פילטר טכני — פשוט וחזק ──────────────────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
-        if(!isBuy && !isSell) return;
-        if(scores.totalScore < 48) return;
-        if(scores.rrRatio < 1.5) return;
-
-        // ── פילטר Timeframe ──────────────────────────────────
-        const tfAllowed = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
-        const strat = scores.strategy || "Conservative 🛡";
-        // Conservative תמיד עובר — הדירוג יסנן אותו בסוף
-        const stratMatch = strat.includes("Conservative") || tfAllowed.some(s => strat.includes(s));
-        if(!stratMatch) return;
-
-        const tfHold = TF_HOLD[scannerTimeframe];
-        if(scores.holding){
-          const holdNum = parseInt((scores.holding||"").replace(/\D/g,"")) || 0;
-          if(holdNum > tfHold.max * 1.5) return;
-        }
+        if(!isBuy && !isSell) return;           // חייב כיוון
+        if(scores.totalScore < 55) return;      // ציון מינימלי
+        if(scores.rrRatio < 1.5) return;        // R/R סביר
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider });
       } catch(e){}
@@ -2815,10 +2802,8 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
-        // ── פילטר שלב 3: Confluence מינימלי ────────────────
-        const _msConf = getMarketStatus();
-        const _minConf = (_msConf.status === "open") ? 3 : 2;
-        if(confScore < _minConf) return;
+        // ── פילטר שלב 3: Confluence מינימלי 2 ──────────────
+        if(confScore < 2) return;
 
         // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
         let dealStrength = 0;
@@ -2853,6 +2838,7 @@ async function runScanner(auto=false){
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
           dealStrength,
+          strategy: scores.strategy || "",
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
@@ -2861,13 +2847,19 @@ async function runScanner(auto=false){
     }));
   }
 
-  // ── מיון סופי — לפי חוזק עסקה, אחר כך ציון ────────────
+  // ── מיון סופי — dealStrength + ציון + R/R + Timeframe ──
+  const tfHoldRange = TF_HOLD[scannerTimeframe] || TF_HOLD.medium;
   results.sort((a,b)=>{
-    // קודם לפי dealStrength (גבוה ראשון)
-    if(b.dealStrength !== a.dealStrength) return b.dealStrength - a.dealStrength;
-    // אחר כך לפי ציון כולל
+    // בונוס Timeframe — מניות שמתאימות לטווח שבחרת מקבלות +1
+    const aStrat = a.strategy || "";
+    const bStrat = b.strategy || "";
+    const tfAllowed = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
+    const aTfBonus = tfAllowed.some(s=>aStrat.includes(s)) ? 1 : 0;
+    const bTfBonus = tfAllowed.some(s=>bStrat.includes(s)) ? 1 : 0;
+    const aTotal = (a.dealStrength||0) + aTfBonus;
+    const bTotal = (b.dealStrength||0) + bTfBonus;
+    if(bTotal !== aTotal) return bTotal - aTotal;
     if(b.score !== a.score) return b.score - a.score;
-    // אחר כך לפי R/R
     return b.rrRatio - a.rrRatio;
   });
 
