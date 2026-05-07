@@ -1192,18 +1192,35 @@ function calcTargets(p){
   const atrPct  = baseAtr / price;
 
   // ── 2. זיהוי אסטרטגיה אוטומטית ──────────────────────────
-  const hasMomentum  = rsi<50 && macdVal>0 && vr>1.2;
-  const hasMeanRev   = rsi<35 || stochRsi<25 || price<bbL;
-  const hasBreakout  = vr>1.8 && pct>1.5 && price>ma50;
-  const hasSwing     = confluence>=5 && confluence<=7 && Math.abs(pct)<1.5;
 
+  // Breakout: נפח גבוה + עלייה + מחיר מעל MA50
+  const hasBreakout = vr>1.8 && pct>1.5 && price>ma50;
+
+  // Momentum: MACD חיובי + RSI בינוני + נפח
+  const hasMomentum = macdVal>0 && rsi>=45 && rsi<=65 && vr>1.2;
+
+  // Trend Following: MA50 מעל MA200 + RSI יציב + MACD חיובי
+  const hasTrend = ma50>ma200 && rsi>=45 && rsi<=65 && macdVal>0;
+
+  // Swing: confluence בינוני + תנועה קטנה
+  const hasSwing = confluence>=4 && confluence<=7 && Math.abs(pct)<1.5;
+
+  // Mean Reversion: חייב לפחות 2 מתוך 3 תנאים קיצוניים
+  const meanRevScore = (rsi<35?1:0) + (stochRsi<25?1:0) + (price<bbL?1:0);
+  const hasMeanRev   = meanRevScore >= 2;
+
+  // Short/Exit — כל איתות מכירה
+  const hasShort = isSell;
+
+  // סדר עדיפויות — מהספציפי לכללי
   let strategy;
-  if(hasBreakout && isBuy)      strategy = "Breakout 🚀";
-  else if(hasMeanRev && isBuy)  strategy = "Mean Reversion 🔄";
-  else if(hasMomentum && isBuy) strategy = "Momentum 📈";
-  else if(hasSwing)             strategy = "Swing 🔀";
-  else if(isSell)               strategy = "Short/Exit 📉";
-  else                          strategy = "Conservative 🛡";
+  if(hasBreakout && isBuy)     strategy = "Breakout 🚀";
+  else if(hasMomentum && isBuy)strategy = "Momentum 📈";
+  else if(hasTrend && isBuy)   strategy = "Trend 📊";
+  else if(hasSwing)            strategy = "Swing 🔀";
+  else if(hasMeanRev && isBuy) strategy = "Mean Reversion 🔄";
+  else if(hasShort)            strategy = "Short/Exit 📉";
+  else                         strategy = "Conservative 🛡";
 
   // ── 3. תמיכה אמיתית — 3 מקורות ──────────────────────────
   const lows20  = (candles.l||[]).slice(-20);
@@ -1279,9 +1296,10 @@ function calcTargets(p){
   if(beta>1.5)      slMult *= 1.1;
   else if(beta<0.8) slMult *= 0.9;
   if(strategy.includes("Breakout"))      slMult *= 1.1;
-  else if(strategy.includes("Mean Rev")) slMult *= 0.85;
-  else if(strategy.includes("Momentum")) slMult *= 1.0;
+  else if(strategy.includes("Momentum")) slMult *= 1.05;
+  else if(strategy.includes("Trend"))    slMult *= 1.15;
   else if(strategy.includes("Swing"))    slMult *= 0.95;
+  else if(strategy.includes("Mean Rev")) slMult *= 0.85;
 
   // ── שלב 3 — Earnings: SL מתהדק 20% נוסף ─────────────────
   if(hasEarnings) slMult *= 0.8;
@@ -1314,9 +1332,10 @@ function calcTargets(p){
   // זמן החזקה לפי אסטרטגיה
   let holdDays;
   if(strategy.includes("Breakout"))      holdDays = 7;
-  else if(strategy.includes("Mean Rev")) holdDays = 5;
-  else if(strategy.includes("Momentum")) holdDays = 14;
+  else if(strategy.includes("Momentum")) holdDays = 12;
+  else if(strategy.includes("Trend"))    holdDays = 18;
   else if(strategy.includes("Swing"))    holdDays = 10;
+  else if(strategy.includes("Mean Rev")) holdDays = 5;
   else if(strategy.includes("Short"))    holdDays = 7;
   else                                   holdDays = 10;
   if(isStrong) holdDays *= 1.5;
