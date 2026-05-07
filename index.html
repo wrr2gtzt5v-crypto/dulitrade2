@@ -706,10 +706,43 @@ async function fireAlert(sym,sig,price,conf){
 }
 
 // ── API ───────────────────────────────────────────────────
-async function api(sym,ep){
-  const r=await fetch(`/api/stock?symbol=${sym}&endpoint=${ep}`);
-  return r.json();
+// ── API CACHE — שומר תוצאות 5 דקות ────────────────────────
+const _apiCache = {};
+const _API_TTL  = 5 * 60 * 1000; // 5 דקות
+
+async function api(sym, ep, sector=""){
+  const key = `${sym}|${ep}|${sector}`;
+  const now = Date.now();
+
+  // החזר מ-cache אם תקף
+  if(_apiCache[key] && (now - _apiCache[key].ts) < _API_TTL){
+    return _apiCache[key].data;
+  }
+
+  // קריאה לשרת
+  const url = sector
+    ? `/api/stock?symbol=${sym}&endpoint=${ep}&sector=${encodeURIComponent(sector)}`
+    : `/api/stock?symbol=${sym}&endpoint=${ep}`;
+
+  try {
+    const r = await fetch(url);
+    const data = await r.json();
+    _apiCache[key] = { data, ts: now };
+    return data;
+  } catch(e) {
+    // אם יש cache ישן — השתמש בו כ-fallback
+    if(_apiCache[key]) return _apiCache[key].data;
+    throw e;
+  }
 }
+
+// נקה cache ישן כל 10 דקות
+setInterval(()=>{
+  const now = Date.now();
+  Object.keys(_apiCache).forEach(k=>{
+    if(now - _apiCache[k].ts > _API_TTL) delete _apiCache[k];
+  });
+}, 10 * 60 * 1000);
 
 // ── MACRO ─────────────────────────────────────────────────
 async function loadMacro(){
@@ -2317,7 +2350,7 @@ async function go(){
       api(sym,"indicators")
     ]);
     const sector = profile.sector && profile.sector!=="—"
-      ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
+      ? await api(sym, "sector", profile.sector).catch(()=>({}))
       : {};
     if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
     const ind=calcIndicators(candles, quote, fhIndicators);
@@ -2723,7 +2756,7 @@ async function runScanner(auto=false){
         ]);
 
         const sector = profile.sector
-          ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
+          ? await api(sym, "sector", profile.sector).catch(()=>({}))
           : {};
 
         const ind = calcIndicators(candles, scanQuote, {});
