@@ -8,7 +8,9 @@ from socketserver import ThreadingMixIn
 
 PORT = int(os.environ.get("PORT", 10000))
 FINNHUB_KEY = os.environ.get("FINNHUB_KEY", "")
+ALPHA_KEY   = os.environ.get("ALPHA_KEY", "")
 FH = "https://finnhub.io/api/v1"
+AV = "https://www.alphavantage.co/query"
 
 HEADERS_OUT = {
     "Content-Type": "application/json; charset=utf-8",
@@ -39,75 +41,79 @@ def get_quote(symbol):
         }
     return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0}
 
+def av_fetch(params):
+    """Alpha Vantage API"""
+    if not ALPHA_KEY: return {}
+    try:
+        from urllib.parse import urlencode
+        url = f"{AV}?{urlencode({**params, 'apikey': ALPHA_KEY})}"
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0"})
+        with urlopen(req, timeout=15) as r:
+            return json.loads(r.read())
+    except: return {}
+
 def get_candles(symbol):
+    # Alpha Vantage — נרות יומיים אמיתיים
+    if ALPHA_KEY:
+        try:
+            d = av_fetch({"function":"TIME_SERIES_DAILY","symbol":symbol,"outputsize":"compact"})
+            ts = d.get("Time Series (Daily)", {})
+            if ts:
+                dates = sorted(ts.keys(), reverse=True)[:90]
+                dates.reverse()
+                c=[round(float(ts[dt]["4. close"]),2) for dt in dates]
+                o=[round(float(ts[dt]["1. open"]),2)  for dt in dates]
+                h=[round(float(ts[dt]["2. high"]),2)  for dt in dates]
+                l=[round(float(ts[dt]["3. low"]),2)   for dt in dates]
+                v=[int(float(ts[dt]["5. volume"]))    for dt in dates]
+                import time as _t
+                import datetime
+                t=[int(datetime.datetime.strptime(dt,"%Y-%m-%d").timestamp()) for dt in dates]
+                return {"c":c,"o":o,"h":h,"l":l,"v":v,"t":t,"s":"ok"}
+        except: pass
+
+    # Fallback — Finnhub
     to  = int(time.time())
-    frm = to - 365 * 86400  # שנה אחורה
-    
-    # נסה daily עם from/to
+    frm = to - 365 * 86400
     d = fh(f"/stock/candle?symbol={symbol}&resolution=D&from={frm}&to={to}")
     if d.get("s") == "ok" and d.get("c") and len(d["c"]) >= 5:
         return {"c":[round(x,2) for x in d["c"]],"o":[round(x,2) for x in d["o"]],
                 "h":[round(x,2) for x in d["h"]],"l":[round(x,2) for x in d["l"]],
                 "v":[int(x) for x in d["v"]],"t":d["t"],"s":"ok"}
-    
-    # נסה monthly — תמיד זמין בחינם
-    frm2 = to - 5 * 365 * 86400  # 5 שנים
-    d3 = fh(f"/stock/candle?symbol={symbol}&resolution=M&from={frm2}&to={to}")
-    if d3.get("s") == "ok" and d3.get("c") and len(d3["c"]) >= 5:
-        return {"c":[round(x,2) for x in d3["c"]],"o":[round(x,2) for x in d3["o"]],
-                "h":[round(x,2) for x in d3["h"]],"l":[round(x,2) for x in d3["l"]],
-                "v":[int(x) for x in d3["v"]],"t":d3["t"],"s":"ok"}
-    
+
     return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
 
 def get_indicators(symbol):
-    """Finnhub aggregate indicators — RSI, MACD ועוד מחושבים מראש"""
     d = fh(f"/scan/technical-indicator?symbol={symbol}&resolution=D")
     return d
 
-
+def get_profile(symbol):
     p = fh(f"/stock/profile2?symbol={symbol}")
     m = fh(f"/stock/metric?symbol={symbol}&metric=all")
-    q = get_quote(symbol)
-    price = q.get("c", 0)
     metric = m.get("metric", {})
-    
-    # חשב P/E מהמדדים
-    pe = metric.get("peNormalizedAnnual") or metric.get("peTTM")
-    eps = metric.get("epsTTM")
-    pb  = metric.get("pbAnnual") or metric.get("pb")
+    pe   = metric.get("peNormalizedAnnual") or metric.get("peTTM")
+    pb   = metric.get("pbAnnual") or metric.get("pb")
     beta = metric.get("beta")
-    high52 = metric.get("52WeekHigh")
-    low52  = metric.get("52WeekLow")
-    roe    = metric.get("roeTTM")
-    
-    mc = p.get("marketCapitalization")
-    
+    mc   = p.get("marketCapitalization")
     return {
         "name":     p.get("name", symbol),
         "sector":   p.get("finnhubIndustry", "—"),
         "industry": p.get("finnhubIndustry", "—"),
         "marketCapitalization": mc,
-        "pe":        pe,
-        "forwardPE": None,
-        "pb":        pb,
-        "ps":        None,
+        "pe": pe, "forwardPE": None, "pb": pb, "ps": None,
         "revenueGrowth":   metric.get("revenueGrowthTTMYoy"),
         "earningsGrowth":  metric.get("epsGrowthTTMYoy"),
         "profitMargin":    metric.get("netProfitMarginTTM"),
         "operatingMargin": metric.get("operatingMarginTTM"),
-        "roe":        roe,
-        "roa":        metric.get("roaTTM"),
-        "debtToEquity": metric.get("totalDebt/totalEquityAnnual"),
-        "currentRatio":   metric.get("currentRatioAnnual"),
-        "beta":       beta,
-        "shortRatio": None,
-        "targetMeanPrice": None,
-        "recommendationKey": None,
-        "numberOfAnalysts": None,
-        "dividendYield": metric.get("dividendYieldIndicatedAnnual"),
-        "fiftyTwoWeekHigh": high52,
-        "fiftyTwoWeekLow":  low52,
+        "roe":  metric.get("roeTTM"),
+        "roa":  metric.get("roaTTM"),
+        "debtToEquity":  metric.get("totalDebt/totalEquityAnnual"),
+        "currentRatio":  metric.get("currentRatioAnnual"),
+        "beta": beta, "shortRatio": None,
+        "targetMeanPrice": None, "recommendationKey": None, "numberOfAnalysts": None,
+        "dividendYield":    metric.get("dividendYieldIndicatedAnnual"),
+        "fiftyTwoWeekHigh": metric.get("52WeekHigh"),
+        "fiftyTwoWeekLow":  metric.get("52WeekLow"),
     }
 
 def get_news(symbol):
