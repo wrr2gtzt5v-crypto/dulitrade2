@@ -2466,16 +2466,21 @@ async function runScanner(auto=false){
   btn.textContent = "⏳ סורק...";
   progress.style.display = "block";
   fill.style.width = "0%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>סורק ${SCAN_LIST.length} מניות · מסנן הסכמה>3 וסיכון<50...</div>`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/2 — סורק ${SCAN_LIST.length} מניות...</div>`;
 
-  const results = [];
-  const BATCH = 3; // 3 מניות במקביל (6 קריאות כל אחת)
+  const ms = getMarketStatus();
 
-  for(let i = 0; i < SCAN_LIST.length; i += BATCH){
-    const batch = SCAN_LIST.slice(i, i+BATCH);
-    const pct = Math.round((i/SCAN_LIST.length)*100);
+  // ══════════════════════════════════════════════════════════
+  // שלב 1 — סרוק את כולם בלי חדשות, סנן מועמדות
+  // ══════════════════════════════════════════════════════════
+  const candidates = [];
+  const BATCH1 = 5; // מהיר יותר בלי חדשות
+
+  for(let i = 0; i < SCAN_LIST.length; i += BATCH1){
+    const batch = SCAN_LIST.slice(i, i+BATCH1);
+    const pct = Math.round((i/SCAN_LIST.length)*50); // 0-50%
     fill.style.width = pct + "%";
-    status.textContent = `סורק ${i+1}-${Math.min(i+BATCH,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
+    status.textContent = `שלב 1/2 — סורק ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
 
     await Promise.allSettled(batch.map(async sym => {
       try {
@@ -2485,13 +2490,10 @@ async function runScanner(auto=false){
         ]);
         if(!quote.c || quote.c === 0) return;
 
-        // Pre-Market / After-Hours — השתמש במחיר סגירה אחרון במקום מחיר נוכחי
-        const ms = getMarketStatus();
         const scanQuote = (ms.status === "pre" || ms.status === "after" || ms.status === "closed")
-          ? { ...quote, c: quote.pc || quote.c }  // pc = previous close
+          ? { ...quote, c: quote.pc || quote.c }
           : quote;
 
-        // sector דורש את שם הסקטור מהפרופיל
         const sector = profile.sector
           ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
           : {};
@@ -2500,17 +2502,47 @@ async function runScanner(auto=false){
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
 
-        // Confluence — ישירות מ-scoreAll (אותו חישוב כמו בדף המניה)
-        const confScore = scores.confluence || 0;
-
-        // ── פילטר ראשוני: איתות בלבד ──────────────────────
-        // הדירוג היחסי (conf + risk) עושה את הסינון — לא צריך פילטר קשה
+        // ── פילטר מועמדות: איתות + ציון מינימלי + R/R ────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;
-
-        // ── שלב 5 — R/R filter: פחות מ-1.5 = לא מוצג ────────
+        if(scores.totalScore < 52) return;
         if(scores.rrRatio < 1.5) return;
+
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector });
+      } catch(e){}
+    }));
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // שלב 2 — על המועמדות בלבד: מושך חדשות ומחשב מחדש
+  // ══════════════════════════════════════════════════════════
+  const results = [];
+  fill.style.width = "50%";
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/2 — מנתח חדשות על ${candidates.length} מועמדות...</div>`;
+
+  const BATCH2 = 3;
+  for(let i = 0; i < candidates.length; i += BATCH2){
+    const batch = candidates.slice(i, i+BATCH2);
+    const pct = 50 + Math.round((i/Math.max(candidates.length,1))*50); // 50-100%
+    fill.style.width = pct + "%";
+    status.textContent = `שלב 2/2 — חדשות ${i+1}-${Math.min(i+BATCH2,candidates.length)} מתוך ${candidates.length}...`;
+
+    await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector}) => {
+      try {
+        // מושך חדשות עכשיו
+        const [newsArr, extNewsArr] = await Promise.all([
+          api(sym,"news"), api(sym,"extnews")
+        ]);
+
+        // earnings ו-insider כבר יש מהשלב הראשון (בתוך s1)
+        const earnings = { available: s1.posNews !== undefined };
+        const insider  = {};
+
+        // מחשב מחדש עם חדשות
+        const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, {available:false}, {available:false}, sector);
+
+        const confScore = scores.confluence || 0;
 
         // תגיות
         const tags = [];
@@ -2520,8 +2552,8 @@ async function runScanner(auto=false){
         if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
         if(confScore >= 8) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
+        if(scores.posNews > 0) tags.push({t:`📰 ${scores.posNews} חדשות+`,cls:"mom"});
 
-        // סיבה עיקרית
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
 
@@ -2535,18 +2567,10 @@ async function runScanner(auto=false){
         });
       } catch(e){}
     }));
-
-    // הצג תוצאות ביניים
-    if(results.length > 0) renderScanResults([...results]);
   }
 
   // ── מיון סופי — דירוג יחסי (הסכמה + סיכון) ──────────────
-  // דרגה כל מניה לפי מקומה היחסי בשני הממדים
-  // מי שסכום המקומות הנמוך ביותר — הכי טוב בשניהם
-  const n = results.length;
-  // דירוג הסכמה: conf גבוה = מקום 1
   const byConf = [...results].sort((a,b)=>b.conf-a.conf);
-  // דירוג סיכון: risk נמוך = מקום 1
   const byRisk = [...results].sort((a,b)=>a.risk-b.risk);
   results.forEach(r=>{
     r._rankConf = byConf.findIndex(x=>x.sym===r.sym) + 1;
