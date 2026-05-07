@@ -2651,7 +2651,7 @@ async function runScanner(auto=false){
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;
-        if(scores.totalScore < 52) return;
+        if(scores.totalScore < 48) return;
         if(scores.rrRatio < 1.5) return;
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector });
