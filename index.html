@@ -416,7 +416,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
       <div class="scanner-progress-fill" id="scanFill"></div>
     </div>
     <div class="scanner-grid" id="scanGrid">
-      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות מעולות<br><span style="font-size:11px">המערכת תנתח 30 מניות ותמיין את הטובות ביותר</span></div>
+      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות מעולות<br><span style="font-size:11px">המערכת תנתח 120 מניות ותמיין את 8 הטובות ביותר</span></div>
     </div>
   </div>
 
@@ -2076,10 +2076,29 @@ function renderPositionHtml(price, sl){
 
 // ── SCANNER ENGINE ────────────────────────────────────────
 const SCAN_LIST = [
-  "AAPL","NVDA","TSLA","MSFT","AMZN","META","GOOGL","AMD",
-  "NFLX","COIN","PLTR","SOFI","TEVA","CHKP","MNDY","WIX",
-  "V","MA","JPM","DIS","UBER","INTC","PYPL","BAC","GS",
-  "QCOM","CRM","SNAP","HOOD","AMGN","PANW","CRWD","NOW","SHOP"
+  // Mega Cap Tech
+  "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AVGO","ORCL","IBM",
+  // Large Cap Tech
+  "AMD","INTC","QCOM","TXN","MU","AMAT","LRCX","ADI","CRM","NOW",
+  "ADBE","INTU","PANW","CRWD","FTNT","SNPS","CDNS","PLTR","SHOP","MELI",
+  // Consumer & Retail
+  "WMT","COST","TGT","HD","LOW","NKE","SBUX","MCD","YUM","AMGN",
+  // Financials
+  "JPM","BAC","WFC","GS","MS","C","BLK","SCHW","AXP","V","MA","PYPL",
+  // Healthcare
+  "UNH","JNJ","LLY","ABBV","MRK","PFE","GILD","REGN","VRTX","BMY","TMO","ISRG",
+  // Communication & Media
+  "NFLX","DIS","CMCSA","T","VZ","TMUS","SNAP","PINS","UBER","LYFT",
+  // Energy & Materials
+  "XOM","CVX","COP","SLB","EOG","FCX","LIN","APD","NEM","DVN",
+  // Industrials
+  "CAT","DE","BA","HON","GE","RTX","LMT","NOC","UPS","FDX",
+  // High Growth / Popular
+  "COIN","HOOD","SOFI","AFRM","RBLX","DKNG","ROKU","APP","SMCI","ARM",
+  // Israel / Other
+  "TEVA","CHKP","MNDY","WIX",
+  // ETFs
+  "SPY","QQQ","IWM"
 ];
 
 let scannerRunning = false;
@@ -2132,7 +2151,7 @@ async function runScanner(auto=false){
   btn.textContent = "⏳ סורק...";
   progress.style.display = "block";
   fill.style.width = "0%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>סורק ${SCAN_LIST.length} מניות...</div>`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>סורק ${SCAN_LIST.length} מניות · מסנן הסכמה>3 וסיכון<50...</div>`;
 
   const results = [];
   const BATCH = 4; // 4 מניות במקביל
@@ -2161,20 +2180,12 @@ async function runScanner(auto=false){
           scores.pct, patterns, 0, 0, 0
         );
 
-        // קריטריונים לעסקה מעולה
+        // ── פילטר ראשוני: איתות + הסכמה > 3 + סיכון < 50 ──
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
-        if(!isBuy && !isSell) return; // HOLD — לא מעניין
-
-        const passConfluence = conf.score >= 6;
-        const passRisk       = scores.risk < 55;
-        const passRR         = scores.rrRatio >= 1.8;
-        const passScore      = scores.totalScore >= 54;
-        const passRSI        = scores.rsi >= 25 && scores.rsi <= 72;
-
-        // חייב לעבור לפחות 3 מתוך 5 קריטריונים
-        const passed = [passConfluence, passRisk, passRR, passScore, passRSI].filter(Boolean).length;
-        if(passed < 3) return;
+        if(!isBuy && !isSell) return;
+        if(conf.score <= 3) return;
+        if(scores.risk >= 50) return;
 
         // תגיות
         const tags = [];
@@ -2203,19 +2214,28 @@ async function runScanner(auto=false){
     if(results.length > 0) renderScanResults([...results]);
   }
 
-  // מיון סופי — לפי ציון × confluence × R/R
-  results.sort((a,b)=>{
-    const scoreA = a.score * 0.4 + a.conf * 5 * 0.3 + a.rrRatio * 10 * 0.3;
-    const scoreB = b.score * 0.4 + b.conf * 5 * 0.3 + b.rrRatio * 10 * 0.3;
-    return scoreB - scoreA;
+  // ── מיון סופי — דירוג יחסי (הסכמה + סיכון) ──────────────
+  // דרגה כל מניה לפי מקומה היחסי בשני הממדים
+  // מי שסכום המקומות הנמוך ביותר — הכי טוב בשניהם
+  const n = results.length;
+  // דירוג הסכמה: conf גבוה = מקום 1
+  const byConf = [...results].sort((a,b)=>b.conf-a.conf);
+  // דירוג סיכון: risk נמוך = מקום 1
+  const byRisk = [...results].sort((a,b)=>a.risk-b.risk);
+  results.forEach(r=>{
+    r._rankConf = byConf.findIndex(x=>x.sym===r.sym) + 1;
+    r._rankRisk = byRisk.findIndex(x=>x.sym===r.sym) + 1;
+    r._rankSum  = r._rankConf + r._rankRisk;
   });
+  results.sort((a,b)=>a._rankSum - b._rankSum);
 
   lastScanResults = results;
   renderScanResults(results);
 
   fill.style.width = "100%";
   const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
-  status.textContent = `נמצאו ${results.length} הזדמנויות · עודכן ${now}`;
+  const show = Math.min(results.length, 8);
+  status.textContent = `מציג ${show} מתוך ${results.length} הזדמנויות · עודכן ${now}`;
   btn.disabled = false;
   btn.textContent = "↺ סרוק שוב";
   setTimeout(()=>progress.style.display="none", 1000);
@@ -2233,7 +2253,7 @@ function renderScanResults(results){
   const sigBg    = s => s.includes("BUY")?"var(--gdim)":s.includes("SELL")?"var(--rdim)":"var(--adim)";
   const chDir    = p => p>=0?"var(--green)":"var(--red)";
 
-  grid.innerHTML = results.slice(0,6).map(r=>`
+  grid.innerHTML = results.slice(0,8).map(r=>`
     <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
       <div class="scan-left">
         <div class="scan-sym">${r.sym}</div>
