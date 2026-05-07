@@ -28,6 +28,13 @@ body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;min-h
 body:not(.light)::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(79,195,247,.025)1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.025)1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
 .wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:1.5rem;}
 
+/* TIMEFRAME SELECTOR */
+.tf-selector{display:flex;gap:6px;margin-bottom:10px;}
+.tf-btn{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:'Heebo',sans-serif;}
+.tf-btn:hover{border-color:var(--blue);color:var(--text);}
+.tf-btn.active{background:var(--cbtn);border-color:var(--cbtn);color:#fff;}
+.tf-label{font-size:10px;color:var(--text3);display:block;margin-top:1px;font-weight:400;}
+
 /* HEADER */
 header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:200;}
 .logo{display:flex;align-items:center;gap:10px;}
@@ -414,11 +421,26 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
         <button class="tbtn" onclick="runScanner()" id="scanBtn" style="font-size:11px;background:var(--cbtn);color:#fff;border:none;padding:5px 14px;font-weight:700;">▶ סרוק עכשיו</button>
       </div>
     </div>
+    <!-- TIMEFRAME SELECTOR -->
+    <div class="tf-selector" id="tfSelector">
+      <button class="tf-btn" id="tf-short" onclick="setTimeframe('short')">
+        ⚡ קצר
+        <span class="tf-label">1–7 ימים</span>
+      </button>
+      <button class="tf-btn active" id="tf-medium" onclick="setTimeframe('medium')">
+        📅 בינוני
+        <span class="tf-label">7–14 ימים</span>
+      </button>
+      <button class="tf-btn" id="tf-long" onclick="setTimeframe('long')">
+        📈 ארוך
+        <span class="tf-label">30+ ימים</span>
+      </button>
+    </div>
     <div class="scanner-progress" id="scanProgress">
       <div class="scanner-progress-fill" id="scanFill"></div>
     </div>
     <div class="scanner-grid" id="scanGrid">
-      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות מעולות<br><span style="font-size:11px">המערכת תנתח 120 מניות ותמיין את 8 הטובות ביותר</span></div>
+      <div class="scan-empty">בחר טווח זמן וסרוק<br><span style="font-size:11px">המערכת תנתח 120 מניות ותמיין את 8 הטובות ביותר</span></div>
     </div>
   </div>
 
@@ -2562,6 +2584,28 @@ const SCAN_LIST = [
 ];
 
 let scannerRunning = false;
+let scannerTimeframe = 'medium'; // ברירת מחדל
+
+// אסטרטגיות לפי טווח זמן
+const TF_STRATEGIES = {
+  short:  ["Breakout","Support Bounce","Mean Reversion","Short/Exit","Conservative"],
+  medium: ["Momentum","Swing","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce"],
+  long:   ["Trend","RS Leader","Earnings Momentum","Short/Exit","Conservative"]
+};
+
+// holdDays מותר לפי טווח
+const TF_HOLD = {
+  short:  {min:1,  max:7},
+  medium: {min:5,  max:14},
+  long:   {min:15, max:60},
+};
+
+function setTimeframe(tf){
+  scannerTimeframe = tf;
+  ['short','medium','long'].forEach(t=>{
+    document.getElementById('tf-'+t)?.classList.toggle('active', t===tf);
+  });
+}
 let lastScanResults = [];
 let scanInterval = null;
 
@@ -2653,6 +2697,19 @@ async function runScanner(auto=false){
         if(!isBuy && !isSell) return;
         if(scores.totalScore < 48) return;
         if(scores.rrRatio < 1.5) return;
+
+        // ── פילטר Timeframe — רק אסטרטגיות מתאימות לטווח ────
+        const tfAllowed = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
+        const stratMatch = tfAllowed.some(s => scores.strategy?.includes(s));
+        if(!stratMatch) return;
+
+        // בדיקת holdDays מתאים לטווח
+        const tfHold = TF_HOLD[scannerTimeframe];
+        if(scores.holding){
+          // scores.holding = "3-7 ימים" — חלץ את המספר
+          const holdNum = parseInt((scores.holding||"").replace(/[^\d]/,"")) || 0;
+          if(holdNum > tfHold.max * 1.5) return; // יותר מדי ארוך
+        }
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector });
       } catch(e){}
