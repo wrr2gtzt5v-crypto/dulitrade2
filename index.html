@@ -1179,7 +1179,7 @@ function calcIndicators(candles, quote, fhInd){
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
 function calcTargets(p){
   const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
-         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={}} = p;
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={}} = p;
   const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
   const isSell = sig==="SELL"||sig==="STRONG_SELL";
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
@@ -1284,6 +1284,12 @@ function calcTargets(p){
   // ── שלב 3 — Earnings: SL מתהדק 20% נוסף ─────────────────
   if(hasEarnings) slMult *= 0.8;
 
+  // ── שלב 4 — Sector: מתאים SL לפי חוזק הסקטור ────────────
+  if(sector?.available){
+    if(sector.lagging)  slMult *= 0.9;  // סקטור חלש = SL הדוק 10%
+    else if(sector.leading) slMult *= 1.05; // סקטור חזק = SL קצת יותר רחוק
+  }
+
   let finalSlPct = (slBasePct + candleAdjust) * slMult;
   finalSlPct = Math.max(0.004, Math.min(0.04, finalSlPct));
 
@@ -1327,6 +1333,13 @@ function calcTargets(p){
   else if(confluence>=6) expectedMovePct *= 1.0;
   else if(confluence<=4) expectedMovePct *= 0.7;
 
+  // ── שלב 4 — Sector: מתאים TP לפי חוזק הסקטור ───────────
+  let sectorTpMult = 1.0;
+  if(sector?.available){
+    if(sector.lagging)       sectorTpMult = 0.9;  // סקטור חלש = TP קרוב 10%
+    else if(sector.leading)  sectorTpMult = 1.1;  // סקטור חזק = TP רחוק 10%
+  }
+
   // R/R מינימלי
   let minRR = 1.8;
   if(confluence>=8)      minRR = 2.5;
@@ -1338,6 +1351,7 @@ function calcTargets(p){
   const rrBasedTpPct = actualSlPct * minRR;
   let finalTpPct = Math.min(tpAnchorPct, expectedMovePct);
   finalTpPct = Math.max(finalTpPct, rrBasedTpPct); // תמיד לפחות minRR
+  finalTpPct *= sectorTpMult;                       // התאמת סקטור
   finalTpPct = Math.max(0.02, Math.min(0.15, finalTpPct));
 
   const tp = isBuy
@@ -1674,6 +1688,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     patterns, candles,
     beta: profile.beta,
     profile: profile,
+    sector: sector,
     hasEarnings: checkEarnings(sym||""),
     vix: macro?.["^VIX"]?.price || 20,
     confluence: (() => {
@@ -2492,9 +2507,13 @@ async function runScanner(auto=false){
         if(!isBuy && !isSell) return;
         if(conf.score <= 3 && scores.risk >= 50) return;
 
+        // ── שלב 5 — R/R filter: פחות מ-1.5 = לא מוצג ────────
+        if(scores.rrRatio < 1.5) return;
+
         // תגיות
         const tags = [];
         if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"🔥 HOT",cls:"hot"});
+        if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
         if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
