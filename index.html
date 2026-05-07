@@ -2184,8 +2184,7 @@ async function runScanner(auto=false){
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;
-        if(conf.score <= 3) return;
-        if(scores.risk >= 50) return;
+        if(conf.score <= 3 && scores.risk >= 50) return;
 
         // תגיות
         const tags = [];
