@@ -2170,14 +2170,20 @@ async function runScanner(auto=false){
         ]);
         if(!quote.c || quote.c === 0) return;
 
+        // Pre-Market / After-Hours — השתמש במחיר סגירה אחרון במקום מחיר נוכחי
+        const ms = getMarketStatus();
+        const scanQuote = (ms.status === "pre" || ms.status === "after" || ms.status === "closed")
+          ? { ...quote, c: quote.pc || quote.c }  // pc = previous close
+          : quote;
+
         // sector דורש את שם הסקטור מהפרופיל
         const sector = profile.sector
           ? await fetch(`/api/stock?symbol=${sym}&endpoint=sector&sector=${encodeURIComponent(profile.sector)}`).then(r=>r.json()).catch(()=>({}))
           : {};
 
-        const ind = calcIndicators(candles, quote, {});
+        const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
-        const scores = scoreAll(sym, quote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
+        const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
 
         // חישוב Confluence
         const conf = calcConfluence(
@@ -2205,11 +2211,11 @@ async function runScanner(auto=false){
         const reason = topFactor?.t || scores.trend;
 
         results.push({
-          sym, price: quote.c, pct: scores.pct,
+          sym, price: scanQuote.c, pct: scores.pct,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: conf.score,
-          rsi: ind.rsi, tags, reason, passed,
+          rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
         });
       } catch(e){}
