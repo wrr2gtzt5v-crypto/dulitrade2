@@ -1181,7 +1181,7 @@ function calcIndicators(candles, quote, fhInd){
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
 function calcTargets(p){
   const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
-         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={}} = p;
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50} = p;
   const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
   const isSell = sig==="SELL"||sig==="STRONG_SELL";
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
@@ -1191,63 +1191,151 @@ function calcTargets(p){
   const baseAtr = Math.max(atr||0, price*0.01);
   const atrPct  = baseAtr / price;
 
-  // ── 2. זיהוי אסטרטגיה אוטומטית ──────────────────────────
+  // ── 2. זיהוי אסטרטגיה — ציון התאמה לכל אסטרטגיה ──────────
 
-  // Breakout: נפח גבוה + עלייה + מחיר מעל MA50
-  const hasBreakout = vr>1.8 && pct>1.5 && price>ma50;
+  // נתונים משותפים לחישובי אסטרטגיה
+  const _lows20  = (candles.l||[]).slice(-20);
+  const _highs20 = (candles.h||[]).slice(-20);
+  const _min20   = _lows20.length  ? Math.min(..._lows20)  : price*0.95;
+  const _max20   = _highs20.length ? Math.max(..._highs20) : price*1.05;
+  const _w52Lo   = profile?.fiftyTwoWeekLow  || _min20;
+  const _w52Hi   = profile?.fiftyTwoWeekHigh || _max20;
+  const _fibR    = _w52Hi - _w52Lo;
+  const _fib382  = _w52Lo + _fibR * 0.382;
+  const _fib618  = _w52Lo + _fibR * 0.618;
+  const _supportCands  = [_min20, _fib382, ma50].filter(v=>v>0&&v<price);
+  const _resCands      = [_max20, _fib618, bbU].filter(v=>v>0&&v>price);
+  const _nearSupport   = _supportCands.length ? Math.max(..._supportCands) : price*0.97;
+  const _nearRes       = _resCands.length     ? Math.min(..._resCands)     : price*1.05;
+  const _distSup       = (_nearSupport>0) ? (price-_nearSupport)/price : 1;
+  const _distRes       = (_nearRes>0)     ? (_nearRes-price)/price     : 1;
+  const _hasBullCandle = patterns.some(p=>p.bull===true  && p.strength>=2);
+  const _hasBearCandle = patterns.some(p=>p.bull===false && p.strength>=2);
+  const _bullStrength  = patterns.filter(p=>p.bull===true).reduce((s,p)=>s+(p.strength||1),0);
+  const _earningsSurp  = earnings?.surprise || 0;
+  const _earningsAvail = earnings?.available === true;
+  const _insiderNet    = insider?.net || 0;
 
-  // Momentum: MACD חיובי + RSI בינוני + נפח
-  const hasMomentum = macdVal>0 && rsi>=45 && rsi<=65 && vr>1.2;
+  // ── ציון כל אסטרטגיה (0-10) ─────────────────────────────
 
-  // Trend Following: MA50 מעל MA200 + RSI יציב + MACD חיובי
-  const hasTrend = ma50>ma200 && rsi>=45 && rsi<=65 && macdVal>0;
+  // 1. Earnings Momentum 💰
+  let scoreEarnings = 0;
+  if(isBuy && _earningsAvail){
+    if(_earningsSurp>15) scoreEarnings+=4; else if(_earningsSurp>5) scoreEarnings+=2;
+    if(pct>3) scoreEarnings+=3; else if(pct>0) scoreEarnings+=1;
+    if(_insiderNet>=1) scoreEarnings+=1;
+    if(macdVal>0) scoreEarnings+=1;
+    if(vr>1.3) scoreEarnings+=1;
+  }
 
-  // Swing: confluence בינוני + תנועה קטנה
-  const hasSwing = confluence>=4 && confluence<=7 && Math.abs(pct)<1.5;
+  // 2. Support Bounce 🎯
+  let scoreSupportBounce = 0;
+  if(isBuy){
+    if(_distSup<=0.01) scoreSupportBounce+=4; else if(_distSup<=0.02) scoreSupportBounce+=2;
+    if(_bullStrength>=3) scoreSupportBounce+=3; else if(_hasBullCandle) scoreSupportBounce+=2;
+    if(vr>=1.5) scoreSupportBounce+=2; else if(vr>=1.1) scoreSupportBounce+=1;
+    if(rsi<45) scoreSupportBounce+=1;
+  }
 
-  // Mean Reversion: חייב לפחות 2 מתוך 3 תנאים קיצוניים
-  const meanRevScore = (rsi<35?1:0) + (stochRsi<25?1:0) + (price<bbL?1:0);
-  const hasMeanRev   = meanRevScore >= 2;
+  // 3. Fibonacci Retracement 📐
+  let scoreFib = 0;
+  if(isBuy && _fibR>0){
+    const _fibDist382 = Math.abs(price-_fib382)/_fib382;
+    const _fibDist618 = Math.abs(price-_fib618)/_fib618;
+    const _atFib = Math.min(_fibDist382, _fibDist618);
+    if(_atFib<=0.01) scoreFib+=4; else if(_atFib<=0.02) scoreFib+=2;
+    if(_hasBullCandle) scoreFib+=3;
+    if(rsi<50&&rsi>30) scoreFib+=2;
+    if(vr>=1.2) scoreFib+=1;
+  }
 
-  // Support Bounce: מחיר קרוב לתמיכה + נר היפוך + נפח
-  // מחשבים תמיכה מוקדם לצורך זיהוי אסטרטגיה
-  const _lows20sb  = (candles.l||[]).slice(-20);
-  const _min20sb   = _lows20sb.length ? Math.min(..._lows20sb) : price*0.95;
-  const _w52Losb   = profile?.fiftyTwoWeekLow  || _min20sb;
-  const _w52Hisb   = profile?.fiftyTwoWeekHigh || price*1.1;
-  const _fibRangesb= _w52Hisb - _w52Losb;
-  const _fib382sb  = _w52Losb + _fibRangesb * 0.382;
-  const _supportCands = [_min20sb, _fib382sb, ma50].filter(v=>v>0&&v<price);
-  const _nearestSupport = _supportCands.length ? Math.max(..._supportCands) : price*0.97;
-  const _distFromSupport = (_nearestSupport > 0) ? (price - _nearestSupport) / price : 1;
-  const _hasBullCandle = patterns.some(p=>p.bull===true && p.strength>=2);
-  const hasSupportBounce = isBuy &&
-    _distFromSupport <= 0.02 &&   // תוך 2% מהתמיכה
-    _hasBullCandle &&              // נר היפוך מאושר
-    vr >= 1.1;                     // נפח מעל ממוצע
+  // 4. Breakout 🚀
+  let scoreBreakout = 0;
+  if(isBuy){
+    if(vr>2.5) scoreBreakout+=3; else if(vr>1.8) scoreBreakout+=2;
+    if(pct>3) scoreBreakout+=3; else if(pct>1.5) scoreBreakout+=2;
+    if(price>ma50) scoreBreakout+=2;
+    if(macdVal>0) scoreBreakout+=1;
+    if(price>_max20*0.99) scoreBreakout+=1; // שבירת שיא 20 ימים
+  }
 
-  // Earnings Momentum: Surprise חיובי + מניה עלתה ביום הדוח
-  const _earningsSurprise = earnings?.surprise || 0;
-  const _earningsAvail    = earnings?.available === true;
-  const hasEarningsMomentum = isBuy &&
-    _earningsAvail &&
-    _earningsSurprise > 5 &&   // הפתעה של מעל 5%
-    pct > 0;                   // מניה עולה
+  // 5. Relative Strength Leader 🏆
+  let scoreRS = 0;
+  if(isBuy){
+    const _rs = p.relStrength || 50;
+    if(_rs>=80) scoreRS+=4; else if(_rs>=70) scoreRS+=3; else if(_rs>=60) scoreRS+=1;
+    if(ma50>ma200) scoreRS+=2;
+    if(macdVal>0) scoreRS+=2;
+    if(vr>1.2) scoreRS+=1;
+    if(_insiderNet>=1) scoreRS+=1;
+  }
 
-  // Short/Exit — כל איתות מכירה
-  const hasShort = isSell;
+  // 6. Momentum 📈
+  let scoreMomentum = 0;
+  if(isBuy){
+    if(macdVal>0) scoreMomentum+=2;
+    if(rsi>=45&&rsi<=65) scoreMomentum+=3; else if(rsi>=40&&rsi<=70) scoreMomentum+=1;
+    if(vr>1.5) scoreMomentum+=3; else if(vr>1.2) scoreMomentum+=2;
+    if(pct>0) scoreMomentum+=1;
+    if(ma50>ma200) scoreMomentum+=1;
+  }
 
-  // סדר עדיפויות — מהספציפי לכללי
-  let strategy;
-  if(hasEarningsMomentum)       strategy = "Earnings Momentum 💰";
-  else if(hasSupportBounce)     strategy = "Support Bounce 🎯";
-  else if(hasBreakout && isBuy) strategy = "Breakout 🚀";
-  else if(hasMomentum && isBuy) strategy = "Momentum 📈";
-  else if(hasTrend && isBuy)    strategy = "Trend 📊";
-  else if(hasSwing)             strategy = "Swing 🔀";
-  else if(hasMeanRev && isBuy)  strategy = "Mean Reversion 🔄";
-  else if(hasShort)             strategy = "Short/Exit 📉";
-  else                          strategy = "Conservative 🛡";
+  // 7. Trend 📊
+  let scoreTrend = 0;
+  if(isBuy){
+    if(ma50>ma200) scoreTrend+=3;
+    if(rsi>=45&&rsi<=65) scoreTrend+=2;
+    if(macdVal>0) scoreTrend+=2;
+    if(price>ma50) scoreTrend+=2;
+    if(vr>=1.0) scoreTrend+=1;
+  }
+
+  // 8. Swing 🔀
+  let scoreSwing = 0;
+  if(confluence>=4&&confluence<=7) scoreSwing+=3;
+  if(Math.abs(pct)<1.5) scoreSwing+=2;
+  if(rsi>=40&&rsi<=60) scoreSwing+=2;
+  if(_distSup>0.02&&_distSup<0.06) scoreSwing+=2;
+  if(macdVal>0&&isBuy) scoreSwing+=1;
+
+  // 9. Mean Reversion 🔄
+  let scoreMeanRev = 0;
+  if(isBuy){
+    if(rsi<30) scoreMeanRev+=4; else if(rsi<35) scoreMeanRev+=2;
+    if(stochRsi<20) scoreMeanRev+=3; else if(stochRsi<25) scoreMeanRev+=2;
+    if(price<bbL) scoreMeanRev+=3;
+    if(_hasBullCandle) scoreMeanRev+=1;
+  }
+
+  // 10. Short/Exit 📉
+  let scoreShort = 0;
+  if(isSell){
+    if(_hasBearCandle) scoreShort+=3;
+    if(rsi>65) scoreShort+=2;
+    if(macdVal<0) scoreShort+=2;
+    if(vr>1.3) scoreShort+=2;
+    if(_distRes<0.02) scoreShort+=1;
+  }
+
+  // ── בחר אסטרטגיה לפי ציון הכי גבוה ─────────────────────
+  const stratScores = [
+    {name:"Earnings Momentum 💰", score:scoreEarnings,    minScore:5},
+    {name:"Support Bounce 🎯",    score:scoreSupportBounce, minScore:5},
+    {name:"Fibonacci 📐",         score:scoreFib,          minScore:5},
+    {name:"Breakout 🚀",          score:scoreBreakout,     minScore:5},
+    {name:"RS Leader 🏆",         score:scoreRS,           minScore:5},
+    {name:"Momentum 📈",          score:scoreMomentum,     minScore:4},
+    {name:"Trend 📊",             score:scoreTrend,        minScore:4},
+    {name:"Swing 🔀",             score:scoreSwing,        minScore:4},
+    {name:"Mean Reversion 🔄",    score:scoreMeanRev,      minScore:4},
+    {name:"Short/Exit 📉",        score:scoreShort,        minScore:3},
+  ];
+
+  const best = stratScores
+    .filter(s => s.score >= s.minScore)
+    .sort((a,b) => b.score - a.score)[0];
+
+  const strategy = best ? best.name : "Conservative 🛡";
 
   // ── 3. תמיכה אמיתית — 3 מקורות ──────────────────────────
   const lows20  = (candles.l||[]).slice(-20);
@@ -1322,8 +1410,10 @@ function calcTargets(p){
   else if(vix>25)  slMult *= 0.9;
   if(beta>1.5)      slMult *= 1.1;
   else if(beta<0.8) slMult *= 0.9;
-  if(strategy.includes("Earnings"))      slMult *= 1.2;  // פונדמנטלי חזק = SL רחוק
-  else if(strategy.includes("Support"))  slMult *= 0.7;  // SL מדויק מתחת לתמיכה
+  if(strategy.includes("Earnings"))      slMult *= 1.2;
+  else if(strategy.includes("Support"))  slMult *= 0.7;
+  else if(strategy.includes("Fibonacci"))slMult *= 0.75; // SL מדויק מתחת לרמת Fib
+  else if(strategy.includes("RS Leader"))slMult *= 1.2;  // מניה חזקה — SL רחוק
   else if(strategy.includes("Breakout")) slMult *= 1.1;
   else if(strategy.includes("Momentum")) slMult *= 1.05;
   else if(strategy.includes("Trend"))    slMult *= 1.15;
@@ -1362,6 +1452,8 @@ function calcTargets(p){
   let holdDays;
   if(strategy.includes("Earnings"))      holdDays = 14;
   else if(strategy.includes("Support"))  holdDays = 8;
+  else if(strategy.includes("Fibonacci"))holdDays = 10;
+  else if(strategy.includes("RS Leader"))holdDays = 20;
   else if(strategy.includes("Breakout")) holdDays = 7;
   else if(strategy.includes("Momentum")) holdDays = 12;
   else if(strategy.includes("Trend"))    holdDays = 18;
@@ -1753,6 +1845,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     hasEarnings: checkEarnings(sym||""),
     vix: macro?.["^VIX"]?.price || 20,
     confluence: confluenceScore,
+    relStrength: relStrength,
   });
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
