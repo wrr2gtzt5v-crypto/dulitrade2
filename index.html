@@ -2812,15 +2812,30 @@ async function runScanner(auto=false){
         // ── פילטר שלב 3: Confluence מינימלי 3 ──────────────
         if(confScore < 3) return;
 
+        // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
+        let dealStrength = 0;
+        if(scores.totalScore > 60)    dealStrength++; // טכני חזק
+        if(scores.fundScoreNorm > 65) dealStrength++; // פונדמנטלי חזק
+        if(scores.posNews > 0)        dealStrength++; // חדשות חיוביות
+        if(ind.vr > 1.5)              dealStrength++; // נפח חריג
+        if(sector?.leading)           dealStrength++; // סקטור מוביל
+
+        // רק עסקאות עם לפחות 3 כיוונים מסכימים
+        if(dealStrength < 3) return;
+
         // תגיות
         const tags = [];
-        if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"🔥 HOT",cls:"hot"});
-        if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
+        if(dealStrength >= 5) tags.push({t:"🔥 HOT",cls:"hot"});
+        else if(dealStrength >= 4) tags.push({t:"⭐ חזק",cls:"hot"});
+        if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"▲▲ חזק מאוד",cls:"hot"});
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
-        if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"📈 נפח גבוה",cls:"mom"});
+        else if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
+        if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"🐋 נפח חריג",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
         if(confScore >= 7) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
         if(scores.posNews > 0) tags.push({t:`📰 ${scores.posNews} חדשות+`,cls:"mom"});
+        if(sector?.leading) tags.push({t:"📊 סקטור מוביל",cls:"mom"});
+        if(insider?.net >= 2) tags.push({t:"👔 Insider קנה",cls:"mom"});
 
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
@@ -2830,6 +2845,7 @@ async function runScanner(auto=false){
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
+          dealStrength,
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
@@ -2838,15 +2854,15 @@ async function runScanner(auto=false){
     }));
   }
 
-  // ── מיון סופי — דירוג יחסי (הסכמה + סיכון) ──────────────
-  const byConf = [...results].sort((a,b)=>b.conf-a.conf);
-  const byRisk = [...results].sort((a,b)=>a.risk-b.risk);
-  results.forEach(r=>{
-    r._rankConf = byConf.findIndex(x=>x.sym===r.sym) + 1;
-    r._rankRisk = byRisk.findIndex(x=>x.sym===r.sym) + 1;
-    r._rankSum  = r._rankConf + r._rankRisk;
+  // ── מיון סופי — לפי חוזק עסקה, אחר כך ציון ────────────
+  results.sort((a,b)=>{
+    // קודם לפי dealStrength (גבוה ראשון)
+    if(b.dealStrength !== a.dealStrength) return b.dealStrength - a.dealStrength;
+    // אחר כך לפי ציון כולל
+    if(b.score !== a.score) return b.score - a.score;
+    // אחר כך לפי R/R
+    return b.rrRatio - a.rrRatio;
   });
-  results.sort((a,b)=>a._rankSum - b._rankSum);
 
   // ── גיוון סקטורים — מקסימום 2 מניות לסקטור ─────────────
   const sectorCount = {};
