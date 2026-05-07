@@ -1682,6 +1682,15 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   if(totalScore>=70)risk-=10;
   risk=Math.max(10,Math.min(90,risk));
 
+  // ── CONFLUENCE — חישוב אחד לכל השימושים ─────────────────
+  const confluenceScore = (() => {
+    const c = calcConfluence(
+      {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
+      pct, patterns, posNews, negNews, totalNews
+    );
+    return c.score;
+  })();
+
   // ── TARGETS — חישוב חכם לפי כל הפרמטרים ──────────────
   const targets = calcTargets({
     price, atr, sig, risk, totalScore,
@@ -1698,15 +1707,6 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
   const slPct=+(((sl-entry)/entry)*100).toFixed(1);
-
-  // חשב confluence אחד פעם אחת — משמש גם ב-return וגם ב-calcTargets
-  const confluenceScore = (() => {
-    const c = calcConfluence(
-      {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
-      pct, patterns, posNews, negNews, totalNews
-    );
-    return c.score;
-  })();
 
   return{
     sig,sigLabel,pillCls,
