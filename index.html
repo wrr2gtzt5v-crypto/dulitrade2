@@ -2824,8 +2824,11 @@ async function runScanner(auto=false){
         if(ind.vr > 1.5)              dealStrength++; // נפח חריג
         if(sector?.leading)           dealStrength++; // סקטור מוביל
 
-        // רק עסקאות עם לפחות 3 כיוונים מסכימים
-        if(dealStrength < 3) return;
+        // סף חוזק לפי שעות מסחר
+        // After-Hours/Pre-Market — נפח וסקטור לא זמינים → סף נמוך יותר
+        const _ms = getMarketStatus();
+        const _minStrength = (_ms.status === "open") ? 3 : 2;
+        if(dealStrength < _minStrength) return;
 
         // תגיות
         const tags = [];
