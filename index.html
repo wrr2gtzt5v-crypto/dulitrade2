@@ -2702,10 +2702,11 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     + '</div>'
     + '</div>';
 
-  const patternsHtml=patterns.length?`
+  const _realPatterns = patterns.filter(pt => (pt.strength||0) > 0);
+  const patternsHtml=_realPatterns.length?`
     <div class="candle-analysis">
       <h4>🕯 תבניות נרות יפניים שזוהו</h4>
-      ${patterns.map(pt=>`<div class="pattern"><span class="pattern-icon">${pt.icon}</span><div><strong style="cursor:pointer;border-bottom:1px dashed var(--text3)" onclick="showTip('${pt.name.includes("Hammer")?"Hammer":pt.name.includes("Engulfing")?"Engulfing":pt.name.includes("Doji")?"Doji":"מגמה"}')">${pt.name}</strong><br><span style="font-size:12px;color:var(--text2)">${pt.desc}</span></div></div>`).join("")}
+      ${_realPatterns.map(pt=>`<div class="pattern"><span class="pattern-icon">${pt.icon}</span><div><strong style="cursor:pointer;border-bottom:1px dashed var(--text3)" onclick="showTip('${pt.name.includes("Hammer")?"Hammer":pt.name.includes("Engulfing")?"Engulfing":pt.name.includes("Doji")?"Doji":"מגמה"}')">${pt.name}</strong><br><span style="font-size:12px;color:var(--text2)">${pt.desc}</span></div></div>`).join("")}
     </div>`:"";
 
   // ── HTML ───────────────────────────────────────────────
