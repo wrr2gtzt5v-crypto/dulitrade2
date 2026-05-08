@@ -1495,7 +1495,7 @@ function calcIndicators(candles, quote, fhInd){
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
 function calcTargets(p){
   const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
-         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50,earnings={},insider={},poc=0} = p;
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50,earnings={},insider={},poc=0,pc=0,openPrice=0} = p;
   const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
   const isSell = sig==="SELL"||sig==="STRONG_SELL";
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
@@ -1655,7 +1655,7 @@ function calcTargets(p){
   // 12. Gap & Go ⚡
   // מניה שפתחה עם פער משמעותי ממשיכה בכיוון הפתיחה
   let scoreGapGo = 0;
-  const _gapPct = (quote?.pc||0) > 0 ? (((quote?.o||price) - (quote?.pc||price)) / (quote?.pc||price) * 100) : 0;
+  const _gapPct = (p.pc||0) > 0 ? (((p.openPrice||price) - (p.pc||price)) / (p.pc||price) * 100) : 0;
   const _isGapUp   = _gapPct >= 2;
   const _isGapDown = _gapPct <= -2;
 
@@ -2252,7 +2252,8 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   // ── CONFLUENCE — חישוב אחד לכל השימושים ─────────────────
   const confluenceScore = (() => {
     const c = calcConfluence(
-      {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl},
+      {rsi,stochRsi,williamsR,cci,macdVal,ma50,ma200,bbU,bbL,vr,vLbl,
+       adx:ind.adx||0,diPlus:ind.diPlus||0,diMinus:ind.diMinus||0,divergence:ind.divergence||null},
       pct, patterns, posNews, negNews, totalNews
     );
     return c.score;
@@ -2274,6 +2275,8 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     earnings: earnings,
     insider: insider,
     poc: ind.poc || 0,
+    pc: quote?.pc || 0,
+    openPrice: quote?.o || 0,
   });
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
@@ -2488,7 +2491,8 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   // ── Confluence ──────────────────────────────────────────
   const conf = calcConfluence(
     {rsi:d.rsi,stochRsi:d.stochRsi,williamsR:d.williamsR,cci:d.cci,macdVal:d.macdVal,
-     ma50:d.ma50,ma200:d.ma200,bbU:d.bbU,bbL:d.bbL,vr:d.vr,vLbl:d.vLbl},
+     ma50:d.ma50,ma200:d.ma200,bbU:d.bbU,bbL:d.bbL,vr:d.vr,vLbl:d.vLbl,
+     adx:d.adx||0,diPlus:d.diPlus||0,diMinus:d.diMinus||0,divergence:d.divergence||null},
     d.pct, patterns, d.posNews, d.negNews, d.totalNews
   );
   const confHtml = renderConfluenceHtml(conf, d.sig);
