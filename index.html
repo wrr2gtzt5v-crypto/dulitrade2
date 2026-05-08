@@ -1292,7 +1292,47 @@ function calcIndicators(candles, quote, fhInd){
     poc = +(allL + maxBucket * step).toFixed(2);
   }
 
-  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl,adx,diPlus,diMinus,poc};
+  // RSI Divergence — השוואת שיאים/שפלים של מחיר vs RSI
+  let divergence = null; // null / "bullish" / "bearish"
+  if(c.length >= 20 && rsiArr.length >= 10){
+    const lookback = Math.min(20, c.length - 1);
+    const prices = c.slice(-lookback);
+    const rsis   = rsiArr.slice(-lookback);
+
+    // מצא שני שפלים אחרונים (Bullish Divergence)
+    const troughs = [];
+    for(let i = 1; i < prices.length - 1; i++){
+      if(prices[i] < prices[i-1] && prices[i] < prices[i+1]){
+        troughs.push({ i, price: prices[i], rsi: rsis[i] || 50 });
+      }
+    }
+    if(troughs.length >= 2){
+      const t1 = troughs[troughs.length - 2];
+      const t2 = troughs[troughs.length - 1];
+      // מחיר ירד לשפל חדש אבל RSI עלה → Bullish
+      if(t2.price < t1.price && t2.rsi > t1.rsi && t2.rsi < 50){
+        divergence = "bullish";
+      }
+    }
+
+    // מצא שני שיאים אחרונים (Bearish Divergence)
+    const peaks = [];
+    for(let i = 1; i < prices.length - 1; i++){
+      if(prices[i] > prices[i-1] && prices[i] > prices[i+1]){
+        peaks.push({ i, price: prices[i], rsi: rsis[i] || 50 });
+      }
+    }
+    if(peaks.length >= 2 && !divergence){
+      const p1 = peaks[peaks.length - 2];
+      const p2 = peaks[peaks.length - 1];
+      // מחיר עלה לשיא חדש אבל RSI ירד → Bearish
+      if(p2.price > p1.price && p2.rsi < p1.rsi && p2.rsi > 50){
+        divergence = "bearish";
+      }
+    }
+  }
+
+  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl,adx,diPlus,diMinus,poc,divergence};
 }
 
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
@@ -1817,7 +1857,17 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     }
   }
 
-  // 16. ADX — עוצמת הטרנד
+  // 16. RSI Divergence
+  const divergence = ind.divergence || null;
+  if(divergence === "bullish"){
+    techScore += 3;
+    techFactors.push({t:"📈 Bullish Divergence — מחיר בשפל חדש אבל RSI עולה, מומנטום מתחזק",c:"positive"});
+  } else if(divergence === "bearish"){
+    techScore -= 3;
+    techFactors.push({t:"⚠️ Bearish Divergence — מחיר בשיא חדש אבל RSI יורד, מומנטום נחלש",c:"negative"});
+  }
+
+  // 17. ADX — עוצמת הטרנד
   const adx    = ind.adx    || 0;
   const diPlus = ind.diPlus || 0;
   const diMinus= ind.diMinus|| 0;
@@ -1843,7 +1893,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     techFactors.push({t:`ADX ${adx} — שוק דשדוש, איתותים פחות אמינים`,c:"neutral"});
   }
 
-  const maxTech=39; // הגדלנו ב-2 בגלל POC // הגדלנו את המקסימום בגלל האינדיקטורים החדשים
+  const maxTech=42; // הגדלנו ב-3 בגלל Divergence // הגדלנו את המקסימום בגלל האינדיקטורים החדשים
   // techScore נע בין -maxTech ל-+maxTech. ממיר ל-0-100
   const techScoreNorm=Math.max(0,Math.min(100,Math.round(50+(techScore/maxTech)*50)));
 
@@ -2031,7 +2081,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
-    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,
     confluence: confluenceScore,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
@@ -2186,6 +2236,12 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector){
       if(redDays>=3) lines.push(`🕯 ${redDays}/5 נרות אדומים — מוכרים שולטים.`);
     }
   }
+
+  // ── Divergence — מוסיף לכל אסטרטגיה אם קיים ───────────────
+  if(d.divergence === "bullish")
+    lines.push(`📈 Bullish Divergence זוהה — מחיר בשפל חדש אבל RSI עולה. מומנטום מתחזק — אחד הסימנים האמינים ביותר.`);
+  else if(d.divergence === "bearish")
+    lines.push(`⚠️ Bearish Divergence זוהה — מחיר בשיא חדש אבל RSI יורד. מומנטום נחלש — שים לב לסיכון.`);
 
   // ── הוסף פרטי כניסה לכל אסטרטגיה ────────────────────────
   if(isBull)
@@ -2789,6 +2845,7 @@ function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
       const d=(pr-p)/pr;
       return d>0&&d<=0.04?1:d<0&&d>=-0.04?-1:0;
     })()},
+    {name:"Divergence",    v: ind.divergence==="bullish"?1:ind.divergence==="bearish"?-1:0},
   ];
   const bulls = signals.filter(s=>s.v===1);
   const bears = signals.filter(s=>s.v===-1);
