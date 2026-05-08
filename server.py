@@ -329,6 +329,96 @@ def get_earnings_calendar(symbol):
         return {"available": False, "daysUntil": None}
 
 
+def get_premarket_volume(symbol):
+    """Pre-Market נפח אמיתי מ-Polygon extended hours"""
+    import datetime
+    if not POLYGON_KEY:
+        return {"available": False}
+    try:
+        today = datetime.date.today()
+        # בנה URL ל-aggs דקתיות עם extended hours
+        # מ-4:00 AM עד 9:30 AM ET — Pre-Market
+        frm_dt = today.isoformat()
+        to_dt  = today.isoformat()
+        # 5-דקות נרות, extended hours
+        url_path = (
+            f"/v2/aggs/ticker/{symbol}/range/5/minute/{frm_dt}/{to_dt}"
+            f"?adjusted=true&sort=asc&limit=200&extended=true"
+        )
+        d = pg(url_path)
+        results = d.get("results", [])
+        if not results:
+            return {"available": False}
+
+        # סנן רק נרות Pre-Market: 4:00–9:30 ET
+        # Polygon מחזיר timestamps ב-ms UTC
+        # ET = UTC-4 (קיץ) / UTC-5 (חורף)
+        # 4:00 AM ET = 8:00/9:00 UTC → בdst: 8*3600, בחורף: 9*3600
+        import calendar
+        # בדוק DST פשוט — מרץ-נובמבר
+        month = today.month
+        is_dst = 3 <= month <= 11
+        et_offset = 4 if is_dst else 5  # שעות מאחורי UTC
+
+        # Pre-Market: 4:00-9:30 AM ET
+        pre_start_utc = (4 + et_offset) * 3600  # שניות מתחילת יום
+        pre_end_utc   = (9 * 3600 + 30 * 60) + et_offset * 3600
+
+        pre_volume = 0
+        pre_open   = None
+        pre_close  = None
+        pre_high   = None
+        pre_low    = None
+
+        for bar in results:
+            ts_ms = bar.get("t", 0)
+            ts_sec = ts_ms / 1000
+            # שניות מתחילת היום UTC
+            secs_in_day = ts_sec % 86400
+
+            if pre_start_utc <= secs_in_day <= pre_end_utc:
+                v = bar.get("v", 0)
+                pre_volume += v
+                if pre_open is None:
+                    pre_open = bar.get("o")
+                pre_close = bar.get("c")
+                h = bar.get("h")
+                l = bar.get("l")
+                if pre_high is None or (h and h > pre_high): pre_high = h
+                if pre_low  is None or (l and l < pre_low):  pre_low  = l
+
+        if pre_volume == 0:
+            return {"available": False}
+
+        # חישוב % שינוי מסגירת אתמול
+        prev_close = None
+        pct_change = None
+        if pre_open and pre_close:
+            # קבל מחיר סגירה של אתמול מ-quote
+            try:
+                quote_d = fh(f"/quote?symbol={symbol}")
+                prev_close = quote_d.get("pc")
+                if prev_close and prev_close > 0:
+                    pct_change = round((pre_close - prev_close) / prev_close * 100, 2)
+            except: pass
+
+        significant = pre_volume >= 50000  # נפח משמעותי
+
+        return {
+            "available":  True,
+            "volume":     int(pre_volume),
+            "open":       pre_open,
+            "close":      pre_close,
+            "high":       pre_high,
+            "low":        pre_low,
+            "pctChange":  pct_change,
+            "significant": significant,
+            "prevClose":  prev_close,
+        }
+    except Exception as e:
+        return {"available": False}
+
+
 def get_sector(sector_name):
     # Sector performance via Finnhub ETFs
     SECTOR_ETFS = {
@@ -409,6 +499,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="indicators":  data = get_indicators(symbol)
                 elif endpoint=="short":       data = get_short_interest(symbol)
                 elif endpoint=="earningscal": data = get_earnings_calendar(symbol)
+                elif endpoint=="premarket":   data = get_premarket_volume(symbol)
                 elif endpoint=="sector":
                     sector = qs.get("sector",[""])[0]
                     data = get_sector(sector)
