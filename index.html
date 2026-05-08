@@ -1882,6 +1882,7 @@ function calcTargets(p){
 
 // ── SCORING ───────────────────────────────────────────────
 function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profile, macro, earnings={}, insider={}, sector={}){
+  if(!quote || !quote.c) return {sig:"HOLD",sigLabel:"המתן",pillCls:"phold",totalScore:50,techScoreNorm:50,fundScoreNorm:50,newsScoreNorm:50,macroScore:50,risk:50,pct:0,price:0,high:0,low:0,entry:0,tp:0,sl:0,tpPct:0,slPct:0,rrRatio:1,holding:"—",strategy:"Conservative 🛡",rsi:50,stochRsi:50,williamsR:-50,cci:0,macdVal:0,macdTxt:"—",ma50:0,ma200:0,bbU:0,bbL:0,atr:0,vr:1,vLbl:"ממוצע",techFactors:[],fundFactors:[],allNews:[],posNews:0,negNews:0,totalNews:0,goldenCross:false,deathCross:false,crossRecent:false,relStrength:50,support:0,resistance:0,adx:0,diPlus:0,diMinus:0,poc:0,divergence:null,pc:0,confluence:0};
   const price=quote.c,prev=quote.pc;
   const pct=+((price-prev)/prev*100).toFixed(2);
   const {rsi,macdVal,macdSig,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl}=ind;
@@ -3059,10 +3060,8 @@ function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
     {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0},
     {name:"ADX",           v: (ind.adx||0)>=20 ? ((ind.diPlus||0)>(ind.diMinus||0)?1:-1) : -1},
     {name:"POC",           v: (()=>{
-      const p=ind.poc||0, pr=ind.price||0;
-      if(!p||!pr) return 0;
-      const d=(pr-p)/pr;
-      return d>0&&d<=0.04?1:d<0&&d>=-0.04?-1:0;
+      // ind לא מכיל price — נבדוק ב-calcConfluence אם poc מועבר
+      return 0; // POC מחושב ב-scoreAll ישירות
     })()},
     {name:"Divergence",    v: ind.divergence==="bullish"?1:ind.divergence==="bearish"?-1:0},
   ];
