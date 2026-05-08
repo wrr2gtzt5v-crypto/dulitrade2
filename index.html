@@ -1652,7 +1652,7 @@ function calcTargets(p){
   // 12. Gap & Go ⚡
   // מניה שפתחה עם פער משמעותי ממשיכה בכיוון הפתיחה
   let scoreGapGo = 0;
-  const _gapPct = quote.pc > 0 ? ((quote.o||price) - quote.pc) / quote.pc * 100 : 0;
+  const _gapPct = (quote?.pc||0) > 0 ? (((quote?.o||price) - (quote?.pc||price)) / (quote?.pc||price) * 100) : 0;
   const _isGapUp   = _gapPct >= 2;
   const _isGapDown = _gapPct <= -2;
 
@@ -2283,7 +2283,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
-    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,pc:quote?.pc||0,
     confluence: confluenceScore,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
