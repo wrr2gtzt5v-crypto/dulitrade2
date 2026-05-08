@@ -238,6 +238,97 @@ def get_insider(symbol):
     except:
         return {"available": False}
 
+def get_short_interest(symbol):
+    """Short Interest מ-Finviz scraping"""
+    try:
+        url = f"https://finviz.com/quote.ashx?t={symbol}&ty=c&ta=1&p=d"
+        req = Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/html",
+            "Accept-Language": "en-US,en;q=0.9",
+        })
+        with urlopen(req, timeout=8) as r:
+            html = r.read().decode("utf-8", "ignore")
+
+        # Short Float %
+        import re
+        short_float = None
+        short_ratio = None
+
+        m = re.search(r'Short Float[^>]*>([^<]+)<', html)
+        if m:
+            val = m.group(1).strip().replace('%','').replace('-','')
+            try: short_float = float(val)
+            except: pass
+
+        m2 = re.search(r'Short Ratio[^>]*>([^<]+)<', html)
+        if m2:
+            val2 = m2.group(1).strip().replace('-','')
+            try: short_ratio = float(val2)
+            except: pass
+
+        if short_float is None:
+            return {"available": False}
+
+        return {
+            "available": True,
+            "shortFloat": short_float,       # % מהמניה בשורט
+            "shortRatio": short_ratio,        # ימים לכיסוי
+            "squeezeRisk": short_float > 15,  # סיכון Short Squeeze
+        }
+    except:
+        return {"available": False}
+
+
+def get_earnings_calendar(symbol):
+    """תאריך דוח רווחים הבא מ-Finnhub"""
+    import time, datetime
+    try:
+        today = datetime.date.today()
+        future = today + datetime.timedelta(days=90)
+        frm = today.isoformat()
+        to  = future.isoformat()
+
+        d = fh(f"/calendar/earnings?from={frm}&to={to}&symbol={symbol}")
+        items = d.get("earningsCalendar", [])
+
+        if not items:
+            return {"available": False, "daysUntil": None}
+
+        # מצא את הדוח הקרוב ביותר בעתיד
+        upcoming = []
+        for item in items:
+            date_str = item.get("date", "")
+            if not date_str: continue
+            try:
+                report_date = datetime.date.fromisoformat(date_str)
+                days_until = (report_date - today).days
+                if days_until >= 0:
+                    upcoming.append({
+                        "date": date_str,
+                        "daysUntil": days_until,
+                        "hour": item.get("hour", "amc"),  # bmo=before market open, amc=after market close
+                        "epsEstimate": item.get("epsEstimate"),
+                    })
+            except: continue
+
+        if not upcoming:
+            return {"available": False, "daysUntil": None}
+
+        next_report = min(upcoming, key=lambda x: x["daysUntil"])
+        return {
+            "available": True,
+            "date": next_report["date"],
+            "daysUntil": next_report["daysUntil"],
+            "hour": next_report["hour"],
+            "epsEstimate": next_report["epsEstimate"],
+            "soon": next_report["daysUntil"] <= 14,   # פחות מ-2 שבועות
+            "imminent": next_report["daysUntil"] <= 3, # פחות מ-3 ימים
+        }
+    except:
+        return {"available": False, "daysUntil": None}
+
+
 def get_sector(sector_name):
     # Sector performance via Finnhub ETFs
     SECTOR_ETFS = {
@@ -316,6 +407,8 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="earnings":    data = get_earnings(symbol)
                 elif endpoint=="insider":     data = get_insider(symbol)
                 elif endpoint=="indicators":  data = get_indicators(symbol)
+                elif endpoint=="short":       data = get_short_interest(symbol)
+                elif endpoint=="earningscal": data = get_earnings_calendar(symbol)
                 elif endpoint=="sector":
                     sector = qs.get("sector",[""])[0]
                     data = get_sector(sector)
