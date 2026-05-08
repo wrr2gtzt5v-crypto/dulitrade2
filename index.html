@@ -1129,11 +1129,158 @@ function detectPatterns(candles){
     }
   }
 
-  // ── Doji — ניטרלי תמיד ───────────────────────────────────
+  // ── דפוסים נוספים ────────────────────────────────────────
+
   const lC=c[N-1],lO=o[N-1]||lC,lH=h[N-1]||lC,lL=l[N-1]||lC;
-  const lRange=lH-lL,lBody=Math.abs(lC-lO);
-  if(lRange>0&&lBody/lRange<0.1)
-    patterns.push({icon:"⚖️",name:"Doji",desc:"גוף נר קטן מאוד — אי-החלטיות בשוק. קונים ומוכרים בכוחות שווים.",bull:null,strength:1});
+  const lRange=lH-lL, lBody=Math.abs(lC-lO);
+  const lLWick=Math.min(lC,lO)-lL, lUWick=lH-Math.max(lC,lO);
+  const pC=c[N-2]||lC, pO=o[N-2]||pC, pH=h[N-2]||pC, pL=l[N-2]||pC;
+  const pBody=Math.abs(pC-pO), pRange=pH-pL;
+
+  // ── Doji — ניטרלי ─────────────────────────────────────────
+  if(lRange>0 && lBody/lRange<0.1){
+    const trendB = trendDir(N-4,3);
+    patterns.push({
+      icon:"⚖️",
+      name: trendB==="up" ? "Doji בשיא — אזהרה" : trendB==="down" ? "Doji בתחתית — הזדמנות" : "Doji",
+      desc: trendB==="up"
+        ? "גוף זעיר בשיא — הקונים מתחים, אפשרי היפוך ירידה."
+        : trendB==="down"
+        ? "גוף זעיר בתחתית — המוכרים מתחים, אפשרי היפוך עלייה."
+        : "גוף נר זעיר — אי-החלטיות בשוק.",
+      bull: trendB==="down"?true:trendB==="up"?false:null,
+      strength:1
+    });
+  }
+
+  // ── Spinning Top — מאבק ─────────────────────────────────
+  if(lRange>0 && lBody/lRange<0.3 && lLWick>lBody*0.5 && lUWick>lBody*0.5){
+    const trendB = trendDir(N-4,3);
+    patterns.push({
+      icon:"🌀",
+      name:"Spinning Top — מאבק קונים ומוכרים",
+      desc:"גוף קטן עם צלים ארוכים — מאבק בין קונים למוכרים ללא הכרעה. " +
+           (trendB==="up" ? "בשיא — סימן אזהרה." : trendB==="down" ? "בתחתית — אפשרי היפוך." : "ממתין לכיוון."),
+      bull: trendB==="down"?true:trendB==="up"?false:null,
+      strength:1
+    });
+  }
+
+  // ── Marubozu — תנועה נחושה ───────────────────────────────
+  if(lRange>0 && lBody/lRange>0.9 && lLWick<lBody*0.05 && lUWick<lBody*0.05){
+    const isBullMarubozu = lC>lO;
+    patterns.push({
+      icon: isBullMarubozu ? "🟩" : "🟥",
+      name: isBullMarubozu ? "Bullish Marubozu — קנייה נחושה" : "Bearish Marubozu — מכירה נחושה",
+      desc: isBullMarubozu
+        ? "נר ירוק ללא צלים — קונים שלטו מתחילת הנר עד סופו. תנועה נחושה ואמינה."
+        : "נר אדום ללא צלים — מוכרים שלטו מתחילת הנר עד סופו. לחץ מכירה חזק.",
+      bull: isBullMarubozu,
+      strength:2
+    });
+  }
+
+  // ── Piercing Line — פריצת מעלה ───────────────────────────
+  // נר אדום גדול ואחריו נר ירוק שנפתח מתחת לתחתית הנר האדום וסוגר מעל אמצעו
+  if(N>=3 && isBear(N-2) && isBull(N-1)){
+    const midPrev = (pO+pC)/2;
+    const openedBelow = lO < pC;
+    const closedAboveMid = lC > midPrev;
+    if(openedBelow && closedAboveMid && pBody>0){
+      const trendB = trendDir(N-5,3);
+      const str = trendB==="down" ? 2 : 1;
+      patterns.push({
+        icon:"🔰",
+        name: str===2 ? "Piercing Line מאושר" : "Piercing Line זוהה",
+        desc:"נר ירוק חודר מעל אמצע הנר האדום הקודם — קונים נכנסו בכוח מהתחתית.",
+        bull:true, strength:str
+      });
+    }
+  }
+
+  // ── Dark Cloud Cover — כיסוי ענן כהה ────────────────────
+  // נר ירוק גדול ואחריו נר אדום שנפתח מעל שיא הנר הירוק וסוגר מתחת לאמצעו
+  if(N>=3 && isBull(N-2) && isBear(N-1)){
+    const midPrev = (pO+pC)/2;
+    const openedAbove = lO > pC;
+    const closedBelowMid = lC < midPrev;
+    if(openedAbove && closedBelowMid && pBody>0){
+      const trendB = trendDir(N-5,3);
+      const str = trendB==="up" ? 2 : 1;
+      patterns.push({
+        icon:"☁️",
+        name: str===2 ? "Dark Cloud Cover מאושר" : "Dark Cloud Cover זוהה",
+        desc:"נר אדום חודר מתחת לאמצע הנר הירוק הקודם — מוכרים נכנסו בכוח מהשיא.",
+        bull:false, strength:str
+      });
+    }
+  }
+
+  // ── Tweezer Bottom — תמיכה כפולה ─────────────────────────
+  // שני נרות עם שפל כמעט זהה — תמיכה חזקה
+  if(N>=3 && Math.abs(lL-pL)/Math.max(lL,pL)<0.002 && isBull(N-1)){
+    const trendB = trendDir(N-5,3);
+    const str = trendB==="down" ? 2 : 1;
+    patterns.push({
+      icon:"🔧",
+      name: str===2 ? "Tweezer Bottom מאושר — תמיכה כפולה" : "Tweezer Bottom זוהה",
+      desc:"שני שפלים זהים — השוק בדק תמיכה פעמיים ודחה. רמת תמיכה חזקה מאוד.",
+      bull:true, strength:str
+    });
+  }
+
+  // ── Tweezer Top — התנגדות כפולה ──────────────────────────
+  // שני נרות עם שיא כמעט זהה — התנגדות חזקה
+  if(N>=3 && Math.abs(lH-pH)/Math.max(lH,pH)<0.002 && isBear(N-1)){
+    const trendB = trendDir(N-5,3);
+    const str = trendB==="up" ? 2 : 1;
+    patterns.push({
+      icon:"🔩",
+      name: str===2 ? "Tweezer Top מאושר — התנגדות כפולה" : "Tweezer Top זוהה",
+      desc:"שני שיאים זהים — השוק בדק התנגדות פעמיים ונדחה. רמת התנגדות חזקה מאוד.",
+      bull:false, strength:str
+    });
+  }
+
+  // ── Bullish Harami — האטה בירידה ─────────────────────────
+  // נר אדום גדול ואחריו נר קטן בתוך גוף הנר הגדול
+  if(N>=3 && isBear(N-2) && lC>pC && lO<pO && lBody<pBody*0.5){
+    const trendB = trendDir(N-5,3);
+    patterns.push({
+      icon:"🤰",
+      name:"Bullish Harami — האטה בירידה",
+      desc:"נר קטן בתוך הנר האדום הגדול — הירידה מאטה. " +
+           (trendB==="down" ? "אפשרי היפוך עלייה." : "ממתין לאישור."),
+      bull:true, strength: trendB==="down" ? 2 : 1
+    });
+  }
+
+  // ── Bearish Harami — האטה בעלייה ─────────────────────────
+  // נר ירוק גדול ואחריו נר קטן בתוך גוף הנר הגדול
+  if(N>=3 && isBull(N-2) && lC<pC && lO>pO && lBody<pBody*0.5){
+    const trendB = trendDir(N-5,3);
+    patterns.push({
+      icon:"🤰",
+      name:"Bearish Harami — האטה בעלייה",
+      desc:"נר קטן בתוך הנר הירוק הגדול — העלייה מאטה. " +
+           (trendB==="up" ? "אפשרי היפוך ירידה." : "ממתין לאישור."),
+      bull:false, strength: trendB==="up" ? 2 : 1
+    });
+  }
+
+  // ── Inside Bar — הסתכלות פנימה ────────────────────────────
+  // נר שכל טווחו בתוך הנר הקודם — דחיסה לפני פריצה
+  if(N>=3 && lH<pH && lL>pL){
+    const trendB = trendDir(N-5,3);
+    patterns.push({
+      icon:"📦",
+      name:"Inside Bar — דחיסה",
+      desc:"נר מלא בתוך הנר הקודם — שוק בדחיסה. " +
+           (trendB==="up" ? "בדרך כלל ממשיך כלפי מעלה." : trendB==="down" ? "בדרך כלל ממשיך כלפי מטה." : "ממתין לפריצה."),
+      bull: trendB==="up"?true:trendB==="down"?false:null,
+      strength:1
+    });
+  }
 
   if(!patterns.length)
     patterns.push({icon:"📊",name:"ללא תבנית ברורה",desc:`${c[N-1]>c[N-5]?"מגמה כללית עולה":"מגמה כללית יורדת"} ב-5 הנרות האחרונים.`,bull:null,strength:0});
