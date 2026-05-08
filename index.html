@@ -727,12 +727,15 @@ async function api(sym, ep, sector=""){
   try {
     const r = await fetch(url);
     const data = await r.json();
-    _apiCache[key] = { data, ts: now };
+    // לא שומר cache אם יש שגיאה בתשובה
+    if(data && !data.error) {
+      _apiCache[key] = { data, ts: now };
+    }
     return data;
   } catch(e) {
     // אם יש cache ישן — השתמש בו כ-fallback
     if(_apiCache[key]) return _apiCache[key].data;
-    throw e;
+    return {}; // החזר object ריק במקום לזרוק שגיאה
   }
 }
 
@@ -3310,9 +3313,11 @@ async function runScanner(auto=false){
           ? await api(sym, "sector", profile.sector).catch(()=>({}))
           : {};
 
+        if(!scanQuote?.c || scanQuote.c === 0) return;
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
+        if(!scores || scores.sig === "HOLD" && scores.totalScore === 50) return;
 
         // ── פילטר טכני — פשוט וחזק ──────────────────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
@@ -3347,6 +3352,7 @@ async function runScanner(auto=false){
         ]);
 
         // חישוב מחדש עם חדשות מלאות
+        if(!scanQuote?.c || scanQuote.c === 0) return;
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
