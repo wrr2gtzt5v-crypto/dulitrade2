@@ -356,6 +356,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .errmsg{background:var(--rdim);border:1px solid var(--red);border-radius:10px;padding:1.25rem;font-size:13px;color:var(--red);line-height:1.7;}
 .disclaimer{margin-top:2rem;padding:11px 15px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;line-height:1.6;}
 @media(max-width:640px){
+  /* ── Layout ── */
+  .wrap{padding:1rem .75rem;}
   .hot-grid{grid-template-columns:1fr 1fr;}
   .metrics{grid-template-columns:repeat(2,1fr);}
   .targets{grid-template-columns:1fr 1fr;}
@@ -363,6 +365,90 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
   .fund-grid{grid-template-columns:1fr;}
   .score-summary{grid-template-columns:repeat(2,1fr);}
   .macro-bar{grid-template-columns:repeat(2,1fr);}
+
+  /* ── Header ── */
+  header{padding:.6rem 1rem;}
+  .ltxt{font-size:13px;}
+  .live{font-size:10px;}
+  .hright{gap:6px;}
+
+  /* ── Indices bar ── */
+  .indices{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .idx{min-width:80px;padding:6px 12px;}
+  .idx-price{font-size:11px;}
+
+  /* ── Macro bar ── */
+  .macro-cell{padding:6px 8px;}
+  .macro-lbl{font-size:9px;}
+  .macro-val{font-size:12px;}
+
+  /* ── Card head ── */
+  .chead{flex-direction:column;gap:10px;}
+  .csym{font-size:20px;}
+  .siga{align-items:flex-start;}
+  .pill{font-size:15px;padding:6px 16px;}
+
+  /* ── Score cells ── */
+  .score-val{font-size:16px;}
+  .score-sub{font-size:8px;}
+
+  /* ── Risk strip ── */
+  .rval{min-width:80px;font-size:11px;}
+
+  /* ── Confluence dots ── */
+  .conf-dots{gap:3px;}
+  .conf-dot{font-size:8px;padding:1px 4px;}
+
+  /* ── Metrics ── */
+  .mval{font-size:13px;}
+  .mlbl{font-size:9px;}
+
+  /* ── Targets ── */
+  .tval{font-size:12px;}
+  .tpct{font-size:11px;}
+  .hbar{flex-wrap:wrap;gap:10px;}
+  .hval{font-size:14px;}
+
+  /* ── Chart ── */
+  .chart-wrap{height:180px!important;}
+
+  /* ── Scanner ── */
+  .scan-card{grid-template-columns:auto 1fr;gap:8px;}
+  .scan-right{display:none;}
+  .scan-sym{font-size:14px;}
+  .scanner-head{flex-direction:column;gap:6px;}
+
+  /* ── Quick buttons ── */
+  .quick{gap:5px;}
+  .qbtn{padding:5px 9px;font-size:10px;}
+
+  /* ── Search ── */
+  .sbox input{font-size:14px;padding:10px 12px;}
+  .sbtn{padding:0 16px;font-size:13px;}
+
+  /* ── Fund grid ── */
+  .fund-row{flex-wrap:wrap;gap:4px;}
+  .fund-val{font-size:11px;}
+  .fund-key{font-size:11px;}
+
+  /* ── Comp table ── */
+  .comp-table{font-size:10px;}
+  .comp-table th,.comp-table td{padding:5px 6px;}
+
+  /* ── Candle explain ── */
+  .candle-explain p{font-size:12px;}
+
+  /* ── Watchlist ── */
+  .wl-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));}
+
+  /* ── Hist ── */
+  .hist-row{font-size:10px;flex-wrap:wrap;gap:4px;}
+
+  /* ── Trailing ── */
+  .trailing-box{flex-wrap:wrap;gap:8px;}
+
+  /* ── Position sizing ── */
+  .pos-result{grid-template-columns:repeat(2,1fr);}
 }
 </style>
 </head>
