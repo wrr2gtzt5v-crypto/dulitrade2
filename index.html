@@ -1469,6 +1469,8 @@ function calcTargets(p){
 
   // תמיכה = הגבוה מבין: מינימום 20 נרות, Fib38.2, MA50
   // (הגבוה = הקרוב ביותר למחיר מלמטה)
+  const pocVal = p.poc || 0;
+
   const supportCandidates = [min20, fib382, ma50, ...(pocVal>0&&pocVal<price?[pocVal]:[])]  .filter(v => v > 0 && v < price);
   const trueSupport = supportCandidates.length
     ? Math.max(...supportCandidates)
@@ -1476,7 +1478,6 @@ function calcTargets(p){
 
   // התנגדות = הנמוך מבין: מקסימום 20 נרות, Fib61.8, BB עליון, POC (אם מעל מחיר)
   // (הנמוך = הקרוב ביותר למחיר מלמעלה)
-  const pocVal = p.poc || 0;
   const resCandidates = [max20, fib618, bbU, ...(pocVal>price?[pocVal]:[])]
     .filter(v => v > 0 && v > price);
   const trueResistance = resCandidates.length
