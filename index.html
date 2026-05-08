@@ -1257,13 +1257,48 @@ function calcIndicators(candles, quote, fhInd){
     }
   }
 
-  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl,adx,diPlus,diMinus};
+  // Volume Profile — POC (Point of Control)
+  // מחשב באיזה מחיר נסחר הכי הרבה נפח ב-90 ימים אחרונים
+  let poc = 0;
+  if(hs.length >= 10 && ls.length >= 10 && v.length >= 10){
+    const profileLen = Math.min(90, hs.length);
+    const volMap = {};   // מחיר → נפח מצטבר
+    const BUCKETS = 50;  // 50 רמות מחיר
+
+    // מצא טווח מחירים כולל
+    const allH = Math.max(...hs.slice(-profileLen));
+    const allL = Math.min(...ls.slice(-profileLen));
+    const step  = (allH - allL) / BUCKETS || 1;
+
+    for(let i = N - profileLen; i < N; i++){
+      const hi = hs[i]||c[i], lo = ls[i]||c[i];
+      const vol = v[i]||0;
+      const bars = Math.max(1, Math.round((hi - lo) / step));
+      const volPerBar = vol / bars;
+
+      // פזר נפח על כל רמות המחיר בטווח הנר
+      for(let price = lo; price <= hi; price += step){
+        const bucket = Math.round((price - allL) / step);
+        volMap[bucket] = (volMap[bucket]||0) + volPerBar;
+      }
+    }
+
+    // מצא bucket עם הכי הרבה נפח
+    let maxVol = 0, maxBucket = 0;
+    Object.entries(volMap).forEach(([b, vol])=>{
+      if(vol > maxVol){ maxVol = vol; maxBucket = +b; }
+    });
+
+    poc = +(allL + maxBucket * step).toFixed(2);
+  }
+
+  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl,adx,diPlus,diMinus,poc};
 }
 
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
 function calcTargets(p){
   const {price,atr,sig,risk,totalScore,rsi,stochRsi,williamsR,cci,macdVal,
-         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50,earnings={},insider={}} = p;
+         ma50,ma200,bbU,bbL,vr,pct,patterns,candles,beta,hasEarnings,vix,confluence,profile={},sector={},relStrength=50,earnings={},insider={},poc=0} = p;
   const isBuy  = sig==="BUY"||sig==="STRONG_BUY";
   const isSell = sig==="SELL"||sig==="STRONG_SELL";
   const isStrong = sig==="STRONG_BUY"||sig==="STRONG_SELL";
@@ -1434,14 +1469,16 @@ function calcTargets(p){
 
   // תמיכה = הגבוה מבין: מינימום 20 נרות, Fib38.2, MA50
   // (הגבוה = הקרוב ביותר למחיר מלמטה)
-  const supportCandidates = [min20, fib382, ma50].filter(v => v > 0 && v < price);
+  const supportCandidates = [min20, fib382, ma50, ...(pocVal>0&&pocVal<price?[pocVal]:[])]  .filter(v => v > 0 && v < price);
   const trueSupport = supportCandidates.length
     ? Math.max(...supportCandidates)
     : price * 0.97;
 
-  // התנגדות = הנמוך מבין: מקסימום 20 נרות, Fib61.8, BB עליון
+  // התנגדות = הנמוך מבין: מקסימום 20 נרות, Fib61.8, BB עליון, POC (אם מעל מחיר)
   // (הנמוך = הקרוב ביותר למחיר מלמעלה)
-  const resCandidates = [max20, fib618, bbU].filter(v => v > 0 && v > price);
+  const pocVal = p.poc || 0;
+  const resCandidates = [max20, fib618, bbU, ...(pocVal>price?[pocVal]:[])]
+    .filter(v => v > 0 && v > price);
   const trueResistance = resCandidates.length
     ? Math.min(...resCandidates)
     : price * 1.05;
@@ -1761,7 +1798,25 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     }
   }
 
-  // 15. ADX — עוצמת הטרנד
+  // 15. Volume Profile — POC
+  const poc = ind.poc || 0;
+  if(poc > 0 && price > 0){
+    const distFromPoc = (price - poc) / price;
+    if(Math.abs(distFromPoc) <= 0.01){
+      // מחיר על ה-POC — נקודת החלטה
+      techFactors.push({t:`POC $${poc} — מחיר על נקודת השליטה בנפח`,c:"neutral"});
+    } else if(distFromPoc > 0 && distFromPoc <= 0.04){
+      // מחיר מעל POC — POC תמיכה
+      techScore += 2;
+      techFactors.push({t:`POC $${poc} — מחיר מעל נקודת שליטה, תמיכה חזקה`,c:"positive"});
+    } else if(distFromPoc < 0 && distFromPoc >= -0.04){
+      // מחיר מתחת ל-POC — POC התנגדות
+      techScore -= 2;
+      techFactors.push({t:`POC $${poc} — מחיר מתחת נקודת שליטה, התנגדות`,c:"negative"});
+    }
+  }
+
+  // 16. ADX — עוצמת הטרנד
   const adx    = ind.adx    || 0;
   const diPlus = ind.diPlus || 0;
   const diMinus= ind.diMinus|| 0;
@@ -1787,7 +1842,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     techFactors.push({t:`ADX ${adx} — שוק דשדוש, איתותים פחות אמינים`,c:"neutral"});
   }
 
-  const maxTech=37; // הגדלנו ב-3 בגלל ADX // הגדלנו את המקסימום בגלל האינדיקטורים החדשים
+  const maxTech=39; // הגדלנו ב-2 בגלל POC // הגדלנו את המקסימום בגלל האינדיקטורים החדשים
   // techScore נע בין -maxTech ל-+maxTech. ממיר ל-0-100
   const techScoreNorm=Math.max(0,Math.min(100,Math.round(50+(techScore/maxTech)*50)));
 
@@ -1961,6 +2016,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     relStrength: relStrength,
     earnings: earnings,
     insider: insider,
+    poc: ind.poc || 0,
   });
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
@@ -1974,7 +2030,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
-    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,
     confluence: confluenceScore,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
@@ -2447,6 +2503,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="metric"><div class="mlbl" onclick="showTip('Williams')">${T("Williams %R","Williams")}</div><div class="mval ${d.williamsR>-20?"dn":d.williamsR<-80?"up":"warn"}">${d.williamsR}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('CCI')">${T("CCI","CCI")}</div><div class="mval ${d.cci>100?"dn":d.cci<-100?"up":"warn"}">${(+d.cci).toFixed(1)}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('ADX')">ADX ↓</div><div class="mval ${(d.adx||0)>=25?"up":(d.adx||0)>=20?"warn":"dn"}">${(d.adx||0).toFixed(1)}</div></div>
+      <div class="metric"><div class="mlbl">POC ↓</div><div class="mval ${d.poc&&d.price>d.poc?"up":d.poc&&d.price<d.poc?"dn":"warn"}">$${(d.poc||0).toFixed(2)}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('ATR')">${T("ATR","ATR")}</div><div class="mval warn">$${d.atr}</div></div>
     </div>
 
@@ -2725,6 +2782,12 @@ function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
     {name:"נרות יפניים",  v: patterns.some(p=>p.bull===true)?1:patterns.some(p=>p.bull===false)?-1:0},
     {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0},
     {name:"ADX",           v: (ind.adx||0)>=20 ? ((ind.diPlus||0)>(ind.diMinus||0)?1:-1) : -1},
+    {name:"POC",           v: (()=>{
+      const p=ind.poc||0, pr=ind.price||0;
+      if(!p||!pr) return 0;
+      const d=(pr-p)/pr;
+      return d>0&&d<=0.04?1:d<0&&d>=-0.04?-1:0;
+    })()},
   ];
   const bulls = signals.filter(s=>s.v===1);
   const bears = signals.filter(s=>s.v===-1);
