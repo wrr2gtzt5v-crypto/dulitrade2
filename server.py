@@ -107,6 +107,7 @@ def get_profile(symbol):
         "earningsGrowth":  metric.get("epsGrowthTTMYoy"),
         "profitMargin":    metric.get("netProfitMarginTTM"),
         "operatingMargin": metric.get("operatingMarginTTM"),
+        "grossMargin":     metric.get("grossMarginTTM"),
         "roe":  metric.get("roeTTM"),
         "roa":  metric.get("roaTTM"),
         "debtToEquity":  metric.get("totalDebt/totalEquityAnnual"),
@@ -116,6 +117,15 @@ def get_profile(symbol):
         "dividendYield":    metric.get("dividendYieldIndicatedAnnual"),
         "fiftyTwoWeekHigh": metric.get("52WeekHigh"),
         "fiftyTwoWeekLow":  metric.get("52WeekLow"),
+        # EPS Growth מפורט
+        "epsGrowthAnnual":  metric.get("epsGrowth3Y") or metric.get("epsGrowthTTMYoy"),
+        "epsGrowth3Y":      metric.get("epsGrowth3Y"),
+        "epsGrowth5Y":      metric.get("epsGrowth5Y"),
+        # Free Cash Flow Yield
+        "fcfPerShareTTM":   metric.get("fcfPerShareTTM"),
+        "freeCashFlowTTM":  metric.get("freeCashFlowTTM"),
+        # Revenue Surprise — מ-earnings
+        "revenuePerShareTTM": metric.get("revenuePerShareTTM"),
     }
 
 def get_news(symbol):
@@ -214,10 +224,38 @@ def get_earnings(symbol):
             surprise = round((actual - estimate) / abs(estimate) * 100, 1)
         else:
             surprise = None
+
+        # Revenue Surprise מ-4 רבעונים אחרונים
+        rev_surprises = []
+        for item in items[:4]:
+            rev_act = item.get("revenueActual")
+            rev_est = item.get("revenueEstimate")
+            if rev_act and rev_est and rev_est != 0:
+                rev_surp = round((rev_act - rev_est) / abs(rev_est) * 100, 1)
+                rev_surprises.append(rev_surp)
+
+        rev_surprise = rev_surprises[0] if rev_surprises else None
+
+        # EPS history — 4 רבעונים
+        eps_history = []
+        for item in items[:4]:
+            a = item.get("actual")
+            e = item.get("estimate")
+            if a is not None:
+                eps_history.append({
+                    "period": item.get("period",""),
+                    "actual": a,
+                    "estimate": e,
+                    "surprise": round((a-e)/abs(e)*100,1) if e and e!=0 else None
+                })
+
         return {
             "available": True,
             "surprise": surprise,
             "quarter": last.get("period",""),
+            "revSurprise": rev_surprise,
+            "epsHistory": eps_history,
+            "beat3of4": sum(1 for h in eps_history if (h.get("surprise") or 0) > 0) >= 3,
         }
     except:
         return {"available": False}
