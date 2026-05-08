@@ -2608,6 +2608,22 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector){
   return lines;
 }
 
+
+// ── BID/ASK HTML ─────────────────────────────────────────
+function buildBidAskHtml(quote){
+  if(!quote||!quote.bid||!quote.ask) return "";
+  const sp = quote.spreadPct||0;
+  const spCol = sp>0.5?"dn":sp>0.2?"warn":"up";
+  const liqLbl = sp>0.5?"⚠️ נמוכה":sp>0.2?"בינונית":"✅ גבוהה";
+  const warn = sp>0.5?`<div class="rwarn">⚠️ Spread גבוה (${sp.toFixed(2)}%) — מניה לא נזילה, קשה לצאת מהר.</div>`:"";
+  return `<div class="metrics">
+    <div class="metric"><div class="mlbl">Bid</div><div class="mval up">$${quote.bid.toFixed(2)}</div></div>
+    <div class="metric"><div class="mlbl">Ask</div><div class="mval dn">$${quote.ask.toFixed(2)}</div></div>
+    <div class="metric"><div class="mlbl">Spread</div><div class="mval ${spCol}">${sp?sp.toFixed(3)+"%":"—"}</div></div>
+    <div class="metric"><div class="mlbl">נזילות</div><div class="mval ${spCol}">${liqLbl}</div></div>
+  </div>${warn}`;
+}
+
 // ── RENDER ────────────────────────────────────────────────
 function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}, earningsCal={}, shortData={}, preMarket={}){
   const d=scores;
@@ -2971,6 +2987,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="metric"><div class="mlbl">POC ↓</div><div class="mval ${d.poc&&d.price>d.poc?"up":d.poc&&d.price<d.poc?"dn":"warn"}">$${(d.poc||0).toFixed(2)}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('ATR')">${T("ATR","ATR")}</div><div class="mval warn">$${d.atr}</div></div>
     </div>
+    ${buildBidAskHtml(quote)}
 
     <div class="cbody">
       <div class="hbar">
@@ -3543,14 +3560,15 @@ async function runScanner(auto=false){
         const pct = scanQuote.dp || 0;
         const vr  = scanQuote.vr || 1;
 
-        // פילטר כמותי בסיסי — האם שווה לבדוק?
-        const hasMovement = Math.abs(pct) >= 0.3; // זזה לפחות 0.3%
-        const hasVolume   = true;                  // נבדוק נפח בשלב 2
-        const notFlat     = scanQuote.c > 1;       // לא penny stock
-
+        // פילטר כמותי בסיסי
+        const notFlat = scanQuote.c > 1; // לא penny stock
         if(!notFlat) return;
 
-        pass1.push({ sym, scanQuote });
+        // Volume Surge — נפח פי 3+ מהממוצע
+        const volumeSurge = vr >= 3.0;
+        const highVolume  = vr >= 1.5;
+
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume });
       } catch(e){}
     }));
   }
@@ -3559,6 +3577,9 @@ async function runScanner(auto=false){
   // שלב 2 — מסנן טכני (candle + profile + earnings + insider)
   // בודק: RSI, MACD, נרות, ציון טכני >= 48
   // ══════════════════════════════════════════════════════════
+  // מיין pass1 — Volume Surge קודם
+  pass1.sort((a,b) => (b.volumeSurge?2:b.highVolume?1:0) - (a.volumeSurge?2:a.highVolume?1:0));
+
   const candidates = [];
   fill.style.width = "30%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/3 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
@@ -3594,7 +3615,7 @@ async function runScanner(auto=false){
         if(scores.totalScore < 55) return;      // ציון מינימלי
         if(scores.rrRatio < 1.5) return;        // R/R סביר
 
-        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider });
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volumeSurge||false });
       } catch(e){}
     }));
   }
@@ -3644,7 +3665,8 @@ async function runScanner(auto=false){
         if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"▲▲ חזק מאוד",cls:"hot"});
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
         else if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
-        if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"🐋 נפח חריג",cls:"mom"});
+        if(volumeSurge) tags.push({t:"🚀 נפח פי 3+",cls:"hot"});
+        else if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"🐋 נפח חריג",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
         if(confScore >= 7) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
         if(scores.posNews > 0) tags.push({t:`📰 ${scores.posNews} חדשות+`,cls:"mom"});
@@ -3669,6 +3691,8 @@ async function runScanner(auto=false){
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
+          volumeSurge: volumeSurge||false,
+          vr: ind.vr||1,
         });
       } catch(e){}
     }));
@@ -3677,10 +3701,12 @@ async function runScanner(auto=false){
   // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
   results.sort((a,b)=>{
     // בונוסים נוספים לאיכות העסקה
-    const aBonus = ((a.adx||0) >= 25 ? 1 : 0) +
+    const aBonus = (a.volumeSurge ? 2 : 0) +
+                   ((a.adx||0) >= 25 ? 1 : 0) +
                    (a.divergence === "bullish" ? 1 : 0) +
                    (a.insiderNet >= 2 ? 1 : 0);
-    const bBonus = ((b.adx||0) >= 25 ? 1 : 0) +
+    const bBonus = (b.volumeSurge ? 2 : 0) +
+                   ((b.adx||0) >= 25 ? 1 : 0) +
                    (b.divergence === "bullish" ? 1 : 0) +
                    (b.insiderNet >= 2 ? 1 : 0);
 
@@ -3733,29 +3759,33 @@ function renderScanResults(results){
   const sigBg    = s => s.includes("BUY")?"var(--gdim)":s.includes("SELL")?"var(--rdim)":"var(--adim)";
   const chDir    = p => p>=0?"var(--green)":"var(--red)";
 
+  const stars = n => "★".repeat(Math.min(n,5)) + "☆".repeat(Math.max(0,5-n));
+
   grid.innerHTML = results.slice(0,8).map(r=>`
     <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
       <div class="scan-left">
         <div class="scan-sym">${r.sym}</div>
         <div class="scan-price">$${r.price.toFixed(2)}</div>
         <div class="scan-price" style="color:${chDir(r.pct)}">${r.pct>=0?"+":""}${r.pct}%</div>
+        <div style="font-size:11px;color:var(--amber);letter-spacing:-1px">${stars(r.dealStrength||0)}</div>
       </div>
       <div class="scan-mid">
         <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
         <div class="scan-tags">
           ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
         </div>
-        <div class="scan-reason">${r.reason}</div>
-        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-          <span style="font-size:10px;color:var(--blue);font-family:'IBM Plex Mono',monospace">${r.strategy||""}</span>
-          ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace">⏱ ${r.holding}</span>`:""}
+        <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
+        <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 6px;border-radius:4px">${r.strategy||""}</span>
+          ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace">⏱ ${r.holding}</span>`:""}
         </div>
       </div>
       <div class="scan-right">
         <div class="scan-score" style="color:${r.score>=65?"var(--green)":r.score>=55?"var(--amber)":"var(--red)"}">${r.score}</div>
         <div class="scan-rr">R/R 1:${r.rrRatio}</div>
-        <div class="scan-risk" style="color:${r.risk<35?"var(--green)":r.risk<55?"var(--amber)":"var(--red)"}">סיכון ${r.risk}</div>
-        <div class="scan-rr" style="color:var(--blue)">Conf ${r.conf}/10</div>
+        <div class="scan-risk" style="color:${r.risk<35?"var(--green)":r.risk<55?"var(--amber)":"var(--red)"}">⚠ ${r.risk}</div>
+        <div class="scan-rr" style="color:var(--blue)">✓${r.conf}/10</div>
+        <div style="font-size:10px;color:var(--text3)">נפח ${r.vr||1}x</div>
       </div>
     </div>`).join("");
 }
