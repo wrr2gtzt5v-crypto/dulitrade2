@@ -1628,6 +1628,27 @@ function calcTargets(p){
     if(_distRes<0.02) scoreShort+=1;
   }
 
+  // 11. Trend Pullback 🔄📊
+  // מניה במגמת עלייה שנסגת ל-MA50 — נקודת כניסה מושלמת
+  let scoreTrendPullback = 0;
+  if(isBuy){
+    // תנאי בסיס: MA50 > MA200 — מגמת עלייה מבוססת
+    if(ma50 > ma200) scoreTrendPullback += 3;
+    // קרוב ל-MA50 — הנסיגה הגיעה לרמה הנכונה
+    const _distFromMa50 = ma50 > 0 ? Math.abs(price - ma50) / price : 1;
+    if(_distFromMa50 <= 0.02) scoreTrendPullback += 4;      // תוך 2% מ-MA50
+    else if(_distFromMa50 <= 0.05) scoreTrendPullback += 2; // תוך 5% מ-MA50
+    // RSI בטווח בריא — לא קנוי יתר, יש מקום לעלות
+    if(rsi >= 40 && rsi <= 55) scoreTrendPullback += 2;
+    else if(rsi >= 35 && rsi <= 60) scoreTrendPullback += 1;
+    // נר היפוך — אישור שהנסיגה נגמרת
+    if(_hasBullCandle) scoreTrendPullback += 1;
+    // מחיר מעל MA50 — הנסיגה לא שברה את הטרנד
+    if(price >= ma50) scoreTrendPullback += 1;
+    // MACD — גם אם שלילי, בטרנד זה תקין
+    if(macdVal > 0) scoreTrendPullback += 1;
+  }
+
   // ── בחר אסטרטגיה לפי ציון הכי גבוה ─────────────────────
   const stratScores = [
     {name:"Earnings Momentum 💰", score:scoreEarnings,    minScore:5},
@@ -1640,6 +1661,7 @@ function calcTargets(p){
     {name:"Swing 🔀",             score:scoreSwing,        minScore:4},
     {name:"Mean Reversion 🔄",    score:scoreMeanRev,      minScore:4},
     {name:"Short/Exit 📉",        score:scoreShort,        minScore:3},
+    {name:"Trend Pullback 🔄📊",  score:scoreTrendPullback, minScore:5},
   ];
 
   const best = stratScores
@@ -1724,8 +1746,9 @@ function calcTargets(p){
   else if(vix>25)  slMult *= 0.9;
   if(beta>1.5)      slMult *= 1.1;
   else if(beta<0.8) slMult *= 0.9;
-  if(strategy.includes("Earnings"))      slMult *= 1.2;
-  else if(strategy.includes("Support"))  slMult *= 0.7;
+  if(strategy.includes("Trend Pullback")) slMult *= 0.8;  // SL מתחת ל-MA50
+  else if(strategy.includes("Earnings"))  slMult *= 1.2;
+  else if(strategy.includes("Support"))   slMult *= 0.7;
   else if(strategy.includes("Fibonacci"))slMult *= 0.75; // SL מדויק מתחת לרמת Fib
   else if(strategy.includes("RS Leader"))slMult *= 1.2;  // מניה חזקה — SL רחוק
   else if(strategy.includes("Breakout")) slMult *= 1.1;
@@ -1764,8 +1787,9 @@ function calcTargets(p){
 
   // זמן החזקה לפי אסטרטגיה
   let holdDays;
-  if(strategy.includes("Earnings"))      holdDays = 14;
-  else if(strategy.includes("Support"))  holdDays = 8;
+  if(strategy.includes("Trend Pullback")) holdDays = 12;
+  else if(strategy.includes("Earnings"))  holdDays = 14;
+  else if(strategy.includes("Support"))   holdDays = 8;
   else if(strategy.includes("Fibonacci"))holdDays = 10;
   else if(strategy.includes("RS Leader"))holdDays = 20;
   else if(strategy.includes("Breakout")) holdDays = 7;
@@ -2347,6 +2371,14 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector){
       lines.push(`📊 MA50 מעל MA200 — מגמה עולה מבוססת.`);
     if(insider?.net>=1)
       lines.push(`👔 Insider Buying — הנהלה קונה עם הציבור.`);
+  }
+
+  else if(strat.includes("Trend Pullback")){
+    lines.push(`📊 מגמת עלייה — MA50 ($${d.ma50}) מעל MA200 ($${d.ma200}).`);
+    const distMa50 = d.ma50>0 ? +(Math.abs(d.price-d.ma50)/d.price*100).toFixed(1) : 0;
+    lines.push(`🎯 מחיר ${distMa50}% מ-MA50 — נסיגה לרמת תמיכה דינמית, נקודת כניסה קלאסית.`);
+    if(d.rsi>=40&&d.rsi<=55) lines.push(`📈 RSI ${d.rsi} — אזור בריא בתוך טרנד, יש מקום לעלות.`);
+    if(d.macdVal<0) lines.push(`⚠️ MACD שלילי — נורמלי בנסיגה, מצפים שיחזור לחיובי.`);
   }
 
   else if(strat.includes("Momentum")){
@@ -3112,8 +3144,8 @@ let scannerTimeframe = 'medium'; // ברירת מחדל
 // אסטרטגיות לפי טווח זמן
 const TF_STRATEGIES = {
   short:  ["Breakout","Support Bounce","Mean Reversion","Momentum","Short/Exit","Conservative","Swing"],
-  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce","Trend"],
-  long:   ["Trend","RS Leader","Earnings Momentum","Momentum","Swing","Short/Exit","Conservative"]
+  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce","Trend","Trend Pullback"],
+  long:   ["Trend","RS Leader","Earnings Momentum","Momentum","Swing","Short/Exit","Conservative","Trend Pullback"]
 };
 
 // holdDays מותר לפי טווח
