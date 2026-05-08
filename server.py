@@ -31,6 +31,16 @@ def get_quote(symbol):
     d = fh(f"/quote?symbol={symbol}")
     c = d.get("c", 0)
     if c > 0:
+        bid = d.get("b") or d.get("bid")
+        ask = d.get("a") or d.get("ask")
+        # חשב spread
+        spread = None
+        spread_pct = None
+        if bid and ask and bid > 0 and ask > 0:
+            spread = round(ask - bid, 4)
+            spread_pct = round((ask - bid) / c * 100, 3)
+        # נפח יחסי — Finnhub מחזיר vr לפעמים
+        vr = d.get("vr") or 1.0
         return {
             "c":  round(c, 2),
             "pc": round(d.get("pc", c), 2),
@@ -38,8 +48,13 @@ def get_quote(symbol):
             "l":  round(d.get("l", c), 2),
             "o":  round(d.get("o", c), 2),
             "dp": round(d.get("dp", 0), 2),
+            "bid": bid,
+            "ask": ask,
+            "spread": spread,
+            "spreadPct": spread_pct,
+            "vr": vr,
         }
-    return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0}
+    return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0,"bid":None,"ask":None,"spread":None,"spreadPct":None,"vr":1}
 
 def pg(path):
     """Polygon.io API"""
