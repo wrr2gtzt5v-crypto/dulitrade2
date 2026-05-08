@@ -2195,6 +2195,38 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     else if(profile.earningsGrowth<0){fundScore-=2;fundFactors.push({t:`רווחים יורדים ${(profile.earningsGrowth*100).toFixed(1)}%`,c:"negative"});}
   }
 
+  // Gross Margin — מרווח גולמי
+  if(profile.grossMargin!=null){
+    if(profile.grossMargin>0.5){fundScore+=2;fundFactors.push({t:`מרווח גולמי ${(profile.grossMargin*100).toFixed(1)}% — גבוה מאוד, יתרון תחרותי`,c:"positive"});}
+    else if(profile.grossMargin>0.3){fundScore+=1;fundFactors.push({t:`מרווח גולמי ${(profile.grossMargin*100).toFixed(1)}%`,c:"neutral"});}
+    else if(profile.grossMargin<0.1){fundScore-=1;fundFactors.push({t:`מרווח גולמי נמוך ${(profile.grossMargin*100).toFixed(1)}%`,c:"negative"});}
+  }
+
+  // Free Cash Flow
+  if(profile.fcfPerShareTTM!=null){
+    if(profile.fcfPerShareTTM>0){fundScore+=2;fundFactors.push({t:`FCF חיובי $${(+profile.fcfPerShareTTM).toFixed(2)}/מניה — מזומן אמיתי`,c:"positive"});}
+    else{fundScore-=2;fundFactors.push({t:`FCF שלילי $${(+profile.fcfPerShareTTM).toFixed(2)}/מניה — שורף מזומן`,c:"negative"});}
+  }
+
+  // EPS Growth
+  if(profile.epsGrowthAnnual!=null){
+    if(profile.epsGrowthAnnual>0.3){fundScore+=3;fundFactors.push({t:`EPS Growth ${(profile.epsGrowthAnnual*100).toFixed(1)}% — צמיחת רווח מהירה`,c:"positive"});}
+    else if(profile.epsGrowthAnnual>0.1){fundScore+=1;fundFactors.push({t:`EPS Growth ${(profile.epsGrowthAnnual*100).toFixed(1)}%`,c:"positive"});}
+    else if(profile.epsGrowthAnnual<0){fundScore-=2;fundFactors.push({t:`EPS שלילי — רווח למניה יורד`,c:"negative"});}
+  }
+
+  // Revenue Surprise
+  if(earnings?.revSurprise!=null){
+    if(earnings.revSurprise>5){fundScore+=2;fundFactors.push({t:`הפתעת הכנסות +${earnings.revSurprise.toFixed(1)}% — עקפה תחזיות`,c:"positive"});}
+    else if(earnings.revSurprise<-5){fundScore-=2;fundFactors.push({t:`הכנסות מתחת תחזיות ${earnings.revSurprise.toFixed(1)}%`,c:"negative"});}
+  }
+
+  // Beat 3/4 quarters
+  if(earnings?.beat3of4){
+    fundScore+=2;
+    fundFactors.push({t:`✅ הפתיע ב-3 מתוך 4 רבעונים אחרונים — עקביות`,c:"positive"});
+  }
+
   // רווחיות
   if(profile.profitMargin!=null){
     if(profile.profitMargin>0.2){fundScore+=2;fundFactors.push({t:`מרווח רווח ${(profile.profitMargin*100).toFixed(1)}% — חזק`,c:"positive"});}
@@ -2616,7 +2648,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const trailingHtml = (d.sig==="BUY"||d.sig==="STRONG_BUY") ? renderTrailingHtml(ts, d.price) : "";
 
   // ── Position Sizing ─────────────────────────────────────
-  const posHtml = renderPositionHtml(d.price, d.sl);
+  const posHtml = renderPositionHtml(d.price, d.sl, sym, profile.sector||'Other');
 
   // ── Historical Signals ──────────────────────────────────
   const histHtml = renderHistoryHtml(sym);
@@ -2665,16 +2697,18 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="fund-card">
         <div class="fund-card-title">📈 צמיחה</div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('RevenueGrowth')">${T("צמיחת הכנסות","RevenueGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.revenueGrowth,0.15,-0.05)}">${fmtPct(p.revenueGrowth)}</span></div>
-        <div class="fund-row"><span class="fund-key" onclick="showTip('EarningsGrowth')">${T("צמיחת רווחים","EarningsGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.earningsGrowth,0.1,-0.05)}">${fmtPct(p.earningsGrowth)}</span></div>
+        <div class="fund-row"><span class="fund-key" onclick="showTip('EarningsGrowth')">${T("EPS Growth שנתי","EarningsGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.epsGrowthAnnual,0.15,-0.05)}">${fmtPct(p.epsGrowthAnnual)}</span></div>
+        <div class="fund-row"><span class="fund-key">EPS Growth 3Y</span><span class="fund-val" style="color:${fmtColor(p.epsGrowth3Y,0.1,-0.05)}">${fmtPct(p.epsGrowth3Y)}</span></div>
         <div class="fund-row"><span class="fund-key">יעד אנליסטים</span><span class="fund-val" style="color:${p.targetMeanPrice>d.price?"var(--green)":"var(--red)"}">${p.targetMeanPrice?"$"+p.targetMeanPrice.toFixed(0)+" ("+((p.targetMeanPrice-d.price)/d.price*100).toFixed(0)+"%)":"—"}</span></div>
         <div class="fund-row"><span class="fund-key">המלצה</span><span class="fund-val" style="color:${p.recommendationKey?.includes("buy")?"var(--green)":p.recommendationKey?.includes("sell")?"var(--red)":"var(--amber)"}">${p.recommendationKey?.replace("strong_buy","קנייה חזקה").replace("buy","קנייה").replace("hold","המתן").replace("sell","מכירה").replace("strong_sell","מכירה חזקה")||"—"}</span></div>
       </div>
       <div class="fund-card">
         <div class="fund-card-title">💰 רווחיות</div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('ProfitMargin')">${T("מרווח רווח נקי","ProfitMargin")}</span><span class="fund-val" style="color:${fmtColor(p.profitMargin,0.15,0)}">${fmtPct(p.profitMargin)}</span></div>
+        <div class="fund-row"><span class="fund-key">מרווח גולמי</span><span class="fund-val" style="color:${fmtColor(p.grossMargin,0.4,0.1)}">${fmtPct(p.grossMargin)}</span></div>
         <div class="fund-row"><span class="fund-key">מרווח תפעולי</span><span class="fund-val" style="color:${fmtColor(p.operatingMargin,0.15,0)}">${fmtPct(p.operatingMargin)}</span></div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('ROE')">${T("ROE — תשואה על הון","ROE")}</span><span class="fund-val" style="color:${fmtColor(p.roe,0.15,0)}">${fmtPct(p.roe)}</span></div>
-        <div class="fund-row"><span class="fund-key">ROA</span><span class="fund-val" style="color:${fmtColor(p.roa,0.05,0)}">${fmtPct(p.roa)}</span></div>
+        <div class="fund-row"><span class="fund-key">Free Cash Flow/מניה</span><span class="fund-val" style="color:${p.fcfPerShareTTM>0?"var(--green)":p.fcfPerShareTTM<0?"var(--red)":"var(--text2)"}">${p.fcfPerShareTTM!=null?"$"+(+p.fcfPerShareTTM).toFixed(2):"—"}</span></div>
       </div>
       <div class="fund-card">
         <div class="fund-card-title">🏷️ תמחור</div>
@@ -3292,13 +3326,75 @@ function renderTrailingHtml(ts, price){
   </div>`;
 }
 
+// ── OPEN POSITIONS — מעקב עסקאות פתוחות ─────────────────
+let openPositions = JSON.parse(localStorage.getItem("dt_positions") || "[]");
+
+function addPosition(sym, entry, sl, sector){
+  if(!portfolioSize || portfolioSize <= 0) return;
+  const existing = openPositions.find(p => p.sym === sym);
+  if(existing) return; // כבר קיים
+  const riskPct = Math.abs(entry - sl) / entry;
+  const riskAmount = portfolioSize * 0.02; // 2%
+  const shares = Math.floor(riskAmount / (entry * riskPct));
+  openPositions.push({sym, entry, sl, sector: sector||"Other", shares, riskPct: +(riskPct*100).toFixed(1)});
+  localStorage.setItem("dt_positions", JSON.stringify(openPositions));
+}
+
+function removePosition(sym){
+  openPositions = openPositions.filter(p => p.sym !== sym);
+  localStorage.setItem("dt_positions", JSON.stringify(openPositions));
+}
+
+function calcPortfolioHeat(){
+  if(!portfolioSize || !openPositions.length) return null;
+  const totalRisk = openPositions.reduce((sum, p) => sum + 2, 0); // כל עסקה = 2% סיכון
+  const sectors = {};
+  openPositions.forEach(p => { sectors[p.sector] = (sectors[p.sector]||0) + 1; });
+  const correlated = Object.entries(sectors).filter(([s,c]) => c >= 2).map(([s]) => s);
+  return {
+    totalRisk,
+    positions: openPositions.length,
+    correlated,
+    safe: totalRisk <= 6,
+    warning: totalRisk > 10,
+  };
+}
+
+function renderPortfolioHeat(){
+  const heat = calcPortfolioHeat();
+  if(!heat) return "";
+  const col = heat.warning ? "var(--red)" : heat.safe ? "var(--green)" : "var(--amber)";
+  const lbl = heat.warning ? "🔥 חום גבוה!" : heat.safe ? "✅ בטוח" : "⚠️ זהירות";
+  const corrHtml = heat.correlated.length
+    ? `<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠️ קורלציה גבוהה: ${heat.correlated.join(", ")} — שני עסקאות באותו סקטור</div>`
+    : "";
+  const posHtml = openPositions.map(p => `
+    <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
+      <span style="color:var(--text)">${p.sym}</span>
+      <span style="color:var(--text3)">כניסה: $${p.entry}</span>
+      <span style="color:var(--red)">SL: $${p.sl}</span>
+      <span style="color:var(--amber)">סיכון: 2%</span>
+      <button onclick="removePosition('${p.sym}');document.location.reload()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px">✕</button>
+    </div>`).join("");
+  return `<div style="background:var(--bg3);border:1px solid ${col};border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:11px;font-family:monospace;color:var(--text3)">🌡️ Portfolio Heat</span>
+      <span style="font-size:16px;font-weight:700;font-family:monospace;color:${col}">${heat.totalRisk}% ${lbl}</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${heat.positions} עסקאות פתוחות | סיכון כולל: ${heat.totalRisk}% מהתיק</div>
+    ${corrHtml}
+    ${posHtml}
+  </div>`;
+}
+
 // ── POSITION SIZING RENDER ────────────────────────────────
-function renderPositionHtml(price, sl){
+function renderPositionHtml(price, sl, sym, sector){
   const ps = calcPositionSize(price, sl, portfolioSize);
-  if(!ps) return `<div class="pos-size-box">
+  const heatHtml = renderPortfolioHeat();
+  if(!ps) return `${heatHtml}<div class="pos-size-box">
     <div class="pos-size-title">💼 Position Sizing — הכנס גודל תיק למעלה לחישוב</div>
   </div>`;
-  return `<div class="pos-size-box">
+  return `${heatHtml}<div class="pos-size-box">
     <div class="pos-size-title" style="cursor:pointer" onclick="showTip('PositionSize')">💼 Position Sizing — כמה להשקיע? ℹ (2% סיכון מהתיק)</div>
     <div class="pos-result">
       <div class="pos-cell"><div class="pos-lbl">מספר מניות</div><div class="pos-val">${ps.shares.toLocaleString()}</div></div>
@@ -3306,6 +3402,9 @@ function renderPositionHtml(price, sl){
       <div class="pos-cell"><div class="pos-lbl">% מהתיק</div><div class="pos-val">${ps.portfolioPct}%</div></div>
       <div class="pos-cell"><div class="pos-lbl">סיכון מקסימלי</div><div class="pos-val" style="color:var(--red)">$${ps.riskAmount.toLocaleString()}</div></div>
     </div>
+    <button onclick="addPosition('${sym||''}',${price},${sl},'${sector||''}');alert('✅ עסקה נוספה לעקיבה!')" style="margin-top:8px;background:var(--cbtn);border:none;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;width:100%">
+      + הוסף לעסקאות פתוחות
+    </button>
   </div>`;
 }
 
