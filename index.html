@@ -421,26 +421,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
         <button class="tbtn" onclick="runScanner()" id="scanBtn" style="font-size:11px;background:var(--cbtn);color:#fff;border:none;padding:5px 14px;font-weight:700;">▶ סרוק עכשיו</button>
       </div>
     </div>
-    <!-- TIMEFRAME SELECTOR -->
-    <div class="tf-selector" id="tfSelector">
-      <button class="tf-btn" id="tf-short" onclick="setTimeframe('short')">
-        ⚡ קצר
-        <span class="tf-label">1–7 ימים</span>
-      </button>
-      <button class="tf-btn active" id="tf-medium" onclick="setTimeframe('medium')">
-        📅 בינוני
-        <span class="tf-label">7–14 ימים</span>
-      </button>
-      <button class="tf-btn" id="tf-long" onclick="setTimeframe('long')">
-        📈 ארוך
-        <span class="tf-label">30+ ימים</span>
-      </button>
-    </div>
+
     <div class="scanner-progress" id="scanProgress">
       <div class="scanner-progress-fill" id="scanFill"></div>
     </div>
     <div class="scanner-grid" id="scanGrid">
-      <div class="scan-empty">בחר טווח זמן וסרוק<br><span style="font-size:11px">המערכת תנתח 120 מניות ותמיין את 8 הטובות ביותר</span></div>
+      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות<br><span style="font-size:11px">המערכת תנתח 154 מניות ותמיין את 8 הטובות ביותר</span></div>
     </div>
   </div>
 
@@ -3360,8 +3346,8 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
-        // ── פילטר שלב 3: Confluence מינימלי 2 ──────────────
-        if(confScore < 2) return;
+        // ── פילטר שלב 3: Confluence מינימלי 4 ──────────────
+        if(confScore < 4) return;
 
         // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
         let dealStrength = 0;
@@ -3398,6 +3384,9 @@ async function runScanner(auto=false){
           dealStrength,
           strategy: scores.strategy || "",
           holding: scores.holding || "",
+          adx: ind.adx || 0,
+          divergence: ind.divergence || null,
+          insiderNet: insider?.net || 0,
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
@@ -3406,36 +3395,18 @@ async function runScanner(auto=false){
     }));
   }
 
-  // ── מיון סופי — dealStrength + ציון + R/R + Timeframe ──
-  const tfHoldRange = TF_HOLD[scannerTimeframe] || TF_HOLD.medium;
-  const tfAllowed   = TF_STRATEGIES[scannerTimeframe] || TF_STRATEGIES.medium;
-
-  // חלץ holdDays מטקסט holding
-  function holdToNum(h){
-    if(!h) return 10;
-    if(h.includes("3-7")) return 5;
-    if(h==="שבוע") return 7;
-    if(h.includes("1-2")) return 10;
-    if(h.includes("2-3")) return 17;
-    if(h==="חודש") return 30;
-    if(h.includes("חודש+")) return 45;
-    return 10;
-  }
-
+  // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
   results.sort((a,b)=>{
-    const aHold = holdToNum(a.holding);
-    const bHold = holdToNum(b.holding);
+    // בונוסים נוספים לאיכות העסקה
+    const aBonus = ((a.adx||0) >= 25 ? 1 : 0) +
+                   (a.divergence === "bullish" ? 1 : 0) +
+                   (a.insiderNet >= 2 ? 1 : 0);
+    const bBonus = ((b.adx||0) >= 25 ? 1 : 0) +
+                   (b.divergence === "bullish" ? 1 : 0) +
+                   (b.insiderNet >= 2 ? 1 : 0);
 
-    // בונוס אם האסטרטגיה מתאימה ל-Timeframe
-    const aTfBonus = tfAllowed.some(s=>(a.strategy||"").includes(s)) ? 1 : 0;
-    const bTfBonus = tfAllowed.some(s=>(b.strategy||"").includes(s)) ? 1 : 0;
-
-    // פנאלטי אם holdDays חורג מהטווח שנבחר
-    const aPenalty = (aHold > tfHoldRange.max * 1.3 || aHold < tfHoldRange.min * 0.5) ? -5 : 0;
-    const bPenalty = (bHold > tfHoldRange.max * 1.3 || bHold < tfHoldRange.min * 0.5) ? -5 : 0;
-
-    const aTotal = (a.dealStrength||0) + aTfBonus + aPenalty;
-    const bTotal = (b.dealStrength||0) + bTfBonus + bPenalty;
+    const aTotal = (a.dealStrength||0) + aBonus;
+    const bTotal = (b.dealStrength||0) + bBonus;
 
     if(bTotal !== aTotal) return bTotal - aTotal;
     if(b.score !== a.score) return b.score - a.score;
@@ -3448,7 +3419,7 @@ async function runScanner(auto=false){
   for(const r of results){
     const sec = r.sector || "Other";
     sectorCount[sec] = (sectorCount[sec]||0) + 1;
-    if(sectorCount[sec] <= 2) diversified.push(r);
+    if(sectorCount[sec] <= 1) diversified.push(r);
     if(diversified.length >= 8) break;
   }
   // אם פחות מ-8 אחרי גיוון — הוסף שאר לפי דירוג
@@ -3496,6 +3467,10 @@ function renderScanResults(results){
           ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
         </div>
         <div class="scan-reason">${r.reason}</div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+          <span style="font-size:10px;color:var(--blue);font-family:'IBM Plex Mono',monospace">${r.strategy||""}</span>
+          ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace">⏱ ${r.holding}</span>`:""}
+        </div>
       </div>
       <div class="scan-right">
         <div class="scan-score" style="color:${r.score>=65?"var(--green)":r.score>=55?"var(--amber)":"var(--red)"}">${r.score}</div>
