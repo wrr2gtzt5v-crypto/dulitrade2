@@ -3182,9 +3182,9 @@ let scannerTimeframe = 'medium'; // ברירת מחדל
 
 // אסטרטגיות לפי טווח זמן
 const TF_STRATEGIES = {
-  short:  ["Breakout","Support Bounce","Mean Reversion","Momentum","Short/Exit","Conservative","Swing","Gap & Go"],
-  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Conservative","Breakout","Support Bounce","Trend","Trend Pullback"],
-  long:   ["Trend","RS Leader","Earnings Momentum","Momentum","Swing","Short/Exit","Conservative","Trend Pullback"]
+  short:  ["Breakout","Support Bounce","Mean Reversion","Momentum","Short/Exit","Swing","Gap & Go"],
+  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Breakout","Support Bounce","Trend","Trend Pullback"],
+  long:   ["Trend","RS Leader","Earnings Momentum","Momentum","Swing","Short/Exit","Trend Pullback"]
 };
 
 // holdDays מותר לפי טווח
@@ -3431,8 +3431,8 @@ async function runScanner(auto=false){
     const bTfBonus = tfAllowed.some(s=>(b.strategy||"").includes(s)) ? 1 : 0;
 
     // פנאלטי אם holdDays חורג מהטווח שנבחר
-    const aPenalty = (aHold > tfHoldRange.max * 1.3 || aHold < tfHoldRange.min * 0.5) ? -2 : 0;
-    const bPenalty = (bHold > tfHoldRange.max * 1.3 || bHold < tfHoldRange.min * 0.5) ? -2 : 0;
+    const aPenalty = (aHold > tfHoldRange.max * 1.3 || aHold < tfHoldRange.min * 0.5) ? -5 : 0;
+    const bPenalty = (bHold > tfHoldRange.max * 1.3 || bHold < tfHoldRange.min * 0.5) ? -5 : 0;
 
     const aTotal = (a.dealStrength||0) + aTfBonus + aPenalty;
     const bTotal = (b.dealStrength||0) + bTfBonus + bPenalty;
