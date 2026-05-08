@@ -1727,12 +1727,17 @@ function calcTargets(p){
   // 12. Gap & Go ⚡
   // מניה שפתחה עם פער משמעותי ממשיכה בכיוון הפתיחה
   let scoreGapGo = 0;
+  // Pre-Market volume — מועבר מחוץ ל-calcTargets דרך p
+  const _pmVolume = p.pmVolume || 0;
+  const _pmSignificant = p.pmSignificant || false;
   const _gapPct = (p.pc||0) > 0 ? (((p.openPrice||price) - (p.pc||price)) / (p.pc||price) * 100) : 0;
   const _isGapUp   = _gapPct >= 2;
   const _isGapDown = _gapPct <= -2;
 
   if(_isGapUp && isBuy){
     if(_gapPct >= 4) scoreGapGo += 4; else if(_gapPct >= 2) scoreGapGo += 2;
+    if(_pmSignificant) scoreGapGo += 3;  // נפח Pre-Market אמיתי — בונוס גדול
+    else if(_pmVolume > 0 && !_pmSignificant) scoreGapGo -= 1; // Gap ללא נפח — עונש
     if(vr >= 2.0) scoreGapGo += 3; else if(vr >= 1.5) scoreGapGo += 2;
     if(pct > 0) scoreGapGo += 2;       // ממשיך לעלות אחרי הפתיחה
     if(_gapPct < 8) scoreGapGo += 1;   // Gap לא גדול מדי — סיכון Fill נמוך
@@ -2358,6 +2363,8 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     poc: ind.poc || 0,
     pc: quote?.pc || 0,
     openPrice: quote?.o || 0,
+    pmVolume: 0,      // יועבר מ-render אחרי שיש preMarket
+    pmSignificant: false,
   });
   const {entry, tp, sl, holding, strategy, trueAtr, rrRatio} = targets;
   const tpPct=+(((tp-entry)/entry)*100).toFixed(1);
@@ -2489,7 +2496,17 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector){
     const gapPct = +(((d.price - (d.pc||d.price)) / (d.pc||d.price)) * 100).toFixed(1);
     const gapDir = gapPct > 0 ? "מעלה" : "מטה";
     lines.push(`⚡ Gap ${gapDir} של ${Math.abs(gapPct)}% — המניה פתחה רחוק מסגירת אתמול.`);
-    if(d.vr > 1.5) lines.push(`🐋 נפח פי ${d.vr} מהממוצע — מאשר שה-Gap אמיתי ולא מלכודת.`);
+    // Pre-Market נפח
+    if(preMarket?.available){
+      const pmVol = preMarket.volume || 0;
+      const volStr = pmVol >= 1000000 ? (pmVol/1000000).toFixed(1)+'M' : Math.round(pmVol/1000)+'K';
+      if(preMarket.significant)
+        lines.push(`📊 נפח Pre-Market: ${volStr} מניות — Gap אמיתי עם כסף אמיתי מאחוריו.`);
+      else
+        lines.push(`⚠️ נפח Pre-Market: ${volStr} מניות — נמוך! Gap ללא נפח = סיכון גבוה ל-Fill.`);
+    } else if(d.vr > 1.5) {
+      lines.push(`🐋 נפח פי ${d.vr} מהממוצע — מאשר שה-Gap אמיתי ולא מלכודת.`);
+    }
     lines.push(`⏱️ עסקה קצרה — 1-3 ימים. SL מתחת לתחתית ה-Gap.`);
     if(Math.abs(gapPct) > 7) lines.push(`⚠️ Gap גדול מאוד — סיכון גבוה ל-Gap Fill, שים לב.`);
   }
@@ -2560,7 +2577,7 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector){
 }
 
 // ── RENDER ────────────────────────────────────────────────
-function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}, earningsCal={}, shortData={}){
+function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}, earningsCal={}, shortData={}, preMarket={}){
   const d=scores;
   const p=profile;
   const chDir=d.pct>=0?"up":"dn",chS=d.pct>=0?"+":"";
@@ -2799,7 +2816,29 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Sector Rotation</div>'
     +   sectorCard()
     + '</div>'
-    + '<div style="background:var(--bg3);border:1px solid '+earBorder+';border-radius:8px;padding:10px 12px;">'
+    + (()=>{
+      // Pre-Market card — רק אם יש נתונים ושוק לא פתוח עדיין
+      const ms = lastMarketStatus || getMarketStatus();
+      if(!preMarket?.available || ms.status === 'open') return '';
+      const pmVol = preMarket.volume || 0;
+      const pmPct = preMarket.pctChange;
+      const pmSig = preMarket.significant;
+      const volStr = pmVol >= 1000000 ? (pmVol/1000000).toFixed(1)+'M' : pmVol >= 1000 ? Math.round(pmVol/1000)+'K' : pmVol;
+      const pctStr = pmPct !== null && pmPct !== undefined ? (pmPct >= 0 ? '+' : '') + pmPct + '%' : '—';
+      const col = pmPct > 2 ? 'var(--green)' : pmPct < -2 ? 'var(--red)' : 'var(--amber)';
+      const sigLbl = pmSig ? '✅ נפח משמעותי' : '⚠️ נפח נמוך';
+      const pmBorder = pmSig ? (pmPct > 0 ? 'var(--green)' : 'var(--red)') : 'var(--border)';
+      return '<div style="background:var(--bg3);border:1px solid '+pmBorder+';border-radius:8px;padding:10px 12px;grid-column:span 2">'
+        + '<div style="font-size:10px;font-family:monospace;color:var(--text3);margin-bottom:4px">📊 Pre-Market</div>'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        +   '<div style="font-size:18px;font-weight:700;font-family:monospace;color:'+col+'">'+pctStr+'</div>'
+        +   '<div style="font-size:13px;font-family:monospace;color:var(--text2)">נפח: '+volStr+'</div>'
+        +   '<div style="font-size:11px;color:var(--text3)">'+sigLbl+'</div>'
+        + '</div>'
+        + (!pmSig ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠️ Gap ללא נפח — ייתכן מחיר לא אמיתי</div>' : '')
+        + '</div>';
+    })()
+  + '<div style="background:var(--bg3);border:1px solid '+earBorder+';border-radius:8px;padding:10px 12px;">'
     +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Earnings Surprise</div>'
     +   earningsCard()
     + '</div>'
@@ -2999,14 +3038,15 @@ async function go(){
   currentSym = null;
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
-    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators,earningsCal,shortData]=await Promise.all([
+    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators,earningsCal,shortData,preMarket]=await Promise.all([
       api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
       api(sym,"news"),api(sym,"extnews"),
       api(sym,"competitors"),api(sym,"macro"),
       api(sym,"earnings"),api(sym,"insider"),
       api(sym,"indicators"),
       api(sym,"earningscal"),
-      api(sym,"short")
+      api(sym,"short"),
+      api(sym,"premarket")
     ]);
     // שמור ב-cache
     _earningsCache[sym] = earningsCal;
@@ -3017,7 +3057,7 @@ async function go(){
     const ind=calcIndicators(candles, quote, fhIndicators);
     const patterns=detectPatterns(candles);
     const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro,earnings,insider,sector);
-    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData);
+    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket);
     saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
     fireAlert(sym,scores.sig,scores.price,scores.totalScore);
   }catch(e){
