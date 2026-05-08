@@ -2243,6 +2243,15 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     }
   }
 
+  // ── Short Interest (אם קיים ב-profile) ──────────────────
+  const shortFloat = profile?.shortFloat || 0;
+  if(shortFloat > 20){
+    fundScore += 2; // Short Squeeze potential — bullish
+    fundFactors.push({t:`🔥 Short Interest ${shortFloat.toFixed(1)}% — פוטנציאל Short Squeeze`,c:"positive"});
+  } else if(shortFloat > 10){
+    fundFactors.push({t:`Short Interest ${shortFloat.toFixed(1)}% — בינוני-גבוה`,c:"neutral"});
+  }
+
   // ── Insider Buying ─────────────────────────────────────
   if(insider?.available){
     if(insider.net>=3){
@@ -2551,7 +2560,7 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector){
 }
 
 // ── RENDER ────────────────────────────────────────────────
-function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}){
+function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}, earningsCal={}, shortData={}){
   const d=scores;
   const p=profile;
   const chDir=d.pct>=0?"up":"dn",chS=d.pct>=0?"+":"";
@@ -2569,9 +2578,21 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   );
   const confHtml = renderConfluenceHtml(conf, d.sig);
 
-  // ── Earnings Warning ────────────────────────────────────
-  const hasEarnings = checkEarnings(sym);
-  const earningsHtml = hasEarnings ? `<div class="earnings-warn">⚠️ <strong>דוח רווחים צפוי בקרוב!</strong> — הסיכון גבוה לפני דוח. שקול להמתין לאחר הפרסום לפני כניסה לעסקה.</div>` : "";
+  // ── Earnings Warning — דינמי מה-API ──────────────────────
+  const hasEarnings = earningsCal?.available && earningsCal?.soon;
+  let earningsHtml = "";
+  if(earningsCal?.available && earningsCal?.daysUntil !== null){
+    const days = earningsCal.daysUntil;
+    const dateStr = earningsCal.date || "";
+    const hour = earningsCal.hour === "bmo" ? "לפני פתיחה" : "אחרי סגירה";
+    if(days === 0){
+      earningsHtml = `<div class="earnings-warn">🚨 <strong>דוח רווחים היום!</strong> (${hour}) — סיכון גבוה מאוד. לא מומלץ להיכנס לעסקה.</div>`;
+    } else if(days <= 3){
+      earningsHtml = `<div class="earnings-warn">⚠️ <strong>דוח רווחים בעוד ${days} ימים</strong> (${dateStr} ${hour}) — המתן לאחר הדוח לפני כניסה.</div>`;
+    } else if(days <= 14){
+      earningsHtml = `<div class="earnings-warn">📅 <strong>דוח רווחים בעוד ${days} ימים</strong> (${dateStr}) — שים לב לתאריך הדוח.</div>`;
+    }
+  }
 
   // ── Trailing Stop ───────────────────────────────────────
   const ts = calcTrailingStop(d.price, d.atr, d.sig);
@@ -2786,6 +2807,19 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px">Insider Transactions</div>'
     +   insiderCard()
     + '</div>'
+    + (()=>{
+        if(!shortData?.available) return '';
+        const sf = shortData.shortFloat || 0;
+        const sr = shortData.shortRatio || 0;
+        const col = sf>20?"var(--red)":sf>10?"var(--amber)":"var(--green)";
+        const lbl = sf>20?"⚠️ Short Squeeze!":sf>10?"גבוה":sf>5?"בינוני":"נמוך";
+        const sqBorder = sf>15?"var(--red)":"var(--border)";
+        return '<div style="background:var(--bg3);border:1px solid '+sqBorder+';border-radius:8px;padding:10px 12px;">'
+          +   '<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px">Short Interest</div>'
+          +   '<div style="font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:'+col+'">'+sf.toFixed(1)+'% Float</div>'
+          +   '<div style="font-size:11px;color:var(--text3)">'+lbl+' | Ratio: '+(sr?sr.toFixed(1):'—')+'</div>'
+          + '</div>';
+      })()
     + '</div>';
 
   const _realPatterns = patterns.filter(pt => (pt.strength||0) > 0);
@@ -2964,13 +2998,17 @@ async function go(){
   currentSym = null;
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
-    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators]=await Promise.all([
+    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators,earningsCal,shortData]=await Promise.all([
       api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
       api(sym,"news"),api(sym,"extnews"),
       api(sym,"competitors"),api(sym,"macro"),
       api(sym,"earnings"),api(sym,"insider"),
-      api(sym,"indicators")
+      api(sym,"indicators"),
+      api(sym,"earningscal"),
+      api(sym,"short")
     ]);
+    // שמור ב-cache
+    _earningsCache[sym] = earningsCal;
     const sector = profile.sector && profile.sector!=="—"
       ? await api(sym, "sector", profile.sector).catch(()=>({}))
       : {};
@@ -2978,7 +3016,7 @@ async function go(){
     const ind=calcIndicators(candles, quote, fhIndicators);
     const patterns=detectPatterns(candles);
     const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro,earnings,insider,sector);
-    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector);
+    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData);
     saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
     fireAlert(sym,scores.sig,scores.price,scores.totalScore);
   }catch(e){
@@ -3055,11 +3093,24 @@ function getHistory(sym){
 
 // ── CONFLUENCE SCORE ──────────────────────────────────────
 // ── EARNINGS CALENDAR ─────────────────────────────────────
-// רשימה סטטית של תאריכי דוחות קרובים (מתעדכנת ידנית)
-const EARNINGS_SOON = ["NVDA","META","GOOGL","MSFT","AMZN","AAPL","TSLA","AMD","NFLX","COIN","PLTR","SOFI"];
+// cache לתאריכי דוחות
+const _earningsCache = {};
+
 function checkEarnings(sym){
-  // בדיקה אם המניה צפויה לדוח בשבועיים הקרובים
-  return EARNINGS_SOON.includes(sym.toUpperCase());
+  // בדיקה מהcache — עודכן דרך loadEarningsCalendar
+  const c = _earningsCache[sym.toUpperCase()];
+  return c ? c.soon : false;
+}
+
+async function loadEarningsCalendar(sym){
+  if(_earningsCache[sym]) return _earningsCache[sym];
+  try {
+    const data = await api(sym, "earningscal");
+    _earningsCache[sym] = data;
+    return data;
+  } catch(e) {
+    return {available: false};
+  }
 }
 
 // ── POSITION SIZING ───────────────────────────────────────
@@ -3459,6 +3510,7 @@ async function runScanner(auto=false){
         if(scores.posNews > 0) tags.push({t:`📰 ${scores.posNews} חדשות+`,cls:"mom"});
         if(sector?.leading) tags.push({t:"📊 סקטור מוביל",cls:"mom"});
         if(insider?.net >= 2) tags.push({t:"👔 Insider קנה",cls:"mom"});
+        // Short Squeeze — בדוק אם יש נתון מהסריקה (לא זמין בסורק, נדלג)
 
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
