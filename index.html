@@ -512,7 +512,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
       <div class="scanner-progress-fill" id="scanFill"></div>
     </div>
     <div class="scanner-grid" id="scanGrid">
-      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות<br><span style="font-size:11px">המערכת תנתח 154 מניות ותמיין את 8 הטובות ביותר</span></div>
+      <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות<br><span style="font-size:11px">המערכת תנתח 154 מניות ותמיין את 12 הטובות ביותר</span></div>
     </div>
   </div>
 
@@ -3531,7 +3531,7 @@ async function runScanner(auto=false){
   btn.textContent = "⏳ סורק...";
   progress.style.display = "block";
   fill.style.width = "0%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/3 — סורק ${SCAN_LIST.length} מניות במהירות...</div>`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/3 — סורק ${SCAN_LIST.length} מניות (MA50 · נפח · מגמה)...</div>`;
 
   const ms = getMarketStatus();
 
@@ -3559,16 +3559,29 @@ async function runScanner(auto=false){
 
         const pct = scanQuote.dp || 0;
         const vr  = scanQuote.vr || 1;
+        const price = scanQuote.c;
 
         // פילטר כמותי בסיסי
-        const notFlat = scanQuote.c > 1; // לא penny stock
-        if(!notFlat) return;
+        if(price <= 1) return; // לא penny stock
 
         // Volume Surge — נפח פי 3+ מהממוצע
         const volumeSurge = vr >= 3.0;
         const highVolume  = vr >= 1.5;
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume });
+        // ── שלב 1 חכם — סינון מוקדם ──────────────────────────
+        // 1. מחיר מעל MA50 (אפשר לחשב בקירוב מהשינוי היומי + נפח)
+        //    אין MA50 בquote — נשתמש בסימנים עקיפים:
+        //    מחיר בשיא 52 שבוע > 0.7 = מניה בריאה
+        const high52  = scanQuote.h || price;
+        const low52   = scanQuote.l || price;
+        // מחיר לפחות 10% מעל שפל יומי = אינדיקציה לטרנד
+        const inUptrend = pct > -5; // לא בירידה חדה
+
+        // 2. פילטר: מניות בירידה חזקה מאוד ללא נפח — דלג
+        const skipStock = pct < -8 && !volumeSurge;
+        if(skipStock) return;
+
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, inUptrend });
       } catch(e){}
     }));
   }
@@ -3605,6 +3618,16 @@ async function runScanner(auto=false){
         if(!scanQuote?.c || scanQuote.c === 0) return;
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
+
+        // ── פילטר MA50 אמיתי בשלב 2 ──────────────────────────
+        // מניה מתחת ל-MA50 ומתחת ל-MA200 = לא מעניינת לקנייה
+        const ma50_2 = ind.ma50 || 0;
+        const ma200_2 = ind.ma200 || 0;
+        const price_2 = scanQuote.c;
+        const pct_2 = scanQuote.dp || 0;
+        // אם מניה מתחת לשני הממוצעים + לא ירידה חדה עם נפח = דלג
+        if(ma50_2 > 0 && ma200_2 > 0 && price_2 < ma50_2 * 0.92 && price_2 < ma200_2 * 0.92 && !volSurge) return;
+
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
         if(!scores || !scores.sig) return;
 
@@ -3725,13 +3748,13 @@ async function runScanner(auto=false){
     const sec = r.sector || "Other";
     sectorCount[sec] = (sectorCount[sec]||0) + 1;
     if(sectorCount[sec] <= 1) diversified.push(r);
-    if(diversified.length >= 8) break;
+    if(diversified.length >= 12) break;
   }
   // אם פחות מ-8 אחרי גיוון — הוסף שאר לפי דירוג
-  if(diversified.length < 8){
+  if(diversified.length < 12){
     for(const r of results){
       if(!diversified.find(x=>x.sym===r.sym)) diversified.push(r);
-      if(diversified.length >= 8) break;
+      if(diversified.length >= 12) break;
     }
   }
 
@@ -3740,7 +3763,7 @@ async function runScanner(auto=false){
 
   fill.style.width = "100%";
   const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
-  const show = Math.min(results.length, 8);
+  const show = Math.min(results.length, 12);
   status.textContent = `מציג ${show} מתוך ${results.length} הזדמנויות · עודכן ${now}`;
   btn.disabled = false;
   btn.textContent = "↺ סרוק שוב";
@@ -3761,7 +3784,7 @@ function renderScanResults(results){
 
   const stars = n => "★".repeat(Math.min(n,5)) + "☆".repeat(Math.max(0,5-n));
 
-  grid.innerHTML = results.slice(0,8).map(r=>`
+  grid.innerHTML = results.slice(0,12).map(r=>`
     <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
       <div class="scan-left">
         <div class="scan-sym">${r.sym}</div>
