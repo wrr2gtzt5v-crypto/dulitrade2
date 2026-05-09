@@ -3591,7 +3591,7 @@ async function runScanner(auto=false){
     status.textContent = `שלב 2/3 — טכני ${i+1}-${Math.min(i+BATCH2,pass1.length)} מתוך ${pass1.length}...`;
 
     await sleep(400);
-    await Promise.allSettled(batch.map(async ({sym, scanQuote}) => {
+    await Promise.allSettled(batch.map(async ({sym, scanQuote, volumeSurge: volSurge}) => {
       try {
         const [candles, profile, earnings, insider] = await Promise.all([
           api(sym,"candle"), api(sym,"profile"),
@@ -3606,16 +3606,16 @@ async function runScanner(auto=false){
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
-        if(!scores || scores.sig === "HOLD" && scores.totalScore === 50) return;
+        if(!scores || !scores.sig) return;
 
         // ── פילטר טכני — פשוט וחזק ──────────────────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;           // חייב כיוון
-        if(scores.totalScore < 55) return;      // ציון מינימלי
+        if(scores.totalScore < 52) return;      // ציון מינימלי
         if(scores.rrRatio < 1.5) return;        // R/R סביר
 
-        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volumeSurge||false });
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volSurge||false });
       } catch(e){}
     }));
   }
@@ -3645,8 +3645,8 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
-        // ── פילטר שלב 3: Confluence מינימלי 4 ──────────────
-        if(confScore < 4) return;
+        // ── פילטר שלב 3: Confluence מינימלי 3 ──────────────
+        if(confScore < 3) return;
 
         // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
         let dealStrength = 0;
