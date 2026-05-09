@@ -3982,9 +3982,11 @@ async function runScanner(auto=false){
         // פילטר כמותי בסיסי
         if(price <= 1) return; // לא penny stock
 
-        // Volume Surge — נפח פי 3+ מהממוצע
-        const volumeSurge = vr >= 3.0;
-        const highVolume  = vr >= 1.5;
+        // Volume Surge בשלב 1 — vr מהשרת (אם זמין) או proxy ע"י dp
+        // vr אמיתי יחושב בשלב 2 מ-calcIndicators עם candles
+        const vrFromQuote = scanQuote.vr || 1;
+        const volumeSurge = vrFromQuote >= 3.0 || (Math.abs(pct) >= 3 && vrFromQuote >= 1.5);
+        const highVolume  = vrFromQuote >= 1.5 || Math.abs(pct) >= 2;
 
         // ── שלב 1 חכם — סינון מוקדם ──────────────────────────
         // 1. מחיר מעל MA50 (אפשר לחשב בקירוב מהשינוי היומי + נפח)
@@ -4037,6 +4039,10 @@ async function runScanner(auto=false){
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
 
+        // ── עדכן volumeSurge לפי vr אמיתי מ-candles ──────────
+        const realVr = ind.vr || 1;
+        const realVolumeSurge = realVr >= 3.0;
+
         // ── פילטר MA50 אמיתי בשלב 2 ──────────────────────────
         // מניה מתחת ל-MA50 ומתחת ל-MA200 = לא מעניינת לקנייה
         const ma50_2 = ind.ma50 || 0;
@@ -4056,7 +4062,7 @@ async function runScanner(auto=false){
         if(scores.totalScore < dynamicMinScore) return; // ציון מינימלי דינמי לפי Market Breadth
         if(scores.rrRatio < 1.2) return;        // R/R מינימלי
 
-        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volSurge||false });
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false });
       } catch(e){}
     }));
   }
