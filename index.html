@@ -2196,6 +2196,13 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     else if(profile.earningsGrowth<0){fundScore-=2;fundFactors.push({t:`רווחים יורדים ${(profile.earningsGrowth*100).toFixed(1)}%`,c:"negative"});}
   }
 
+  // PEG Ratio — Peter Lynch
+  if(profile.pegRatio!=null){
+    if(profile.pegRatio<1){fundScore+=3;fundFactors.push({t:`PEG ${profile.pegRatio.toFixed(2)} — מניה זולה ביחס לצמיחה (Peter Lynch)`,c:"positive"});}
+    else if(profile.pegRatio<1.5){fundScore+=1;fundFactors.push({t:`PEG ${profile.pegRatio.toFixed(2)} — סביר`,c:"neutral"});}
+    else if(profile.pegRatio>3){fundScore-=2;fundFactors.push({t:`PEG ${profile.pegRatio.toFixed(2)} — יקר מאוד ביחס לצמיחה`,c:"negative"});}
+  }
+
   // Gross Margin — מרווח גולמי
   if(profile.grossMargin!=null){
     if(profile.grossMargin>0.5){fundScore+=2;fundFactors.push({t:`מרווח גולמי ${(profile.grossMargin*100).toFixed(1)}% — גבוה מאוד, יתרון תחרותי`,c:"positive"});}
@@ -2716,6 +2723,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
         <div class="fund-row"><span class="fund-key" onclick="showTip('RevenueGrowth')">${T("צמיחת הכנסות","RevenueGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.revenueGrowth,0.15,-0.05)}">${fmtPct(p.revenueGrowth)}</span></div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('EarningsGrowth')">${T("EPS Growth שנתי","EarningsGrowth")}</span><span class="fund-val" style="color:${fmtColor(p.epsGrowthAnnual,0.15,-0.05)}">${fmtPct(p.epsGrowthAnnual)}</span></div>
         <div class="fund-row"><span class="fund-key">EPS Growth 3Y</span><span class="fund-val" style="color:${fmtColor(p.epsGrowth3Y,0.1,-0.05)}">${fmtPct(p.epsGrowth3Y)}</span></div>
+        <div class="fund-row"><span class="fund-key">EPS קדמי</span><span class="fund-val" style="color:${p.epsForward>0?"var(--green)":p.epsForward<0?"var(--red)":"var(--text2)"}">${p.epsForward?"$"+p.epsForward.toFixed(2):"—"}</span></div>
         <div class="fund-row"><span class="fund-key">יעד אנליסטים</span><span class="fund-val" style="color:${p.targetMeanPrice>d.price?"var(--green)":"var(--red)"}">${p.targetMeanPrice?"$"+p.targetMeanPrice.toFixed(0)+" ("+((p.targetMeanPrice-d.price)/d.price*100).toFixed(0)+"%)":"—"}</span></div>
         <div class="fund-row"><span class="fund-key">המלצה</span><span class="fund-val" style="color:${p.recommendationKey?.includes("buy")?"var(--green)":p.recommendationKey?.includes("sell")?"var(--red)":"var(--amber)"}">${p.recommendationKey?.replace("strong_buy","קנייה חזקה").replace("buy","קנייה").replace("hold","המתן").replace("sell","מכירה").replace("strong_sell","מכירה חזקה")||"—"}</span></div>
       </div>
@@ -2730,7 +2738,8 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       <div class="fund-card">
         <div class="fund-card-title">🏷️ תמחור</div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('PE')">${T("P/E מכפיל רווח","PE")}</span><span class="fund-val" style="color:${p.pe?p.pe<20?"var(--green)":p.pe>40?"var(--red)":"var(--amber)":"var(--text2)"}">${p.pe?p.pe.toFixed(1):"—"}</span></div>
-        <div class="fund-row"><span class="fund-key" onclick="showTip('PE')">P/E קדמי</span><span class="fund-val">${p.forwardPE?p.forwardPE.toFixed(1):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key">P/E קדמי</span><span class="fund-val" style="color:${p.forwardPE?p.forwardPE<15?"var(--green)":p.forwardPE>35?"var(--red)":"var(--amber)":"var(--text2)"}">${p.forwardPE?p.forwardPE.toFixed(1):"—"}</span></div>
+        <div class="fund-row"><span class="fund-key">PEG Ratio ℹ</span><span class="fund-val" style="color:${p.pegRatio?p.pegRatio<1?"var(--green)":p.pegRatio>2?"var(--red)":"var(--amber)":"var(--text2)"}" title="PEG < 1 = מניה זולה ביחס לצמיחה">${p.pegRatio?p.pegRatio.toFixed(2):"—"}</span></div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('PB')">${T("P/B מכפיל ספרים","PB")}</span><span class="fund-val" style="color:${fmtColor(p.pb?1/p.pb:null,0.5,0.1)}">${p.pb?p.pb.toFixed(2):"—"}</span></div>
         <div class="fund-row"><span class="fund-key" onclick="showTip('PS')">${T("P/S מכפיל מכירות","PS")}</span><span class="fund-val">${p.ps?p.ps.toFixed(2):"—"}</span></div>
       </div>
@@ -3081,6 +3090,30 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   },200);
 }
 
+// ── MERGE PROFILE — Finnhub + Yahoo ──────────────────────
+function mergeProfile(fh, yahoo){
+  if(!yahoo?.available) return fh;
+  // Yahoo גובר על null מ-Finnhub, Finnhub גובר על Yahoo אם כבר יש ערך
+  const merged = {...fh};
+  const fields = ["pe","forwardPE","ps","beta","grossMargin","operatingMargin",
+    "profitMargin","revenueGrowth","earningsGrowth","currentRatio","debtToEquity",
+    "roe","roa","targetMeanPrice","recommendationKey","dividendYield",
+    "fiftyTwoWeekHigh","fiftyTwoWeekLow","shortRatio","shortFloat"];
+  fields.forEach(f => {
+    if((merged[f] == null || merged[f] === undefined) && yahoo[f] != null){
+      merged[f] = yahoo[f];
+    }
+  });
+  // שדות שרק Yahoo מחזיר
+  if(yahoo.pegRatio   != null) merged.pegRatio   = yahoo.pegRatio;
+  if(yahoo.epsForward != null) merged.epsForward = yahoo.epsForward;
+  if(yahoo.epsTrailing!= null) merged.epsTrailing= yahoo.epsTrailing;
+  if(yahoo.freeCashflow != null) merged.freeCashflow = yahoo.freeCashflow;
+  if(yahoo.marketCapB != null && !merged.marketCapitalization)
+    merged.marketCapitalization = yahoo.marketCapB * 1000; // חזרה ל-M
+  return merged;
+}
+
 // ── MAIN ──────────────────────────────────────────────────
 function q(s){document.getElementById("inp").value=s;go();}
 
@@ -3098,7 +3131,7 @@ async function go(){
   currentSym = null;
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
-    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators,earningsCal,shortData,preMarket]=await Promise.all([
+    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators,earningsCal,shortData,preMarket,yahooData]=await Promise.all([
       api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
       api(sym,"news"),api(sym,"extnews"),
       api(sym,"competitors"),api(sym,"macro"),
@@ -3106,8 +3139,11 @@ async function go(){
       api(sym,"indicators"),
       api(sym,"earningscal"),
       api(sym,"short"),
-      api(sym,"premarket")
+      api(sym,"premarket"),
+      api(sym,"yahoo")
     ]);
+    // מיזג Yahoo עם Finnhub — Yahoo גובר על null
+    const mergedProfile = mergeProfile(profile, yahooData);
     // שמור ב-cache
     _earningsCache[sym] = earningsCal;
     const sector = profile.sector && profile.sector!=="—"
@@ -3116,8 +3152,8 @@ async function go(){
     if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
     const ind=calcIndicators(candles, quote, fhIndicators);
     const patterns=detectPatterns(candles);
-    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,profile,macro,earnings,insider,sector);
-    render(sym,quote,candles,profile,scores,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket);
+    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,mergedProfile,macro,earnings,insider,sector);
+    render(sym,quote,candles,mergedProfile,scores,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket);
     saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
     fireAlert(sym,scores.sig,scores.price,scores.totalScore);
   }catch(e){
