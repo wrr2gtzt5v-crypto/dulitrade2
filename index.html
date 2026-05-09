@@ -58,7 +58,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .idx-chg{font-size:10px;}
 
 /* MACRO BAR */
-.macro-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+.macro-bar{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
 .macro-cell{background:var(--bg2);padding:8px 14px;text-align:center;}
 .macro-lbl{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;cursor:pointer;}
 .macro-lbl:hover{color:var(--blue);}
@@ -481,10 +481,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 </header>
 
 <!-- MACRO BAR -->
-<div class="macro-bar">
-  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('VIX')">VIX — מדד הפחד ℹ</div><div class="macro-val" id="vixV">—</div></div>
-  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('TNX')">אג"ח 10Y ℹ</div><div class="macro-val" id="tnxV">—</div></div>
-  <div class="macro-cell"><div class="macro-lbl" onclick="showTip('DXY')">דולר (DXY) ℹ</div><div class="macro-val" id="dxyV">—</div></div>
+<div class="macro-bar" style="grid-template-columns:repeat(2,1fr)">
+  <div class="macro-cell"><div class="macro-lbl">💵 דולר/שקל (USD/ILS)</div><div class="macro-val" id="usdilsV">—</div></div>
   <div class="macro-cell"><div class="macro-lbl" onclick="showTip('SP500')">S&P 500 ℹ</div><div class="macro-val" id="sp5V">—</div></div>
 </div>
 
@@ -839,7 +837,19 @@ async function loadMacro(){
         el.innerHTML=`<span>${p}</span> <span style="font-size:11px;color:${color}">${ch>=0?"+":""}${ch}%</span>`;
       }
     };
-    fmt("^VIX","vixV",true);fmt("^TNX","tnxV",true);fmt("^DXY","dxyV");fmt("^GSPC","sp5V");
+    // S&P 500 בלבד מהמאקרו הקיים
+    fmt("^GSPC","sp5V");
+  }catch(e){}
+
+  // USD/ILS — דולר/שקל בזמן אמת
+  try{
+    const fx = await api("USD/ILS","quote");
+    const el = document.getElementById("usdilsV");
+    if(el && fx.c && fx.c > 0){
+      const ch = fx.pc > 0 ? +((fx.c - fx.pc) / fx.pc * 100).toFixed(2) : 0;
+      const color = ch >= 0 ? "var(--green)" : "var(--red)";
+      el.innerHTML = `<span>₪${fx.c.toFixed(3)}</span> <span style="font-size:11px;color:${color}">${ch>=0?"+":""}${ch}%</span>`;
+    }
   }catch(e){}
 }
 
