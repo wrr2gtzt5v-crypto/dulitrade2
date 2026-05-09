@@ -23,7 +23,7 @@ def fh(path):
         sep = "&" if "?" in path else "?"
         url = f"{FH}{path}{sep}token={FINNHUB_KEY}"
         req = Request(url, headers={"Accept":"application/json","User-Agent":"Mozilla/5.0"})
-        with urlopen(req, timeout=10) as r:
+        with urlopen(req, timeout=15) as r:
             return json.loads(r.read())
     except: return {}
 
@@ -39,8 +39,26 @@ def get_quote(symbol):
         if bid and ask and bid > 0 and ask > 0:
             spread = round(ask - bid, 4)
             spread_pct = round((ask - bid) / c * 100, 3)
-        # נפח יחסי — Finnhub מחזיר vr לפעמים
-        vr = d.get("vr") or 1.0
+
+        # ── חישוב vr אמיתי מנרות ────────────────────────────
+        # Finnhub לא מחזיר vr ישירות — נחשב מנפח יומי vs ממוצע
+        vr = 1.0
+        try:
+            import datetime
+            today_vol = d.get("t") or 0  # נפח יומי נוכחי מ-Finnhub
+            if not today_vol:
+                # נסה לחשב מ-Polygon אם יש
+                pass
+            if today_vol and today_vol > 0:
+                # קבל ממוצע נפח 20 ימים מ-candles
+                candles_d = get_candles(symbol)
+                vols = candles_d.get("v", [])
+                if vols and len(vols) >= 5:
+                    avg_vol = sum(vols[-20:]) / min(20, len(vols))
+                    if avg_vol > 0:
+                        vr = round(today_vol / avg_vol, 1)
+        except: pass
+
         return {
             "c":  round(c, 2),
             "pc": round(d.get("pc", c), 2),
