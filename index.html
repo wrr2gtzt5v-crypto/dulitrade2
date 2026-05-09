@@ -511,7 +511,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
     <div class="scanner-progress" id="scanProgress">
       <div class="scanner-progress-fill" id="scanFill"></div>
     </div>
-    <div class="scanner-grid" id="scanGrid">
+    <div id="winRateWidget"></div>
+  <div class="scanner-grid" id="scanGrid">
       <div class="scan-empty">לחץ "סרוק עכשיו" לחיפוש עסקאות<br><span style="font-size:11px">המערכת תנתח 154 מניות ותמיין את 12 הטובות ביותר</span></div>
     </div>
   </div>
@@ -3425,6 +3426,149 @@ function renderPositionHtml(price, sl, sym, sector){
   </div>`;
 }
 
+// ── WIN RATE TRACKING ────────────────────────────────────
+// שומר כל עסקה שהסורק מצא ובודק תוצאה אחרי holdDays
+
+function saveTrackedTrade(sym, sig, entry, tp, sl, holdDays, strategy){
+  const key = "dt_trades";
+  const trades = JSON.parse(localStorage.getItem(key) || "[]");
+  // בדוק אם כבר קיים עסקה פתוחה לאותה מניה
+  const existing = trades.find(t => t.sym === sym && t.status === "open");
+  if(existing) return;
+  trades.push({
+    sym, sig, entry, tp, sl, holdDays, strategy,
+    date: new Date().toISOString(),
+    checkDate: new Date(Date.now() + holdDays * 86400000).toISOString(),
+    status: "open",   // open / win / loss / expired
+    exitPrice: null,
+    pnlPct: null,
+  });
+  localStorage.setItem(key, JSON.stringify(trades.slice(-100))); // שמור 100 אחרונות
+}
+
+function checkAndUpdateTrades(){
+  const key = "dt_trades";
+  const trades = JSON.parse(localStorage.getItem(key) || "[]");
+  const now = Date.now();
+  let updated = false;
+
+  trades.forEach(async t => {
+    if(t.status !== "open") return;
+    const checkTime = new Date(t.checkDate).getTime();
+    if(now < checkTime) return; // עדיין לא הגיע הזמן
+
+    // הגיע הזמן לבדוק — שלוף מחיר נוכחי
+    try {
+      const q = await api(t.sym, "quote");
+      if(!q.c) return;
+      const current = q.c;
+      const pnlPct = +((current - t.entry) / t.entry * 100 * (t.sig.includes("SELL") ? -1 : 1)).toFixed(2);
+
+      // קבע תוצאה
+      const isBuy = t.sig.includes("BUY");
+      let status;
+      if(isBuy){
+        if(current >= t.tp)      status = "win";
+        else if(current <= t.sl) status = "loss";
+        else                     status = "expired"; // לא הגיע לא ל-TP ולא ל-SL
+      } else {
+        if(current <= t.tp)      status = "win";
+        else if(current >= t.sl) status = "loss";
+        else                     status = "expired";
+      }
+
+      t.status = status;
+      t.exitPrice = current;
+      t.pnlPct = pnlPct;
+      updated = true;
+    } catch(e){}
+  });
+
+  if(updated) localStorage.setItem(key, JSON.stringify(trades));
+}
+
+function getWinRateStats(){
+  const trades = JSON.parse(localStorage.getItem("dt_trades") || "[]");
+  const closed = trades.filter(t => t.status !== "open");
+  const wins   = closed.filter(t => t.status === "win");
+  const losses = closed.filter(t => t.status === "loss");
+  const open   = trades.filter(t => t.status === "open");
+
+  if(!closed.length) return null;
+
+  const winRate = +(wins.length / closed.length * 100).toFixed(1);
+  const avgWin  = wins.length   ? +(wins.reduce((s,t)=>s+(t.pnlPct||0),0)/wins.length).toFixed(2)   : 0;
+  const avgLoss = losses.length ? +(losses.reduce((s,t)=>s+(t.pnlPct||0),0)/losses.length).toFixed(2) : 0;
+  const expectancy = +((winRate/100 * avgWin) + ((1-winRate/100) * avgLoss)).toFixed(2);
+
+  return { total: closed.length, wins: wins.length, losses: losses.length,
+           open: open.length, winRate, avgWin, avgLoss, expectancy };
+}
+
+function renderWinRateHtml(){
+  const stats = getWinRateStats();
+  const trades = JSON.parse(localStorage.getItem("dt_trades") || "[]");
+
+  const openTrades = trades.filter(t => t.status === "open").slice(-5);
+  const recentClosed = trades.filter(t => t.status !== "open").slice(-8).reverse();
+
+  const openHtml = openTrades.length ? openTrades.map(t => {
+    const days = Math.max(0, Math.round((new Date(t.checkDate)-Date.now())/86400000));
+    return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
+      <span style="color:var(--text);font-weight:600">${t.sym}</span>
+      <span style="color:var(--text3)">כניסה $${t.entry}</span>
+      <span style="color:var(--green)">TP $${t.tp}</span>
+      <span style="color:var(--red)">SL $${t.sl}</span>
+      <span style="color:var(--amber)">עוד ${days} ימים</span>
+    </div>`;
+  }).join("") : '<div style="font-size:11px;color:var(--text3);font-family:monospace">אין עסקאות פתוחות</div>';
+
+  const closedHtml = recentClosed.length ? recentClosed.map(t => {
+    const col = t.status==="win"?"var(--green)":t.status==="loss"?"var(--red)":"var(--amber)";
+    const ico = t.status==="win"?"✅":t.status==="loss"?"❌":"⏱️";
+    return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
+      <span style="color:var(--text);font-weight:600">${t.sym}</span>
+      <span style="color:var(--text3)">$${t.entry}</span>
+      <span style="color:${col}">${ico} ${t.pnlPct!==null?(t.pnlPct>0?"+":"")+t.pnlPct+"%" : "—"}</span>
+      <span style="color:var(--text3)">${new Date(t.date).toLocaleDateString("he-IL")}</span>
+    </div>`;
+  }).join("") : "";
+
+  if(!stats && !openTrades.length) return `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;">
+      <div style="font-size:11px;font-family:monospace;color:var(--text3);margin-bottom:6px">📊 Win Rate Tracking — מעקב ביצועים</div>
+      <div style="font-size:12px;color:var(--text3)">הסורק יתחיל לעקוב אחרי עסקאות אוטומטית. לאחר ${trades.length>0?'בדיקת תוצאות':'מספר ימים'} יוצג Win Rate.</div>
+    </div>`;
+
+  return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;">
+    <div style="font-size:11px;font-family:monospace;color:var(--text3);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <span>📊 Win Rate Tracking</span>
+      <button onclick="if(confirm('למחוק את כל ההיסטוריה?')){localStorage.removeItem('dt_trades');location.reload()}" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">🗑 נקה</button>
+    </div>
+    ${stats ? `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">WIN RATE</div>
+        <div style="font-size:18px;font-weight:700;font-family:monospace;color:${stats.winRate>=60?"var(--green)":stats.winRate>=50?"var(--amber)":"var(--red)"}">${stats.winRate}%</div>
+      </div>
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">W/L</div>
+        <div style="font-size:14px;font-weight:700;font-family:monospace"><span style="color:var(--green)">${stats.wins}</span>/<span style="color:var(--red)">${stats.losses}</span></div>
+      </div>
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">ממוצע רווח</div>
+        <div style="font-size:14px;font-weight:700;font-family:monospace;color:var(--green)">+${stats.avgWin}%</div>
+      </div>
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">Expectancy</div>
+        <div style="font-size:14px;font-weight:700;font-family:monospace;color:${stats.expectancy>=0?"var(--green)":"var(--red)"}">${stats.expectancy>0?"+":""}${stats.expectancy}%</div>
+      </div>
+    </div>` : ""}
+    <div style="font-size:10px;font-family:monospace;color:var(--text3);margin-bottom:5px">🔓 עסקאות פתוחות (${openTrades.length})</div>
+    ${openHtml}
+    ${recentClosed.length ? `<div style="font-size:10px;font-family:monospace;color:var(--text3);margin:8px 0 5px">📋 היסטוריה</div>${closedHtml}` : ""}
+  </div>`;
+}
+
 // ── SCANNER ENGINE ────────────────────────────────────────
 const SCAN_LIST = [
   // Mega Cap Tech
@@ -3744,6 +3888,14 @@ async function runScanner(auto=false){
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
 
+        // שמור לWin Rate Tracking אוטומטית
+        saveTrackedTrade(
+          sym, scores.sig, scanQuote.c,
+          scores.tp, scores.sl,
+          scores.holding?.includes("3-7")?5:scores.holding?.includes("שבוע")?7:scores.holding?.includes("1-2")?10:scores.holding?.includes("2-3")?17:scores.holding?.includes("חודש+")?45:30,
+          scores.strategy||""
+        );
+
         results.push({
           sym, price: scanQuote.c, pct: scores.pct,
           sig: scores.sig, sigLabel: scores.sigLabel,
@@ -3821,6 +3973,12 @@ async function runScanner(auto=false){
 
 function renderScanResults(results){
   const grid = document.getElementById("scanGrid");
+  // בדוק ועדכן עסקאות ישנות
+  checkAndUpdateTrades();
+  // הצג Win Rate widget
+  const wrEl = document.getElementById("winRateWidget");
+  if(wrEl) wrEl.innerHTML = renderWinRateHtml();
+
   if(!results.length){
     grid.innerHTML = `<div class="scan-empty">לא נמצאו עסקאות שעומדות בקריטריונים כרגע<br><span style="font-size:11px;color:var(--text3)">נסה שוב מאוחר יותר — השוק משתנה</span></div>`;
     return;
@@ -4002,6 +4160,13 @@ setInterval(updateMarketStatus, 60 * 1000);
 // ── INIT ─────────────────────────────────────────────────
 loadIndices();
 loadMacro();
+// בדוק עסקאות ישנות בטעינה
+setTimeout(checkAndUpdateTrades, 3000);
+// הצג Win Rate widget בטעינה
+setTimeout(()=>{
+  const wrEl = document.getElementById("winRateWidget");
+  if(wrEl) wrEl.innerHTML = renderWinRateHtml();
+}, 1000);
 setTimeout(refreshAllWL, 2000);
 
 // Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
