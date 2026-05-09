@@ -2646,13 +2646,17 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const riskLbl=d.risk<35?"נמוך ✓":d.risk<60?"בינוני":"גבוה ⚠";
   const warnHtml=d.risk>=65?`<div class="rwarn">⚠ ${T("רמת סיכון","סיכון")} גבוהה (${d.risk}/100) — לא מומלץ להיכנס עכשיו. המתן לאיתות חזק יותר.</div>`:"";
 
-  // ── Confluence ──────────────────────────────────────────
+  // ── Confluence — משתמש בתוצאה מ-scoreAll (לא מחשב מחדש) ──
+  // scoreAll כבר מחזיר confluence ב-d.confluence
+  // מחשבים רק את ה-breakdown (bulls/bears) לתצוגה
   const conf = calcConfluence(
     {rsi:d.rsi,stochRsi:d.stochRsi,williamsR:d.williamsR,cci:d.cci,macdVal:d.macdVal,
      ma50:d.ma50,ma200:d.ma200,bbU:d.bbU,bbL:d.bbL,vr:d.vr,vLbl:d.vLbl,
      adx:d.adx||0,diPlus:d.diPlus||0,diMinus:d.diMinus||0,divergence:d.divergence||null},
     d.pct, patterns, d.posNews, d.negNews, d.totalNews
   );
+  // השתמש בציון מ-scoreAll (עקבי) במקום לחשב מחדש
+  conf.score = d.confluence || conf.score;
   const confHtml = renderConfluenceHtml(conf, d.sig);
 
   // ── Short Interest Fallback ────────────────────────────────
@@ -3267,18 +3271,6 @@ async function refreshWLCard(sym){
 
 function refreshAllWL(){ watchlist.forEach(refreshWLCard); }
 
-// ── SIGNAL HISTORY ────────────────────────────────────────
-function saveHistory(sym, sig, price, score){
-  const key="dt_hist_"+sym;
-  const hist=JSON.parse(localStorage.getItem(key)||"[]");
-  hist.unshift({sig,price,score,date:new Date().toLocaleDateString("he-IL")});
-  localStorage.setItem(key,JSON.stringify(hist.slice(0,5)));
-}
-
-function getHistory(sym){
-  return JSON.parse(localStorage.getItem("dt_hist_"+sym)||"[]");
-}
-
 // ── CONFLUENCE SCORE ──────────────────────────────────────
 // ── EARNINGS CALENDAR ─────────────────────────────────────
 // cache לתאריכי דוחות
@@ -3845,28 +3837,7 @@ const SCAN_LIST = [
 ];
 
 let scannerRunning = false;
-let scannerTimeframe = 'medium'; // ברירת מחדל
 
-// אסטרטגיות לפי טווח זמן
-const TF_STRATEGIES = {
-  short:  ["Breakout","Support Bounce","Mean Reversion","Momentum","Short/Exit","Swing","Gap & Go"],
-  medium: ["Momentum","Swing","Mean Reversion","Fibonacci","Earnings","Short/Exit","Breakout","Support Bounce","Trend","Trend Pullback"],
-  long:   ["Trend","RS Leader","Earnings Momentum","Momentum","Swing","Short/Exit","Trend Pullback"]
-};
-
-// holdDays מותר לפי טווח
-const TF_HOLD = {
-  short:  {min:1,  max:7},
-  medium: {min:5,  max:14},
-  long:   {min:15, max:60},
-};
-
-function setTimeframe(tf){
-  scannerTimeframe = tf;
-  ['short','medium','long'].forEach(t=>{
-    document.getElementById('tf-'+t)?.classList.toggle('active', t===tf);
-  });
-}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let lastScanResults = [];
 let scanInterval = null;
