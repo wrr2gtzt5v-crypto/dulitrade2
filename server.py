@@ -472,6 +472,122 @@ def get_premarket_volume(symbol):
         return {"available": False}
 
 
+def get_yahoo_fundamentals(symbol):
+    """נתונים פונדמנטליים מ-Yahoo Finance API לא רשמי"""
+    try:
+        url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=defaultKeyStatistics,financialData,summaryDetail,earnings"
+        req = Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+        })
+        with urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode("utf-8"))
+
+        result = data.get("quoteSummary", {}).get("result", [])
+        if not result:
+            return {}
+
+        d = result[0]
+        ks = d.get("defaultKeyStatistics", {})
+        fd = d.get("financialData", {})
+        sd = d.get("summaryDetail", {})
+
+        def val(obj, key):
+            v = obj.get(key, {})
+            if isinstance(v, dict):
+                return v.get("raw")
+            return v
+
+        # PEG Ratio
+        peg = val(ks, "pegRatio")
+        # Forward PE
+        forward_pe = val(ks, "forwardPE")
+        # Short Float %
+        short_float = val(ks, "shortPercentOfFloat")
+        if short_float: short_float = round(short_float * 100, 2)
+        # Short Ratio
+        short_ratio = val(ks, "shortRatio")
+        # Beta
+        beta = val(ks, "beta")
+        # Book Value per share
+        book_val = val(ks, "bookValue")
+        # EPS Forward
+        eps_forward = val(ks, "forwardEps")
+        # EPS Trailing
+        eps_trailing = val(ks, "trailingEps")
+        # Revenue per share
+        rev_per_share = val(fd, "revenuePerShare")
+        # Gross Margins
+        gross_margin = val(fd, "grossMargins")
+        # Operating Margins
+        op_margin = val(fd, "operatingMargins")
+        # Profit Margins
+        profit_margin = val(fd, "profitMargins")
+        # Revenue Growth
+        rev_growth = val(fd, "revenueGrowth")
+        # Earnings Growth
+        earn_growth = val(fd, "earningsGrowth")
+        # Current Ratio
+        current_ratio = val(fd, "currentRatio")
+        # Debt to Equity
+        debt_eq = val(fd, "debtToEquity")
+        if debt_eq: debt_eq = round(debt_eq / 100, 2)  # Yahoo מחזיר כ-%
+        # Return on Equity
+        roe = val(fd, "returnOnEquity")
+        # Return on Assets
+        roa = val(fd, "returnOnAssets")
+        # Free Cash Flow
+        fcf = val(fd, "freeCashflow")
+        # Target mean price
+        target = val(fd, "targetMeanPrice")
+        # Recommendation
+        rec = fd.get("recommendationKey", "")
+        # Dividend Yield
+        div_yield = val(sd, "dividendYield")
+        # 52W High/Low
+        week52_high = val(sd, "fiftyTwoWeekHigh")
+        week52_low  = val(sd, "fiftyTwoWeekLow")
+        # Market Cap
+        market_cap = val(sd, "marketCap")
+        if market_cap: market_cap = round(market_cap / 1e9, 2)  # B
+        # PE trailing
+        pe_trailing = val(sd, "trailingPE")
+        # PS ratio
+        ps_ratio = val(ks, "priceToSalesTrailing12Months")
+
+        return {
+            "available": True,
+            "pegRatio":        peg,
+            "forwardPE":       forward_pe,
+            "pe":              pe_trailing,
+            "ps":              ps_ratio,
+            "shortFloat":      short_float,
+            "shortRatio":      short_ratio,
+            "beta":            beta,
+            "bookValue":       book_val,
+            "epsForward":      eps_forward,
+            "epsTrailing":     eps_trailing,
+            "grossMargin":     gross_margin,
+            "operatingMargin": op_margin,
+            "profitMargin":    profit_margin,
+            "revenueGrowth":   rev_growth,
+            "earningsGrowth":  earn_growth,
+            "currentRatio":    current_ratio,
+            "debtToEquity":    debt_eq,
+            "roe":             roe,
+            "roa":             roa,
+            "freeCashflow":    fcf,
+            "targetMeanPrice": target,
+            "recommendationKey": rec,
+            "dividendYield":   div_yield,
+            "fiftyTwoWeekHigh": week52_high,
+            "fiftyTwoWeekLow":  week52_low,
+            "marketCapB":      market_cap,
+        }
+    except Exception as e:
+        return {"available": False}
+
+
 def get_sector(sector_name):
     # Sector performance via Finnhub ETFs
     SECTOR_ETFS = {
@@ -558,6 +674,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="short":       data = get_short_interest(symbol)
                 elif endpoint=="earningscal": data = get_earnings_calendar(symbol)
                 elif endpoint=="premarket":   data = get_premarket_volume(symbol)
+                elif endpoint=="yahoo":       data = get_yahoo_fundamentals(symbol)
                 elif endpoint=="sector":
                     sector = qs.get("sector",[""])[0]
                     data = get_sector(sector)
