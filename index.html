@@ -2665,7 +2665,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const trailingHtml = (d.sig==="BUY"||d.sig==="STRONG_BUY") ? renderTrailingHtml(ts, d.price) : "";
 
   // ── Position Sizing ─────────────────────────────────────
-  const posHtml = renderPositionHtml(d.price, d.sl, sym, profile.sector||'Other');
+  const posHtml = renderPositionHtml(d.price, d.sl, sym, profile.sector||'Other', d.rrRatio||2);
 
   // ── Historical Signals ──────────────────────────────────
   const histHtml = renderHistoryHtml(sym);
@@ -3001,6 +3001,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
         <div style="margin-right:auto;text-align:left">
           <div class="hlbl">יחס סיכון/תגמול</div>
           <div class="hval" style="color:${d.rrRatio>=2.5?"var(--green)":d.rrRatio>=1.5?"var(--amber)":"var(--red)"}">1:${d.rrRatio}</div>
+          <div style="font-size:10px;color:var(--amber);font-family:monospace">= +${d.rrRatio}R אם מגיע ל-TP</div>
         </div>
       </div>
 
@@ -3405,13 +3406,117 @@ function renderPortfolioHeat(){
   </div>`;
 }
 
+// ── KELLY CRITERION ──────────────────────────────────────
+function calcKelly(winRate, rrRatio){
+  // Kelly % = Win Rate - (Loss Rate / R/R)
+  if(!winRate || !rrRatio || rrRatio <= 0) return null;
+  const lossRate = 1 - winRate;
+  const kelly = winRate - (lossRate / rrRatio);
+  if(kelly <= 0) return null;
+  return {
+    full:    +(kelly * 100).toFixed(1),
+    half:    +(kelly * 50).toFixed(1),
+    quarter: +(kelly * 25).toFixed(1),
+  };
+}
+
+function getWinRateForKelly(){
+  // קח Win Rate מההיסטוריה אם יש, אחרת 50%
+  const stats = getWinRateStats();
+  if(stats && stats.total >= 10) return stats.winRate / 100;
+  return 0.50; // ברירת מחדל — אין מספיק היסטוריה
+}
+
+// ── R-MULTIPLE ────────────────────────────────────────────
+function calcRMultiple(entry, exit, sl){
+  if(!entry || !sl || entry === sl) return null;
+  const risk = Math.abs(entry - sl);
+  const pnl  = exit - entry;
+  return +(pnl / risk).toFixed(2);
+}
+
+function updateTradesWithR(){
+  // עדכן עסקאות סגורות עם R-Multiple
+  const key = "dt_trades";
+  const trades = JSON.parse(localStorage.getItem(key) || "[]");
+  let updated = false;
+  trades.forEach(t => {
+    if(t.status === "open" || t.rMultiple !== undefined) return;
+    if(t.exitPrice && t.sl){
+      const r = calcRMultiple(t.entry, t.exitPrice, t.sl);
+      t.rMultiple = r;
+      updated = true;
+    }
+  });
+  if(updated) localStorage.setItem(key, JSON.stringify(trades));
+}
+
+function getRMultipleStats(){
+  const trades = JSON.parse(localStorage.getItem("dt_trades") || "[]");
+  const closed = trades.filter(t => t.status !== "open" && t.rMultiple !== null && t.rMultiple !== undefined);
+  if(!closed.length) return null;
+  const wins   = closed.filter(t => t.status === "win");
+  const losses = closed.filter(t => t.status === "loss");
+  const avgWinR  = wins.length   ? +(wins.reduce((s,t)=>s+(t.rMultiple||0),0)/wins.length).toFixed(2)   : 0;
+  const avgLossR = losses.length ? +(losses.reduce((s,t)=>s+(t.rMultiple||0),0)/losses.length).toFixed(2) : -1;
+  const winRate  = closed.length ? wins.length / closed.length : 0.5;
+  const expectancy = +((winRate * avgWinR) + ((1-winRate) * Math.abs(avgLossR)) * -1).toFixed(2);
+  const bestR  = closed.length ? Math.max(...closed.map(t=>t.rMultiple||0)) : 0;
+  return { avgWinR, avgLossR, expectancy, bestR, total: closed.length };
+}
+
 // ── POSITION SIZING RENDER ────────────────────────────────
-function renderPositionHtml(price, sl, sym, sector){
+function renderPositionHtml(price, sl, sym, sector, rrRatio){
   const ps = calcPositionSize(price, sl, portfolioSize);
   const heatHtml = renderPortfolioHeat();
+
+  // Kelly Criterion
+  const winRateForKelly = getWinRateForKelly();
+  const kelly = calcKelly(winRateForKelly, rrRatio || 2.0);
+  const hasHistory = getWinRateStats()?.total >= 10;
+
+  // Kelly Position Size
+  let kellyHtml = "";
+  if(kelly && portfolioSize > 0){
+    const qKellyRisk   = portfolioSize * (kelly.quarter / 100);
+    const slDist       = Math.abs(price - sl);
+    const qKellyShares = slDist > 0 ? Math.floor(qKellyRisk / slDist) : 0;
+    const qKellyInvest = qKellyShares * price;
+    kellyHtml = `<div style="background:var(--bg2);border:1px solid var(--green);border-radius:8px;padding:10px 12px;margin-top:8px">
+      <div style="font-size:10px;font-family:monospace;color:var(--text3);margin-bottom:6px">
+        🎯 Kelly Criterion ${hasHistory?'(מבוסס היסטוריה אמיתית)':'(Win Rate ברירת מחדל 50%)'}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px">
+        <div style="text-align:center;background:var(--bg3);border-radius:6px;padding:6px">
+          <div style="font-size:9px;color:var(--text3);font-family:monospace">Full Kelly</div>
+          <div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--amber)">${kelly.full}%</div>
+          <div style="font-size:9px;color:var(--text3)">אגרסיבי</div>
+        </div>
+        <div style="text-align:center;background:var(--bg3);border-radius:6px;padding:6px">
+          <div style="font-size:9px;color:var(--text3);font-family:monospace">Half Kelly</div>
+          <div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--amber)">${kelly.half}%</div>
+          <div style="font-size:9px;color:var(--text3)">בינוני</div>
+        </div>
+        <div style="text-align:center;background:var(--bg3);border-radius:6px;padding:6px;border:1px solid var(--green)">
+          <div style="font-size:9px;color:var(--text3);font-family:monospace">¼ Kelly ✓</div>
+          <div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--green)">${kelly.quarter}%</div>
+          <div style="font-size:9px;color:var(--green)">מומלץ</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);font-family:monospace">
+        ¼ Kelly: <strong style="color:var(--green)">${qKellyShares} מניות</strong> | $${qKellyInvest.toLocaleString()} | סיכון $${qKellyRisk.toFixed(0)}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">
+        Win Rate: ${(winRateForKelly*100).toFixed(0)}% | R/R: 1:${rrRatio||2}
+      </div>
+    </div>`;
+  }
+
   if(!ps) return `${heatHtml}<div class="pos-size-box">
     <div class="pos-size-title">💼 Position Sizing — הכנס גודל תיק למעלה לחישוב</div>
+    ${kellyHtml}
   </div>`;
+
   return `${heatHtml}<div class="pos-size-box">
     <div class="pos-size-title" style="cursor:pointer" onclick="showTip('PositionSize')">💼 Position Sizing — כמה להשקיע? ℹ (2% סיכון מהתיק)</div>
     <div class="pos-result">
@@ -3420,6 +3525,7 @@ function renderPositionHtml(price, sl, sym, sector){
       <div class="pos-cell"><div class="pos-lbl">% מהתיק</div><div class="pos-val">${ps.portfolioPct}%</div></div>
       <div class="pos-cell"><div class="pos-lbl">סיכון מקסימלי</div><div class="pos-val" style="color:var(--red)">$${ps.riskAmount.toLocaleString()}</div></div>
     </div>
+    ${kellyHtml}
     <button onclick="addPosition('${sym||''}',${price},${sl},'${sector||''}');alert('✅ עסקה נוספה לעקיבה!')" style="margin-top:8px;background:var(--cbtn);border:none;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;width:100%">
       + הוסף לעסקאות פתוחות
     </button>
@@ -3523,13 +3629,18 @@ function renderWinRateHtml(){
     </div>`;
   }).join("") : '<div style="font-size:11px;color:var(--text3);font-family:monospace">אין עסקאות פתוחות</div>';
 
+  updateTradesWithR(); // עדכן R-Multiple לעסקאות סגורות
+  const rStats = getRMultipleStats();
+
   const closedHtml = recentClosed.length ? recentClosed.map(t => {
     const col = t.status==="win"?"var(--green)":t.status==="loss"?"var(--red)":"var(--amber)";
     const ico = t.status==="win"?"✅":t.status==="loss"?"❌":"⏱️";
-    return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
+    const rStr = t.rMultiple !== undefined && t.rMultiple !== null
+      ? ` <span style="color:var(--amber);font-size:10px">(${t.rMultiple>0?"+":""}${t.rMultiple}R)</span>` : "";
+    return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace;flex-wrap:wrap;gap:2px">
       <span style="color:var(--text);font-weight:600">${t.sym}</span>
       <span style="color:var(--text3)">$${t.entry}</span>
-      <span style="color:${col}">${ico} ${t.pnlPct!==null?(t.pnlPct>0?"+":"")+t.pnlPct+"%" : "—"}</span>
+      <span style="color:${col}">${ico} ${t.pnlPct!==null?(t.pnlPct>0?"+":"")+t.pnlPct+"%" : "—"}${rStr}</span>
       <span style="color:var(--text3)">${new Date(t.date).toLocaleDateString("he-IL")}</span>
     </div>`;
   }).join("") : "";
@@ -3545,7 +3656,7 @@ function renderWinRateHtml(){
       <span>📊 Win Rate Tracking</span>
       <button onclick="if(confirm('למחוק את כל ההיסטוריה?')){localStorage.removeItem('dt_trades');location.reload()}" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">🗑 נקה</button>
     </div>
-    ${stats ? `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+    ${stats ? `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px">
       <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
         <div style="font-size:9px;color:var(--text3);font-family:monospace">WIN RATE</div>
         <div style="font-size:18px;font-weight:700;font-family:monospace;color:${stats.winRate>=60?"var(--green)":stats.winRate>=50?"var(--amber)":"var(--red)"}">${stats.winRate}%</div>
@@ -3562,7 +3673,21 @@ function renderWinRateHtml(){
         <div style="font-size:9px;color:var(--text3);font-family:monospace">Expectancy</div>
         <div style="font-size:14px;font-weight:700;font-family:monospace;color:${stats.expectancy>=0?"var(--green)":"var(--red)"}">${stats.expectancy>0?"+":""}${stats.expectancy}%</div>
       </div>
-    </div>` : ""}
+    </div>
+    ${rStats ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px">
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">ממוצע R ✅</div>
+        <div style="font-size:14px;font-weight:700;font-family:monospace;color:var(--green)">+${rStats.avgWinR}R</div>
+      </div>
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">Expectancy R</div>
+        <div style="font-size:14px;font-weight:700;font-family:monospace;color:${rStats.expectancy>=0?"var(--green)":"var(--red)"}">${rStats.expectancy>0?"+":""}${rStats.expectancy}R</div>
+      </div>
+      <div style="text-align:center;background:var(--bg2);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace">שיא R 🏆</div>
+        <div style="font-size:14px;font-weight:700;font-family:monospace;color:var(--amber)">+${rStats.bestR}R</div>
+      </div>
+    </div>` : ""}` : ""}
     <div style="font-size:10px;font-family:monospace;color:var(--text3);margin-bottom:5px">🔓 עסקאות פתוחות (${openTrades.length})</div>
     ${openHtml}
     ${recentClosed.length ? `<div style="font-size:10px;font-family:monospace;color:var(--text3);margin:8px 0 5px">📋 היסטוריה</div>${closedHtml}` : ""}
