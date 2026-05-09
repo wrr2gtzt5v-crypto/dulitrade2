@@ -781,14 +781,18 @@ async function fireAlert(sym,sig,price,conf){
 // ── API ───────────────────────────────────────────────────
 // ── API CACHE — שומר תוצאות 5 דקות ────────────────────────
 const _apiCache = {};
-const _API_TTL  = 5 * 60 * 1000; // 5 דקות
+const _API_TTL  = 5 * 60 * 1000;  // 5 דקות — ברירת מחדל
+// TTL ארוך יותר לנתונים שלא משתנים הרבה
+const _API_TTL_LONG = 60 * 60 * 1000; // שעה — פרופיל, מתחרים
+const _LONG_TTL_ENDPOINTS = new Set(["profile","competitors","indicators"]);
 
 async function api(sym, ep, sector=""){
   const key = `${sym}|${ep}|${sector}`;
   const now = Date.now();
 
   // החזר מ-cache אם תקף
-  if(_apiCache[key] && (now - _apiCache[key].ts) < _API_TTL){
+  const ttl = _LONG_TTL_ENDPOINTS.has(ep) ? _API_TTL_LONG : _API_TTL;
+  if(_apiCache[key] && (now - _apiCache[key].ts) < ttl){
     return _apiCache[key].data;
   }
 
@@ -2633,7 +2637,7 @@ function buildBidAskHtml(quote){
 }
 
 // ── RENDER ────────────────────────────────────────────────
-function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}, earningsCal={}, shortData={}, preMarket={}){
+function render(sym, quote, candles, profile, scores, patterns, competitors, macro, earnings={}, insider={}, sector={}, earningsCal={}, shortData={}, preMarket={}, yahooData={}){
   const d=scores;
   const p=profile;
   const chDir=d.pct>=0?"up":"dn",chS=d.pct>=0?"+":"";
@@ -2650,6 +2654,17 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     d.pct, patterns, d.posNews, d.negNews, d.totalNews
   );
   const confHtml = renderConfluenceHtml(conf, d.sig);
+
+  // ── Short Interest Fallback ────────────────────────────────
+  // אם Finviz נחסם — השתמש ב-Yahoo Finance
+  const effectiveShortData = (shortData?.available) ? shortData :
+    (yahooData?.shortFloat ? {
+      available: true,
+      shortFloat: yahooData.shortFloat,
+      shortRatio: yahooData.shortRatio,
+      squeezeRisk: yahooData.shortFloat > 15,
+      source: "Yahoo"
+    } : shortData);
 
   // ── Earnings Warning — דינמי מה-API ──────────────────────
   const hasEarnings = earningsCal?.available && earningsCal?.soon;
@@ -2907,9 +2922,10 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     +   insiderCard()
     + '</div>'
     + (()=>{
-        if(!shortData?.available) return '';
-        const sf = shortData.shortFloat || 0;
-        const sr = shortData.shortRatio || 0;
+        const _sd = effectiveShortData||shortData;
+        if(!_sd?.available) return '';
+        const sf = _sd.shortFloat || 0;
+        const sr = _sd.shortRatio || 0;
         const col = sf>20?"var(--red)":sf>10?"var(--amber)":"var(--green)";
         const lbl = sf>20?"⚠️ Short Squeeze!":sf>10?"גבוה":sf>5?"בינוני":"נמוך";
         const sqBorder = sf>15?"var(--red)":"var(--border)";
@@ -3126,36 +3142,69 @@ async function go(){
   document.getElementById("ac").style.display="none";
   const btn=document.getElementById("abtn");
   btn.disabled=true;btn.textContent="מנתח...";
-  // עצור WebSocket + נרות של מניה קודמת
   if(currentSym) wsUnsubscribe(currentSym);
   currentSym = null;
-  document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
+
+  document.getElementById("out").innerHTML=`<div class="loading">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div style="font-size:12px;font-family:monospace;color:var(--text3);margin-top:8px">
+      שלב 1/2 — טוען מחיר ונרות...
+    </div>
+  </div>`;
+
   try{
-    const [quote,candles,profile,newsArr,extNewsArr,competitors,macro,earnings,insider,fhIndicators,earningsCal,shortData,preMarket,yahooData]=await Promise.all([
-      api(sym,"quote"),api(sym,"candle"),api(sym,"profile"),
-      api(sym,"news"),api(sym,"extnews"),
-      api(sym,"competitors"),api(sym,"macro"),
-      api(sym,"earnings"),api(sym,"insider"),
-      api(sym,"indicators"),
-      api(sym,"earningscal"),
-      api(sym,"short"),
-      api(sym,"premarket"),
-      api(sym,"yahoo")
+    // ── שלב 1 — נתונים קריטיים (מחיר + נרות + פרופיל) ────────
+    // מציגים תוצאה חלקית מהר, שאר הנתונים נטענים ברקע
+    const [quote, candles, profile] = await Promise.all([
+      api(sym,"quote"),
+      api(sym,"candle"),
+      api(sym,"profile"),
     ]);
-    // מיזג Yahoo עם Finnhub — Yahoo גובר על null
-    const mergedProfile = mergeProfile(profile, yahooData);
-    // שמור ב-cache
-    _earningsCache[sym] = earningsCal;
-    const sector = profile.sector && profile.sector!=="—"
-      ? await api(sym, "sector", profile.sector).catch(()=>({}))
+
+    if(!quote.c||quote.c===0) throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
+
+    // ── render ראשוני מהיר עם נתונים חלקיים ──────────────────
+    const sector1 = profile.sector && profile.sector!=="—"
+      ? await api(sym,"sector",profile.sector).catch(()=>({}))
       : {};
-    if(!quote.c||quote.c===0)throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
-    const ind=calcIndicators(candles, quote, fhIndicators);
-    const patterns=detectPatterns(candles);
-    const scores=scoreAll(sym,quote,candles,ind,patterns,newsArr,extNewsArr,mergedProfile,macro,earnings,insider,sector);
-    render(sym,quote,candles,mergedProfile,scores,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket);
-    saveSignalHistory(sym,scores.sig,scores.price,scores.totalScore);
-    fireAlert(sym,scores.sig,scores.price,scores.totalScore);
+    const ind = calcIndicators(candles, quote, {});
+    const patterns = detectPatterns(candles);
+    const scores1 = scoreAll(sym,quote,candles,ind,patterns,[],[],profile,null,{},{},sector1);
+    document.getElementById("out").innerHTML=`<div class="loading">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div style="font-size:12px;font-family:monospace;color:var(--text3);margin-top:8px">
+        ✅ שלב 1/2 — טכני<br>שלב 2/2 — פונדמנטלי · חדשות · מאקרו...
+      </div>
+    </div>`;
+
+    // ── שלב 2 — נתונים נוספים ברקע ────────────────────────────
+    const [newsArr,extNewsArr,competitors,macro,earnings,insider,
+           fhIndicators,earningsCal,shortData,preMarket,yahooData] = await Promise.all([
+      api(sym,"news").catch(()=>[]),
+      api(sym,"extnews").catch(()=>[]),
+      api(sym,"competitors").catch(()=>[]),
+      api(sym,"macro").catch(()=>({})),
+      api(sym,"earnings").catch(()=>({})),
+      api(sym,"insider").catch(()=>({})),
+      api(sym,"indicators").catch(()=>({})),
+      api(sym,"earningscal").catch(()=>({})),
+      api(sym,"short").catch(()=>({})),
+      api(sym,"premarket").catch(()=>({})),
+      api(sym,"yahoo").catch(()=>({})),
+    ]);
+
+    // ── שלב 3 — render סופי מלא ───────────────────────────────
+    const mergedProfile = mergeProfile(profile, yahooData);
+    _earningsCache[sym] = earningsCal;
+
+    const sector = sector1; // כבר טענו מעלה
+    const indFull = calcIndicators(candles, quote, fhIndicators);
+    const scoresFull = scoreAll(sym,quote,candles,indFull,patterns,newsArr,extNewsArr,mergedProfile,macro,earnings,insider,sector);
+
+    render(sym,quote,candles,mergedProfile,scoresFull,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket,yahooData);
+    saveSignalHistory(sym,scoresFull.sig,scoresFull.price,scoresFull.totalScore);
+    fireAlert(sym,scoresFull.sig,scoresFull.price,scoresFull.totalScore);
+
   }catch(e){
     document.getElementById("out").innerHTML=`<div class="errmsg">⚠ ${e.message}</div>`;
   }
@@ -3597,45 +3646,68 @@ function saveTrackedTrade(sym, sig, entry, tp, sl, holdDays, strategy){
   localStorage.setItem(key, JSON.stringify(trades.slice(-100))); // שמור 100 אחרונות
 }
 
-function checkAndUpdateTrades(){
+async function checkAndUpdateTrades(){
   const key = "dt_trades";
-  const trades = JSON.parse(localStorage.getItem(key) || "[]");
+  const lastCheck = +localStorage.getItem("dt_trades_lastcheck") || 0;
   const now = Date.now();
+
+  // בדוק לכל היותר פעם ב-6 שעות
+  if(now - lastCheck < 6 * 60 * 60 * 1000 && lastCheck > 0){
+    return; // לא הגיע הזמן
+  }
+
+  const trades = JSON.parse(localStorage.getItem(key) || "[]");
+  const openTrades = trades.filter(t => t.status === "open");
+  if(!openTrades.length) return;
+
   let updated = false;
 
-  trades.forEach(async t => {
-    if(t.status !== "open") return;
+  // בדוק עסקאות שהגיע זמנן
+  const toCheck = openTrades.filter(t => {
     const checkTime = new Date(t.checkDate).getTime();
-    if(now < checkTime) return; // עדיין לא הגיע הזמן
+    return now >= checkTime;
+  });
 
-    // הגיע הזמן לבדוק — שלוף מחיר נוכחי
+  if(!toCheck.length){
+    localStorage.setItem("dt_trades_lastcheck", now);
+    return;
+  }
+
+  // שלוף מחירים במקביל
+  await Promise.allSettled(toCheck.map(async t => {
     try {
       const q = await api(t.sym, "quote");
       if(!q.c) return;
       const current = q.c;
       const pnlPct = +((current - t.entry) / t.entry * 100 * (t.sig.includes("SELL") ? -1 : 1)).toFixed(2);
-
-      // קבע תוצאה
       const isBuy = t.sig.includes("BUY");
       let status;
       if(isBuy){
         if(current >= t.tp)      status = "win";
         else if(current <= t.sl) status = "loss";
-        else                     status = "expired"; // לא הגיע לא ל-TP ולא ל-SL
+        else                     status = "expired";
       } else {
         if(current <= t.tp)      status = "win";
         else if(current >= t.sl) status = "loss";
         else                     status = "expired";
       }
-
-      t.status = status;
-      t.exitPrice = current;
-      t.pnlPct = pnlPct;
-      updated = true;
+      // עדכן ב-trades המקורי
+      const idx = trades.findIndex(x => x.sym === t.sym && x.date === t.date);
+      if(idx >= 0){
+        trades[idx].status    = status;
+        trades[idx].exitPrice = current;
+        trades[idx].pnlPct    = pnlPct;
+        updated = true;
+      }
     } catch(e){}
-  });
+  }));
 
   if(updated) localStorage.setItem(key, JSON.stringify(trades));
+  localStorage.setItem("dt_trades_lastcheck", now);
+
+  // עדכן Win Rate widget אם מוצג
+  const wrEl = document.getElementById("winRateWidget");
+  if(wrEl && updated) wrEl.innerHTML = renderWinRateHtml();
 }
 
 function getWinRateStats(){
