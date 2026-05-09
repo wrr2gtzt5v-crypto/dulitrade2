@@ -3612,8 +3612,8 @@ async function runScanner(auto=false){
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;           // חייב כיוון
-        if(scores.totalScore < 52) return;      // ציון מינימלי
-        if(scores.rrRatio < 1.5) return;        // R/R סביר
+        if(scores.totalScore < 50) return;      // ציון מינימלי
+        if(scores.rrRatio < 1.2) return;        // R/R מינימלי
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volSurge||false });
       } catch(e){}
@@ -3634,7 +3634,7 @@ async function runScanner(auto=false){
     status.textContent = `שלב 3/3 — ${i+1}-${Math.min(i+BATCH3,candidates.length)} מתוך ${candidates.length}...`;
 
     await sleep(600);
-    await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider}) => {
+    await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider, volumeSurge: volSurge3}) => {
       try {
         const [newsArr, extNewsArr] = await Promise.all([
           api(sym,"news"), api(sym,"extnews")
@@ -3645,8 +3645,8 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
-        // ── פילטר שלב 3: Confluence מינימלי 3 ──────────────
-        if(confScore < 3) return;
+        // ── פילטר שלב 3: Confluence מינימלי 2 ──────────────
+        if(confScore < 2) return;
 
         // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
         let dealStrength = 0;
@@ -3665,7 +3665,7 @@ async function runScanner(auto=false){
         if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"▲▲ חזק מאוד",cls:"hot"});
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
         else if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
-        if(volumeSurge) tags.push({t:"🚀 נפח פי 3+",cls:"hot"});
+        if(volSurge3) tags.push({t:"🚀 נפח פי 3+",cls:"hot"});
         else if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"🐋 נפח חריג",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
         if(confScore >= 7) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
@@ -3691,7 +3691,7 @@ async function runScanner(auto=false){
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
-          volumeSurge: volumeSurge||false,
+          volumeSurge: volSurge3||false,
           vr: ind.vr||1,
         });
       } catch(e){}
