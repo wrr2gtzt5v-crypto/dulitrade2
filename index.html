@@ -3536,6 +3536,38 @@ async function runScanner(auto=false){
   const ms = getMarketStatus();
 
   // ══════════════════════════════════════════════════════════
+  // שלב 0 — Market Breadth — בריאות השוק
+  // סורק 20 מניות מ-S&P500 ובודק כמה מעל MA50
+  // ══════════════════════════════════════════════════════════
+  const BREADTH_LIST = ["AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","JPM","V","UNH",
+                        "HD","PG","MA","AVGO","LLY","MRK","PEP","KO","ABBV","TMO"];
+  let breadthAbove = 0, breadthTotal = 0;
+  status.textContent = "שלב 0 — בודק בריאות שוק...";
+
+  await Promise.allSettled(BREADTH_LIST.map(async sym => {
+    try {
+      const [q, candle] = await Promise.all([api(sym,"quote"), api(sym,"candle")]);
+      if(!q.c || !candle.c?.length) return;
+      const closes = candle.c;
+      const ma50 = closes.slice(-Math.min(50,closes.length)).reduce((a,b)=>a+b,0) / Math.min(50,closes.length);
+      breadthTotal++;
+      if(q.c > ma50) breadthAbove++;
+    } catch(e){}
+  }));
+
+  const breadthPct = breadthTotal > 0 ? Math.round(breadthAbove / breadthTotal * 100) : 50;
+  const breadthStrong  = breadthPct >= 60;
+  const breadthWeak    = breadthPct < 40;
+  const breadthNeutral = !breadthStrong && !breadthWeak;
+  // ציון מינימלי דינמי לפי בריאות השוק
+  const dynamicMinScore = breadthStrong ? 50 : breadthWeak ? 55 : 52;
+  const breadthLabel = breadthStrong ? "🟢 שוק חזק" : breadthWeak ? "🔴 שוק חלש" : "🟡 שוק ניטרלי";
+
+  // הצג Market Breadth מעל הסורק
+  status.textContent = `${breadthLabel} (${breadthAbove}/${breadthTotal} מניות מעל MA50) · סף ציון: ${dynamicMinScore}`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/3 — סורק ${SCAN_LIST.length} מניות (MA50 · נפח · מגמה)...</div>`;
+
+  // ══════════════════════════════════════════════════════════
   // שלב 1 — מסנן כמותי מהיר (quote בלבד)
   // בודק: נפח, תנועה, מחיר vs MA — ללא API יקרים
   // ══════════════════════════════════════════════════════════
@@ -3635,7 +3667,7 @@ async function runScanner(auto=false){
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;           // חייב כיוון
-        if(scores.totalScore < 50) return;      // ציון מינימלי
+        if(scores.totalScore < dynamicMinScore) return; // ציון מינימלי דינמי לפי Market Breadth
         if(scores.rrRatio < 1.2) return;        // R/R מינימלי
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volSurge||false });
@@ -3671,13 +3703,24 @@ async function runScanner(auto=false){
         // ── פילטר שלב 3: Confluence מינימלי 2 ──────────────
         if(confScore < 2) return;
 
-        // ── ציון חוזק עסקה (0-5) — כמה כיוונים מסכימים ──────
+        // ── Catalyst Detection ───────────────────────────────
+        // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
+        let catalystCount = 0;
+        if(scores.posNews > 0)           catalystCount++; // חדשות חיוביות
+        if(ind.vr > 1.3)                 catalystCount++; // נפח גבוה
+        if(earnings?.surprise > 2)       catalystCount++; // Earnings Surprise
+        if(insider?.net >= 1)            catalystCount++; // Insider קנה
+        if(volSurge3)                    catalystCount++; // Volume Surge
+        const hasCatalyst = catalystCount >= 2; // לפחות 2 סיבות
+
+        // ── ציון חוזק עסקה (0-7) — כמה כיוונים מסכימים ──────
         let dealStrength = 0;
         if(scores.totalScore > 60)    dealStrength++; // טכני חזק
         if(scores.fundScoreNorm > 65) dealStrength++; // פונדמנטלי חזק
         if(scores.posNews > 0)        dealStrength++; // חדשות חיוביות
         if(ind.vr > 1.5)              dealStrength++; // נפח חריג
         if(sector?.leading)           dealStrength++; // סקטור מוביל
+        if(hasCatalyst)               dealStrength++; // Catalyst מאושר — +1 נוסף
 
         // dealStrength משמש למיון בלבד — לא פילטר קשה
 
@@ -3688,6 +3731,7 @@ async function runScanner(auto=false){
         if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"▲▲ חזק מאוד",cls:"hot"});
         if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
         else if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
+        if(hasCatalyst) tags.push({t:"🎯 Catalyst",cls:"hot"});
         if(volSurge3) tags.push({t:"🚀 נפח פי 3+",cls:"hot"});
         else if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"🐋 נפח חריג",cls:"mom"});
         if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
@@ -3711,6 +3755,8 @@ async function runScanner(auto=false){
           adx: ind.adx || 0,
           divergence: ind.divergence || null,
           insiderNet: insider?.net || 0,
+          hasCatalyst: hasCatalyst||false,
+          catalystCount: catalystCount||0,
           rsi: ind.rsi, tags, reason,
           name: profile.name || sym,
           sector: profile.sector || "Other",
@@ -3725,10 +3771,12 @@ async function runScanner(auto=false){
   results.sort((a,b)=>{
     // בונוסים נוספים לאיכות העסקה
     const aBonus = (a.volumeSurge ? 2 : 0) +
+                   (a.hasCatalyst ? 2 : 0) +
                    ((a.adx||0) >= 25 ? 1 : 0) +
                    (a.divergence === "bullish" ? 1 : 0) +
                    (a.insiderNet >= 2 ? 1 : 0);
     const bBonus = (b.volumeSurge ? 2 : 0) +
+                   (b.hasCatalyst ? 2 : 0) +
                    ((b.adx||0) >= 25 ? 1 : 0) +
                    (b.divergence === "bullish" ? 1 : 0) +
                    (b.insiderNet >= 2 ? 1 : 0);
@@ -3764,7 +3812,7 @@ async function runScanner(auto=false){
   fill.style.width = "100%";
   const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
   const show = Math.min(results.length, 12);
-  status.textContent = `מציג ${show} מתוך ${results.length} הזדמנויות · עודכן ${now}`;
+  status.textContent = `${breadthLabel} · מציג ${show} מתוך ${results.length} הזדמנויות · ${now}`;
   btn.disabled = false;
   btn.textContent = "↺ סרוק שוב";
   setTimeout(()=>progress.style.display="none", 1000);
