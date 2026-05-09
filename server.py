@@ -28,7 +28,9 @@ def fh(path):
     except: return {}
 
 def get_quote(symbol):
-    d = fh(f"/quote?symbol={symbol}")
+    # Forex — הסר / ממחירי מטבע (USD/ILS → USDILS)
+    fh_symbol = symbol.replace("/", "")
+    d = fh(f"/quote?symbol={fh_symbol}")
     c = d.get("c", 0)
     if c > 0:
         bid = d.get("b") or d.get("bid")
