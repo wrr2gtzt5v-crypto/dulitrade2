@@ -534,6 +534,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(404); self.end_headers()
             return
 
+        # WebSocket Key endpoint
+        if parsed.path == "/api/wskey":
+            self._send_json({"key": FINNHUB_KEY})
+            return
+
         if parsed.path == "/api/stock":
             symbol   = qs.get("symbol",[""])[0].upper().strip()
             endpoint = qs.get("endpoint",[""])[0]
