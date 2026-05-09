@@ -2975,7 +2975,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     ${warnHtml}
 
     <div class="metrics">
-      <div class="metric"><div class="mlbl">מחיר</div><div class="mval">$${d.price}</div></div>
+      <div class="metric"><div class="mlbl">מחיר <span id="liveIndicator" style="font-size:9px;color:var(--text3)"></span></div><div class="mval" data-live-price="true" data-prev="${d.price}">$${d.price}</div></div>
       <div class="metric"><div class="mlbl">שינוי יומי</div><div class="mval ${chDir}">${chS}${d.pct}%</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('RSI')">${T("RSI(14)","RSI")}</div><div class="mval ${rsiCls}">${d.rsi}</div></div>
       <div class="metric"><div class="mlbl" onclick="showTip('MACD')">${T("MACD","MACD")}</div><div class="mval" style="font-size:12px;color:${d.macdVal>0?"var(--green)":"var(--red)"}">${d.macdTxt}</div></div>
@@ -3066,11 +3066,17 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     const wrap=document.getElementById("chartWrap");
     if(wrap){
       drawCandleChart(candles);
-      // הפעל רענון אוטומטי כל 30 דקות
       startCandleRefresh(sym, candles);
-      // עדכן זמן
       const timeEl=document.getElementById("candleUpdateTime");
       if(timeEl) timeEl.textContent="עודכן: "+new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
+    }
+    // הפעל WebSocket למניה הפתוחה
+    const ms = getMarketStatus();
+    if(ms.status === "open" || ms.status === "pre"){
+      startLivePrice(sym, d.entry, d.sl, d.tp);
+      const liveEl = document.getElementById("liveIndicator");
+      if(liveEl) liveEl.textContent = "● LIVE";
+      if(liveEl) liveEl.style.color = "var(--green)";
     }
   },200);
 }
@@ -3087,7 +3093,8 @@ async function go(){
   document.getElementById("ac").style.display="none";
   const btn=document.getElementById("abtn");
   btn.disabled=true;btn.textContent="מנתח...";
-  // עצור רענון נרות של מניה קודמת
+  // עצור WebSocket + נרות של מניה קודמת
+  if(currentSym) wsUnsubscribe(currentSym);
   currentSym = null;
   document.getElementById("out").innerHTML=`<div class="loading"><div class="dots"><span></span><span></span><span></span></div>מנתח ${sym} — טכני · פונדמנטלי · מאקרו · מתחרות · חדשות...</div>`;
   try{
@@ -3155,6 +3162,8 @@ function renderWL(){
 }
 
 async function refreshWLCard(sym){
+  // Subscribe ל-WebSocket לעדכון חי
+  if(_wsKey) wsSubscribe(sym, (price) => updateWLPrice(sym, price));
   try{
     const [quote,candles,profile]=await Promise.all([api(sym,"quote"),api(sym,"candle"),api(sym,"profile")]);
     if(!quote.c||isNaN(quote.c))return;
@@ -4282,11 +4291,146 @@ function updateMarketStatus(){
 updateMarketStatus();
 setInterval(updateMarketStatus, 60 * 1000);
 
+// ── REAL-TIME WEBSOCKET ──────────────────────────────────
+let _ws = null;
+let _wsSymbols = new Set();
+let _wsCallbacks = {}; // sym → callback
+let _wsReconnectTimer = null;
+let _wsKey = "";
+
+async function initWebSocket(){
+  // קבל את ה-Finnhub key מהשרת
+  if(!_wsKey){
+    try {
+      const r = await fetch("/api/stock?symbol=SPY&endpoint=quote");
+      // Key לא חשוף — נשתמש ב-WebSocket עם token מה-API
+      // Finnhub WebSocket: wss://ws.finnhub.io?token=KEY
+      const meta = await fetch("/api/wskey").catch(()=>null);
+      if(meta){ const d = await meta.json(); _wsKey = d.key || ""; }
+    } catch(e){}
+  }
+  if(!_wsKey) return; // אין key — דלג
+
+  connectWebSocket();
+}
+
+function connectWebSocket(){
+  if(_ws && _ws.readyState === WebSocket.OPEN) return;
+
+  try {
+    _ws = new WebSocket(`wss://ws.finnhub.io?token=${_wsKey}`);
+
+    _ws.onopen = () => {
+      console.log("✅ WebSocket connected");
+      // Subscribe לכל הסמבולים הפעילים
+      _wsSymbols.forEach(sym => {
+        _ws.send(JSON.stringify({type:"subscribe", symbol: sym}));
+      });
+    };
+
+    _ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if(data.type !== "trade" || !data.data) return;
+        data.data.forEach(trade => {
+          const sym = trade.s;
+          const price = trade.p;
+          const vol   = trade.v;
+          if(!sym || !price) return;
+          // עדכן callback אם קיים
+          if(_wsCallbacks[sym]) _wsCallbacks[sym](price, vol);
+          // עדכן Watchlist
+          updateWLPrice(sym, price);
+        });
+      } catch(e){}
+    };
+
+    _ws.onerror = () => {};
+    _ws.onclose = () => {
+      // Reconnect אחרי 5 שניות
+      if(_wsReconnectTimer) clearTimeout(_wsReconnectTimer);
+      _wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+    };
+  } catch(e){}
+}
+
+function wsSubscribe(sym, callback){
+  _wsSymbols.add(sym);
+  _wsCallbacks[sym] = callback;
+  if(_ws && _ws.readyState === WebSocket.OPEN){
+    _ws.send(JSON.stringify({type:"subscribe", symbol: sym}));
+  }
+}
+
+function wsUnsubscribe(sym){
+  _wsSymbols.delete(sym);
+  delete _wsCallbacks[sym];
+  if(_ws && _ws.readyState === WebSocket.OPEN){
+    _ws.send(JSON.stringify({type:"unsubscribe", symbol: sym}));
+  }
+}
+
+function updateWLPrice(sym, price){
+  const el = document.getElementById("wlp-"+sym);
+  if(!el) return;
+  const prev = parseFloat(el.dataset.prev || price);
+  const pct = prev > 0 ? +((price - prev) / prev * 100).toFixed(2) : 0;
+  el.dataset.prev = price;
+  el.innerHTML = `$${price.toFixed(2)} <span style="color:${pct>=0?"var(--green)":"var(--red)"}">${pct>=0?"+":""}${pct}%</span>`;
+  // Flash effect
+  el.style.color = pct >= 0 ? "var(--green)" : "var(--red)";
+  setTimeout(() => el.style.color = "", 500);
+}
+
+// עדכן מחיר חי בכרטיס המניה הפתוחה
+function startLivePrice(sym, entry, sl, tp){
+  wsSubscribe(sym, (price, vol) => {
+    // עדכן מחיר
+    const priceEl = document.querySelector(".mval[data-live-price]");
+    if(priceEl){
+      const prev = parseFloat(priceEl.dataset.prev || price);
+      priceEl.textContent = "$" + price.toFixed(2);
+      priceEl.style.color = price >= prev ? "var(--green)" : "var(--red)";
+      priceEl.dataset.prev = price;
+      setTimeout(() => priceEl.style.color = "", 600);
+    }
+
+    // אזהרת SL/TP
+    const isBuy = entry && price && sl && tp;
+    if(!isBuy) return;
+    if(price <= sl * 1.005){
+      showPriceAlert(sym, "🚨 מחיר קרוב ל-SL!", "var(--red)", price, sl);
+    } else if(price >= tp * 0.995){
+      showPriceAlert(sym, "🎯 מחיר קרוב ל-TP!", "var(--green)", price, tp);
+    }
+  });
+}
+
+let _lastAlert = {};
+function showPriceAlert(sym, msg, color, price, target){
+  const now = Date.now();
+  if(_lastAlert[sym] && now - _lastAlert[sym] < 30000) return; // לא יותר מפעם ב-30 שניות
+  _lastAlert[sym] = now;
+
+  // הצג notification
+  const el = document.createElement("div");
+  el.style.cssText = `position:fixed;top:70px;left:50%;transform:translateX(-50%);
+    background:var(--bg2);border:2px solid ${color};border-radius:10px;
+    padding:12px 20px;font-family:monospace;font-size:13px;color:${color};
+    z-index:9999;animation:fadeUp .3s ease;text-align:center;
+    box-shadow:0 4px 20px rgba(0,0,0,.4)`;
+  el.innerHTML = `${msg}<br><span style="font-size:11px;color:var(--text3)">${sym} $${price.toFixed(2)} → יעד $${target.toFixed(2)}</span>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
 // ── INIT ─────────────────────────────────────────────────
 loadIndices();
 loadMacro();
 // בדוק עסקאות ישנות בטעינה
 setTimeout(checkAndUpdateTrades, 3000);
+// הפעל WebSocket
+setTimeout(initWebSocket, 2000);
 // הצג Win Rate widget בטעינה
 setTimeout(()=>{
   const wrEl = document.getElementById("winRateWidget");
