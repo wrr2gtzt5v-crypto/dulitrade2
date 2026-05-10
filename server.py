@@ -23,44 +23,14 @@ def fh(path):
         sep = "&" if "?" in path else "?"
         url = f"{FH}{path}{sep}token={FINNHUB_KEY}"
         req = Request(url, headers={"Accept":"application/json","User-Agent":"Mozilla/5.0"})
-        with urlopen(req, timeout=15) as r:
+        with urlopen(req, timeout=10) as r:
             return json.loads(r.read())
     except: return {}
 
 def get_quote(symbol):
-    # Forex — הסר / ממחירי מטבע (USD/ILS → USDILS)
-    fh_symbol = symbol.replace("/", "")
-    d = fh(f"/quote?symbol={fh_symbol}")
+    d = fh(f"/quote?symbol={symbol}")
     c = d.get("c", 0)
     if c > 0:
-        bid = d.get("b") or d.get("bid")
-        ask = d.get("a") or d.get("ask")
-        # חשב spread
-        spread = None
-        spread_pct = None
-        if bid and ask and bid > 0 and ask > 0:
-            spread = round(ask - bid, 4)
-            spread_pct = round((ask - bid) / c * 100, 3)
-
-        # ── חישוב vr אמיתי מנרות ────────────────────────────
-        # Finnhub לא מחזיר vr ישירות — נחשב מנפח יומי vs ממוצע
-        vr = 1.0
-        try:
-            import datetime
-            today_vol = d.get("t") or 0  # נפח יומי נוכחי מ-Finnhub
-            if not today_vol:
-                # נסה לחשב מ-Polygon אם יש
-                pass
-            if today_vol and today_vol > 0:
-                # קבל ממוצע נפח 20 ימים מ-candles
-                candles_d = get_candles(symbol)
-                vols = candles_d.get("v", [])
-                if vols and len(vols) >= 5:
-                    avg_vol = sum(vols[-20:]) / min(20, len(vols))
-                    if avg_vol > 0:
-                        vr = round(today_vol / avg_vol, 1)
-        except: pass
-
         return {
             "c":  round(c, 2),
             "pc": round(d.get("pc", c), 2),
@@ -68,13 +38,8 @@ def get_quote(symbol):
             "l":  round(d.get("l", c), 2),
             "o":  round(d.get("o", c), 2),
             "dp": round(d.get("dp", 0), 2),
-            "bid": bid,
-            "ask": ask,
-            "spread": spread,
-            "spreadPct": spread_pct,
-            "vr": vr,
         }
-    return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0,"bid":None,"ask":None,"spread":None,"spreadPct":None,"vr":1}
+    return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0}
 
 def pg(path):
     """Polygon.io API"""
@@ -142,7 +107,6 @@ def get_profile(symbol):
         "earningsGrowth":  metric.get("epsGrowthTTMYoy"),
         "profitMargin":    metric.get("netProfitMarginTTM"),
         "operatingMargin": metric.get("operatingMarginTTM"),
-        "grossMargin":     metric.get("grossMarginTTM"),
         "roe":  metric.get("roeTTM"),
         "roa":  metric.get("roaTTM"),
         "debtToEquity":  metric.get("totalDebt/totalEquityAnnual"),
@@ -152,15 +116,6 @@ def get_profile(symbol):
         "dividendYield":    metric.get("dividendYieldIndicatedAnnual"),
         "fiftyTwoWeekHigh": metric.get("52WeekHigh"),
         "fiftyTwoWeekLow":  metric.get("52WeekLow"),
-        # EPS Growth מפורט
-        "epsGrowthAnnual":  metric.get("epsGrowth3Y") or metric.get("epsGrowthTTMYoy"),
-        "epsGrowth3Y":      metric.get("epsGrowth3Y"),
-        "epsGrowth5Y":      metric.get("epsGrowth5Y"),
-        # Free Cash Flow Yield
-        "fcfPerShareTTM":   metric.get("fcfPerShareTTM"),
-        "freeCashFlowTTM":  metric.get("freeCashFlowTTM"),
-        # Revenue Surprise — מ-earnings
-        "revenuePerShareTTM": metric.get("revenuePerShareTTM"),
     }
 
 def get_news(symbol):
@@ -259,38 +214,10 @@ def get_earnings(symbol):
             surprise = round((actual - estimate) / abs(estimate) * 100, 1)
         else:
             surprise = None
-
-        # Revenue Surprise מ-4 רבעונים אחרונים
-        rev_surprises = []
-        for item in items[:4]:
-            rev_act = item.get("revenueActual")
-            rev_est = item.get("revenueEstimate")
-            if rev_act and rev_est and rev_est != 0:
-                rev_surp = round((rev_act - rev_est) / abs(rev_est) * 100, 1)
-                rev_surprises.append(rev_surp)
-
-        rev_surprise = rev_surprises[0] if rev_surprises else None
-
-        # EPS history — 4 רבעונים
-        eps_history = []
-        for item in items[:4]:
-            a = item.get("actual")
-            e = item.get("estimate")
-            if a is not None:
-                eps_history.append({
-                    "period": item.get("period",""),
-                    "actual": a,
-                    "estimate": e,
-                    "surprise": round((a-e)/abs(e)*100,1) if e and e!=0 else None
-                })
-
         return {
             "available": True,
             "surprise": surprise,
             "quarter": last.get("period",""),
-            "revSurprise": rev_surprise,
-            "epsHistory": eps_history,
-            "beat3of4": sum(1 for h in eps_history if (h.get("surprise") or 0) > 0) >= 3,
         }
     except:
         return {"available": False}
@@ -311,301 +238,24 @@ def get_insider(symbol):
     except:
         return {"available": False}
 
-def get_short_interest(symbol):
-    """Short Interest מ-Finviz scraping"""
+def get_usdils():
     try:
-        url = f"https://finviz.com/quote.ashx?t={symbol}&ty=c&ta=1&p=d"
-        req = Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html",
-            "Accept-Language": "en-US,en;q=0.9",
-        })
+        url = "https://open.er-api.com/v6/latest/USD"
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
         with urlopen(req, timeout=8) as r:
-            html = r.read().decode("utf-8", "ignore")
-
-        # Short Float %
-        import re
-        short_float = None
-        short_ratio = None
-
-        m = re.search(r'Short Float[^>]*>([^<]+)<', html)
-        if m:
-            val = m.group(1).strip().replace('%','').replace('-','')
-            try: short_float = float(val)
-            except: pass
-
-        m2 = re.search(r'Short Ratio[^>]*>([^<]+)<', html)
-        if m2:
-            val2 = m2.group(1).strip().replace('-','')
-            try: short_ratio = float(val2)
-            except: pass
-
-        if short_float is None:
-            return {"available": False}
-
-        return {
-            "available": True,
-            "shortFloat": short_float,       # % מהמניה בשורט
-            "shortRatio": short_ratio,        # ימים לכיסוי
-            "squeezeRisk": short_float > 15,  # סיכון Short Squeeze
-        }
+            data = json.loads(r.read())
+        rate = data.get("rates", {}).get("ILS")
+        if not rate:
+            return {"c": 0, "pc": 0, "dp": 0}
+        return {"c": round(rate, 4), "pc": round(rate, 4), "dp": 0}
     except:
-        return {"available": False}
-
-
-def get_earnings_calendar(symbol):
-    """תאריך דוח רווחים הבא מ-Finnhub"""
-    import time, datetime
-    try:
-        today = datetime.date.today()
-        future = today + datetime.timedelta(days=90)
-        frm = today.isoformat()
-        to  = future.isoformat()
-
-        d = fh(f"/calendar/earnings?from={frm}&to={to}&symbol={symbol}")
-        items = d.get("earningsCalendar", [])
-
-        if not items:
-            return {"available": False, "daysUntil": None}
-
-        # מצא את הדוח הקרוב ביותר בעתיד
-        upcoming = []
-        for item in items:
-            date_str = item.get("date", "")
-            if not date_str: continue
-            try:
-                report_date = datetime.date.fromisoformat(date_str)
-                days_until = (report_date - today).days
-                if days_until >= 0:
-                    upcoming.append({
-                        "date": date_str,
-                        "daysUntil": days_until,
-                        "hour": item.get("hour", "amc"),  # bmo=before market open, amc=after market close
-                        "epsEstimate": item.get("epsEstimate"),
-                    })
-            except: continue
-
-        if not upcoming:
-            return {"available": False, "daysUntil": None}
-
-        next_report = min(upcoming, key=lambda x: x["daysUntil"])
-        return {
-            "available": True,
-            "date": next_report["date"],
-            "daysUntil": next_report["daysUntil"],
-            "hour": next_report["hour"],
-            "epsEstimate": next_report["epsEstimate"],
-            "soon": next_report["daysUntil"] <= 14,   # פחות מ-2 שבועות
-            "imminent": next_report["daysUntil"] <= 3, # פחות מ-3 ימים
-        }
-    except:
-        return {"available": False, "daysUntil": None}
-
-
-def get_premarket_volume(symbol):
-    """Pre-Market נפח אמיתי מ-Polygon extended hours"""
-    import datetime
-    if not POLYGON_KEY:
-        return {"available": False}
-    try:
-        today = datetime.date.today()
-        # בנה URL ל-aggs דקתיות עם extended hours
-        # מ-4:00 AM עד 9:30 AM ET — Pre-Market
-        frm_dt = today.isoformat()
-        to_dt  = today.isoformat()
-        # 5-דקות נרות, extended hours
-        url_path = (
-            f"/v2/aggs/ticker/{symbol}/range/5/minute/{frm_dt}/{to_dt}"
-            f"?adjusted=true&sort=asc&limit=200&extended=true"
-        )
-        d = pg(url_path)
-        results = d.get("results", [])
-        if not results:
-            return {"available": False}
-
-        # סנן רק נרות Pre-Market: 4:00–9:30 ET
-        # Polygon מחזיר timestamps ב-ms UTC
-        # ET = UTC-4 (קיץ) / UTC-5 (חורף)
-        # 4:00 AM ET = 8:00/9:00 UTC → בdst: 8*3600, בחורף: 9*3600
-        import calendar
-        # בדוק DST פשוט — מרץ-נובמבר
-        month = today.month
-        is_dst = 3 <= month <= 11
-        et_offset = 4 if is_dst else 5  # שעות מאחורי UTC
-
-        # Pre-Market: 4:00-9:30 AM ET
-        pre_start_utc = (4 + et_offset) * 3600  # שניות מתחילת יום
-        pre_end_utc   = (9 * 3600 + 30 * 60) + et_offset * 3600
-
-        pre_volume = 0
-        pre_open   = None
-        pre_close  = None
-        pre_high   = None
-        pre_low    = None
-
-        for bar in results:
-            ts_ms = bar.get("t", 0)
-            ts_sec = ts_ms / 1000
-            # שניות מתחילת היום UTC
-            secs_in_day = ts_sec % 86400
-
-            if pre_start_utc <= secs_in_day <= pre_end_utc:
-                v = bar.get("v", 0)
-                pre_volume += v
-                if pre_open is None:
-                    pre_open = bar.get("o")
-                pre_close = bar.get("c")
-                h = bar.get("h")
-                l = bar.get("l")
-                if pre_high is None or (h and h > pre_high): pre_high = h
-                if pre_low  is None or (l and l < pre_low):  pre_low  = l
-
-        if pre_volume == 0:
-            return {"available": False}
-
-        # חישוב % שינוי מסגירת אתמול
-        prev_close = None
-        pct_change = None
-        if pre_open and pre_close:
-            # קבל מחיר סגירה של אתמול מ-quote
-            try:
-                quote_d = fh(f"/quote?symbol={symbol}")
-                prev_close = quote_d.get("pc")
-                if prev_close and prev_close > 0:
-                    pct_change = round((pre_close - prev_close) / prev_close * 100, 2)
-            except: pass
-
-        significant = pre_volume >= 50000  # נפח משמעותי
-
-        return {
-            "available":  True,
-            "volume":     int(pre_volume),
-            "open":       pre_open,
-            "close":      pre_close,
-            "high":       pre_high,
-            "low":        pre_low,
-            "pctChange":  pct_change,
-            "significant": significant,
-            "prevClose":  prev_close,
-        }
-    except Exception as e:
-        return {"available": False}
-
-
-def get_yahoo_fundamentals(symbol):
-    """נתונים פונדמנטליים מ-Yahoo Finance API לא רשמי"""
-    try:
-        url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=defaultKeyStatistics,financialData,summaryDetail,earnings"
-        req = Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json",
-        })
-        with urlopen(req, timeout=8) as r:
-            data = json.loads(r.read().decode("utf-8"))
-
-        result = data.get("quoteSummary", {}).get("result", [])
-        if not result:
-            return {}
-
-        d = result[0]
-        ks = d.get("defaultKeyStatistics", {})
-        fd = d.get("financialData", {})
-        sd = d.get("summaryDetail", {})
-
-        def val(obj, key):
-            v = obj.get(key, {})
-            if isinstance(v, dict):
-                return v.get("raw")
-            return v
-
-        # PEG Ratio
-        peg = val(ks, "pegRatio")
-        # Forward PE
-        forward_pe = val(ks, "forwardPE")
-        # Short Float %
-        short_float = val(ks, "shortPercentOfFloat")
-        if short_float: short_float = round(short_float * 100, 2)
-        # Short Ratio
-        short_ratio = val(ks, "shortRatio")
-        # Beta
-        beta = val(ks, "beta")
-        # Book Value per share
-        book_val = val(ks, "bookValue")
-        # EPS Forward
-        eps_forward = val(ks, "forwardEps")
-        # EPS Trailing
-        eps_trailing = val(ks, "trailingEps")
-        # Revenue per share
-        rev_per_share = val(fd, "revenuePerShare")
-        # Gross Margins
-        gross_margin = val(fd, "grossMargins")
-        # Operating Margins
-        op_margin = val(fd, "operatingMargins")
-        # Profit Margins
-        profit_margin = val(fd, "profitMargins")
-        # Revenue Growth
-        rev_growth = val(fd, "revenueGrowth")
-        # Earnings Growth
-        earn_growth = val(fd, "earningsGrowth")
-        # Current Ratio
-        current_ratio = val(fd, "currentRatio")
-        # Debt to Equity
-        debt_eq = val(fd, "debtToEquity")
-        if debt_eq: debt_eq = round(debt_eq / 100, 2)  # Yahoo מחזיר כ-%
-        # Return on Equity
-        roe = val(fd, "returnOnEquity")
-        # Return on Assets
-        roa = val(fd, "returnOnAssets")
-        # Free Cash Flow
-        fcf = val(fd, "freeCashflow")
-        # Target mean price
-        target = val(fd, "targetMeanPrice")
-        # Recommendation
-        rec = fd.get("recommendationKey", "")
-        # Dividend Yield
-        div_yield = val(sd, "dividendYield")
-        # 52W High/Low
-        week52_high = val(sd, "fiftyTwoWeekHigh")
-        week52_low  = val(sd, "fiftyTwoWeekLow")
-        # Market Cap
-        market_cap = val(sd, "marketCap")
-        if market_cap: market_cap = round(market_cap / 1e9, 2)  # B
-        # PE trailing
-        pe_trailing = val(sd, "trailingPE")
-        # PS ratio
-        ps_ratio = val(ks, "priceToSalesTrailing12Months")
-
-        return {
-            "available": True,
-            "pegRatio":        peg,
-            "forwardPE":       forward_pe,
-            "pe":              pe_trailing,
-            "ps":              ps_ratio,
-            "shortFloat":      short_float,
-            "shortRatio":      short_ratio,
-            "beta":            beta,
-            "bookValue":       book_val,
-            "epsForward":      eps_forward,
-            "epsTrailing":     eps_trailing,
-            "grossMargin":     gross_margin,
-            "operatingMargin": op_margin,
-            "profitMargin":    profit_margin,
-            "revenueGrowth":   rev_growth,
-            "earningsGrowth":  earn_growth,
-            "currentRatio":    current_ratio,
-            "debtToEquity":    debt_eq,
-            "roe":             roe,
-            "roa":             roa,
-            "freeCashflow":    fcf,
-            "targetMeanPrice": target,
-            "recommendationKey": rec,
-            "dividendYield":   div_yield,
-            "fiftyTwoWeekHigh": week52_high,
-            "fiftyTwoWeekLow":  week52_low,
-            "marketCapB":      market_cap,
-        }
-    except Exception as e:
-        return {"available": False}
+        try:
+            d = fh("/quote?symbol=OANDA:USD_ILS")
+            c = d.get("c", 0)
+            if c > 0:
+                return {"c": round(c, 4), "pc": round(d.get("pc", c), 4), "dp": round(d.get("dp", 0), 2)}
+        except: pass
+        return {"c": 0, "pc": 0, "dp": 0}
 
 
 def get_sector(sector_name):
@@ -670,11 +320,6 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(404); self.end_headers()
             return
 
-        # WebSocket Key endpoint
-        if parsed.path == "/api/wskey":
-            self._send_json({"key": FINNHUB_KEY})
-            return
-
         if parsed.path == "/api/stock":
             symbol   = qs.get("symbol",[""])[0].upper().strip()
             endpoint = qs.get("endpoint",[""])[0]
@@ -691,10 +336,6 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="earnings":    data = get_earnings(symbol)
                 elif endpoint=="insider":     data = get_insider(symbol)
                 elif endpoint=="indicators":  data = get_indicators(symbol)
-                elif endpoint=="short":       data = get_short_interest(symbol)
-                elif endpoint=="earningscal": data = get_earnings_calendar(symbol)
-                elif endpoint=="premarket":   data = get_premarket_volume(symbol)
-                elif endpoint=="yahoo":       data = get_yahoo_fundamentals(symbol)
                 elif endpoint=="sector":
                     sector = qs.get("sector",[""])[0]
                     data = get_sector(sector)
