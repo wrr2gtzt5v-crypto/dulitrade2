@@ -4008,7 +4008,6 @@ async function runScanner(auto=false){
     return SCAN_LIST.indexOf(a.sym) - SCAN_LIST.indexOf(b.sym);
   });
 
-  const candidatesMap = {}; // sym → candidate (דטרמיניסטי)
   const candidates = [];
   fill.style.width = "30%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/3 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
@@ -4058,20 +4057,15 @@ async function runScanner(auto=false){
         if(scores.totalScore < dynamicMinScore) return; // ציון מינימלי דינמי לפי Market Breadth
         if(scores.rrRatio < 1.2) return;        // R/R מינימלי
 
-        candidatesMap[sym] = { sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false };
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false });
       } catch(e){}
     }));
   }
 
-  // בנה candidates לפי סדר pass1 — דטרמיניסטי!
-  pass1.forEach(({sym}) => {
-    if(candidatesMap[sym]) candidates.push(candidatesMap[sym]);
-  });
 
   // ══════════════════════════════════════════════════════════
   // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
   // ══════════════════════════════════════════════════════════
-  const resultsMap = {}; // sym → result
   const results = [];
   fill.style.width = "65%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 3/3 — חדשות ו-Confluence על ${candidates.length} מועמדות...</div>`;
@@ -4146,7 +4140,7 @@ async function runScanner(auto=false){
           scores.strategy||""
         );
 
-        resultsMap[sym] = {
+        results.push({
           sym, price: scanQuote.c, pct: scores.pct,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
@@ -4164,15 +4158,14 @@ async function runScanner(auto=false){
           sector: profile.sector || "Other",
           volumeSurge: volSurge3||false,
           vr: ind.vr||1,
-        };
+        });
       } catch(e){}
     }));
   }
 
-  // בנה results לפי סדר candidates — דטרמיניסטי!
-  candidates.forEach(({sym}) => {
-    if(resultsMap[sym]) results.push(resultsMap[sym]);
-  });
+  // ── מיון דטרמיניסטי ראשוני — לפי SCAN_LIST ─────────────
+  // מבטיח שבאותם נתונים תמיד אותן תוצאות
+  results.sort((a,b) => SCAN_LIST.indexOf(a.sym) - SCAN_LIST.indexOf(b.sym));
 
   // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
   results.sort((a,b)=>{
