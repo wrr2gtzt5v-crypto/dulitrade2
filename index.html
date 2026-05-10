@@ -3147,11 +3147,8 @@ function mergeProfile(fh, yahoo){
 
 // ── MAIN ──────────────────────────────────────────────────
 function q(s){
+  // לחיצה מהסורק — שמור cache קיים (עקביות עם הסורק)
   document.getElementById("inp").value=s;
-  // נקה cache של המניה הזו — מבטיח נתונים טריים
-  Object.keys(_apiCache).forEach(k=>{
-    if(k.startsWith(s+"|")) delete _apiCache[k];
-  });
   go();
 }
 
