@@ -3969,9 +3969,9 @@ async function runScanner(auto=false){
           ? { ...quote, c: quote.pc || quote.c }
           : quote;
 
-        const pct = scanQuote.dp || 0;
-        const vr  = scanQuote.vr || 1;
-        const price = scanQuote.c;
+        const pct = +(scanQuote.dp || 0);
+        const vr  = +(scanQuote.vr || 1);
+        const price = +(scanQuote.c || 0);
 
         // ── שלב 1: פילטר בסיסי בלבד ──────────────────────────
         if(price <= 1) return; // לא penny stock
@@ -4043,11 +4043,14 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
         if(!scores || !scores.sig) return;
 
-        // ── פילטר שלב 2 — כיוון בלבד ─────────────────────────
-        // לא מסננים לפי ציון/R/R — news חסר, יסונן בשלב 3
+        // ── פילטר שלב 2 — טכני בלבד (ללא news) ─────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
-        if(!isBuy && !isSell) return; // חייב כיוון
+        const isHold = scores.sig==="HOLD";
+        // אם HOLD אבל techScore גבוה — עדיין מעניין (news יחליט בשלב 3)
+        const techOk = scores.techScoreNorm >= 48;
+        if(isHold && !techOk) return; // HOLD עם טכני חלש — דלג
+        if(!isBuy && !isSell && !isHold) return; // sig לא תקין
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false });
       } catch(e){}
@@ -4076,7 +4079,7 @@ async function runScanner(auto=false){
         ]);
 
         // חישוב מחדש עם חדשות מלאות — עכשיו totalScore אמיתי
-        if(!scanQuote?.c || scanQuote.c === 0) return;
+        if(!scanQuote?.c || +scanQuote.c === 0) return;
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
