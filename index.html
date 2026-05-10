@@ -3146,7 +3146,14 @@ function mergeProfile(fh, yahoo){
 }
 
 // ── MAIN ──────────────────────────────────────────────────
-function q(s){document.getElementById("inp").value=s;go();}
+function q(s){
+  document.getElementById("inp").value=s;
+  // נקה cache של המניה הזו — מבטיח נתונים טריים
+  Object.keys(_apiCache).forEach(k=>{
+    if(k.startsWith(s+"|")) delete _apiCache[k];
+  });
+  go();
+}
 
 async function go(){
   let raw=document.getElementById("inp").value.trim();
