@@ -888,7 +888,8 @@ function drawCandleChart(candles){
   wrap.innerHTML="";wrap.appendChild(canvas);
   const ctx=canvas.getContext("2d");
   ctx.scale(2,2);
-  const minP=Math.min(...ls)*0.997,maxP=Math.max(...hs)*1.003;
+  const minP=ls.reduce((a,b)=>a<b?a:b, ls[0])*0.997;
+  const maxP=hs.reduce((a,b)=>a>b?a:b, hs[0])*1.003;
   const range=maxP-minP;
   const toY=p=>H-12-((p-minP)/range)*(H-22);
   const cw=Math.floor((W-10)/N);
