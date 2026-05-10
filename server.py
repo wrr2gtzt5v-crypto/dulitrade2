@@ -99,7 +99,7 @@ def get_candles(symbol):
                 url_path = f"/v2/aggs/ticker/{symbol}/range/1/day/{frm_dt}/{to_dt}?adjusted=true&sort=asc&limit=365"
                 d = pg(url_path)
                 results = d.get("results", [])
-                if results and len(results) >= 5:
+                if results and len(results) >= 2:
                     c = [round(r["c"], 2) for r in results]
                     o = [round(r["o"], 2) for r in results]
                     h = [round(r["h"], 2) for r in results]
@@ -114,21 +114,22 @@ def get_candles(symbol):
                 if attempt < 2:
                     time.sleep(1)
 
-    # ── Finnhub fallback — 3 ניסיונות ───────────────────────
+    # ── Finnhub fallback — daily + weekly ───────────────────
     to  = int(time.time())
     frm = to - 365 * 86400
-    for attempt in range(3):
-        try:
-            d = fh(f"/stock/candle?symbol={symbol}&resolution=D&from={frm}&to={to}")
-            if d.get("s") == "ok" and d.get("c") and len(d["c"]) >= 5:
-                return {"c":[round(x,2) for x in d["c"]],"o":[round(x,2) for x in d["o"]],
-                        "h":[round(x,2) for x in d["h"]],"l":[round(x,2) for x in d["l"]],
-                        "v":[int(x) for x in d["v"]],"t":d["t"],"s":"ok","source":"finnhub"}
-            if attempt < 2:
-                time.sleep(1)
-        except:
-            if attempt < 2:
-                time.sleep(1)
+    for resolution in ["D", "W"]:  # נסה יומי קודם, אחר כך שבועי
+        for attempt in range(3):
+            try:
+                d = fh(f"/stock/candle?symbol={symbol}&resolution={resolution}&from={frm}&to={to}")
+                if d.get("s") == "ok" and d.get("c") and len(d["c"]) >= 2:
+                    return {"c":[round(x,2) for x in d["c"]],"o":[round(x,2) for x in d["o"]],
+                            "h":[round(x,2) for x in d["h"]],"l":[round(x,2) for x in d["l"]],
+                            "v":[int(x) for x in d["v"]],"t":d["t"],"s":"ok","source":f"finnhub_{resolution.lower()}"}
+                if attempt < 2:
+                    time.sleep(1)
+            except:
+                if attempt < 2:
+                    time.sleep(1)
 
     return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
 
