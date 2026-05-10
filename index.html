@@ -4027,9 +4027,9 @@ async function runScanner(auto=false){
         const quote = await api(sym, "quote");
         if(!quote.c || quote.c === 0) return;
 
-        const scanQuote = (ms.status === "pre" || ms.status === "after" || ms.status === "closed")
-          ? { ...quote, c: quote.pc || quote.c }
-          : quote;
+        // השתמש ב-quote כמו שהוא — לא מחליפים מחיר
+        // כך pct ו-dp נשארים נכונים גם כשהשוק סגור
+        const scanQuote = quote;
 
         const pct = +(scanQuote.dp || 0);
         const vr  = +(scanQuote.vr || 1);
