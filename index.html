@@ -3172,6 +3172,25 @@ async function go(){
   </div>`;
 
   try{
+    // ── Ping — מעיר את Render אם ישן ────────────────────────
+    // שולח בקשה קטנה קודם, ואם הشرت ישן — מחכה שיתעורר
+    try{
+      const pingStart = Date.now();
+      await fetch(`/api/stock?symbol=${sym}&endpoint=quote`);
+      const pingTime = Date.now() - pingStart;
+      // אם לקח יותר מ-3 שניות — השרת היה ישן, נחכה שיתייצב
+      if(pingTime > 3000){
+        document.getElementById("out").innerHTML=`<div class="loading">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div style="font-size:12px;font-family:monospace;color:var(--text3);margin-top:8px">
+            ⏳ השרת מתעורר... (${(pingTime/1000).toFixed(0)} שניות)<br>
+            ממתין שיתייצב לפני טעינת נתונים...
+          </div>
+        </div>`;
+        await new Promise(r => setTimeout(r, 2000)); // המתן 2 שניות נוספות
+      }
+    } catch(e){}
+
     // ── שלב 1 — נתונים קריטיים (מחיר + נרות + פרופיל) ────────
     // מציגים תוצאה חלקית מהר, שאר הנתונים נטענים ברקע
     const [quote, candles, profile] = await Promise.all([
@@ -3182,13 +3201,35 @@ async function go(){
 
     if(!quote.c||quote.c===0) throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
 
+    // ── Retry נרות אם חוזרים ריקים ──────────────────────────
+    // Render ישן יכול להחזיר נרות ריקים בניסיון הראשון
+    let finalCandles = candles;
+    if(!finalCandles.c || finalCandles.c.length < 10){
+      for(let retry = 1; retry <= 3; retry++){
+        document.getElementById("out").innerHTML=`<div class="loading">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div style="font-size:12px;font-family:monospace;color:var(--text3);margin-top:8px">
+            🔄 טוען נרות... ניסיון ${retry}/3
+          </div>
+        </div>`;
+        await new Promise(r => setTimeout(r, 2000)); // המתן 2 שניות
+        // נקה cache של נרות לפני ניסיון חוזר
+        Object.keys(_apiCache).forEach(k => { if(k.startsWith(sym+"|candle|")) delete _apiCache[k]; });
+        const retryCandles = await api(sym, "candle").catch(()=>({}));
+        if(retryCandles.c && retryCandles.c.length >= 10){
+          finalCandles = retryCandles;
+          break;
+        }
+      }
+    }
+
     // ── render ראשוני מהיר עם נתונים חלקיים ──────────────────
     const sector1 = profile.sector && profile.sector!=="—"
       ? await api(sym,"sector",profile.sector).catch(()=>({}))
       : {};
-    const ind = calcIndicators(candles, quote, {});
-    const patterns = detectPatterns(candles);
-    const scores1 = scoreAll(sym,quote,candles,ind,patterns,[],[],profile,null,{},{},sector1);
+    const ind = calcIndicators(finalCandles, quote, {});
+    const patterns = detectPatterns(finalCandles);
+    const scores1 = scoreAll(sym,quote,finalCandles,ind,patterns,[],[],profile,null,{},{},sector1);
     document.getElementById("out").innerHTML=`<div class="loading">
       <div class="dots"><span></span><span></span><span></span></div>
       <div style="font-size:12px;font-family:monospace;color:var(--text3);margin-top:8px">
@@ -3219,10 +3260,10 @@ async function go(){
     const sector = sector1; // כבר טענו מעלה
     // חשב אינדיקטורים מנרות בלבד — עקבי ויציב לאורך היום
     // fhIndicators לא בשימוש כי מחזיר ערכים שונים מ-Finnhub
-    const indFull = calcIndicators(candles, quote, {});
-    const scoresFull = scoreAll(sym,quote,candles,indFull,patterns,newsArr,extNewsArr,mergedProfile,macro,earnings,insider,sector);
+    const indFull = calcIndicators(finalCandles, quote, {});
+    const scoresFull = scoreAll(sym,quote,finalCandles,indFull,patterns,newsArr,extNewsArr,mergedProfile,macro,earnings,insider,sector);
 
-    render(sym,quote,candles,mergedProfile,scoresFull,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket,yahooData);
+    render(sym,quote,finalCandles,mergedProfile,scoresFull,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket,yahooData);
     saveSignalHistory(sym,scoresFull.sig,scoresFull.price,scoresFull.totalScore);
     fireAlert(sym,scoresFull.sig,scoresFull.price,scoresFull.totalScore);
 
