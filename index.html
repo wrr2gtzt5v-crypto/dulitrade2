@@ -841,14 +841,15 @@ async function loadMacro(){
     fmt("^GSPC","sp5V");
   }catch(e){}
 
-  // USD/ILS — דולר/שקל בזמן אמת
+  // USD/ILS — דולר/שקל
   try{
-    const fx = await api("USD/ILS","quote");
+    const fx = await api("USD","usdils");
     const el = document.getElementById("usdilsV");
     if(el && fx.c && fx.c > 0){
-      const ch = fx.pc > 0 ? +((fx.c - fx.pc) / fx.pc * 100).toFixed(2) : 0;
+      const ch = fx.dp || 0;
       const color = ch >= 0 ? "var(--green)" : "var(--red)";
-      el.innerHTML = `<span>₪${fx.c.toFixed(3)}</span> <span style="font-size:11px;color:${color}">${ch>=0?"+":""}${ch}%</span>`;
+      const sign = ch >= 0 ? "+" : "";
+      el.innerHTML = `<span>₪${fx.c.toFixed(3)}</span>${ch!==0?` <span style="font-size:11px;color:${color}">${sign}${ch}%</span>`:""}`;
     }
   }catch(e){}
 }
@@ -3887,6 +3888,14 @@ function startCandleRefresh(sym, candles){
 async function runScanner(auto=false){
   if(scannerRunning) return;
   scannerRunning = true;
+
+  // נקה cache של quote לפני סריקה — כדי לקבל נתונים עדכניים
+  // (שומר cache של candles/profile שלא משתנים)
+  Object.keys(_apiCache).forEach(k => {
+    if(k.includes("|quote|") || k.includes("|macro|") || k.includes("|extnews|")) {
+      delete _apiCache[k];
+    }
+  });
 
   const btn = document.getElementById("scanBtn");
   const status = document.getElementById("scanStatus");
