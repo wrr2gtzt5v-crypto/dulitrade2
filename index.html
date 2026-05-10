@@ -492,6 +492,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
   <div class="idx" onclick="q('QQQ')"><div class="idx-name">נאסד"ק</div><div class="idx-price" id="qqqP">—</div><div class="idx-chg" id="qqqC">—</div></div>
   <div class="idx" onclick="q('DIA')"><div class="idx-name">דאו ג'ונס</div><div class="idx-price" id="diaP">—</div><div class="idx-chg" id="diaC">—</div></div>
   <div class="idx" onclick="q('GLD')"><div class="idx-name">זהב</div><div class="idx-price" id="gldP">—</div><div class="idx-chg" id="gldC">—</div></div>
+  <div class="idx" onclick="q('BTCUSD')"><div class="idx-name">₿ Bitcoin</div><div class="idx-price" id="btcP">—</div><div class="idx-chg" id="btcC">—</div></div>
   <div class="idx" onclick="q('TLT')"><div class="idx-name">אג"ח 20Y</div><div class="idx-price" id="tltP">—</div><div class="idx-chg" id="tltC">—</div></div>
 </div>
 
@@ -599,7 +600,7 @@ const COS=[
   {s:"JPM",n:"JPMorgan"},{s:"BAC",n:"Bank of America"},{s:"GS",n:"Goldman Sachs"},
   {s:"TEVA",n:"Teva"},{s:"NICE",n:"NICE Ltd."},{s:"CHKP",n:"Check Point"},
   {s:"WIX",n:"Wix.com"},{s:"MNDY",n:"Monday.com"},{s:"GLBE",n:"Global-E"},
-  {s:"SPY",n:"S&P 500 ETF"},{s:"QQQ",n:"Nasdaq ETF"},{s:"GLD",n:"Gold ETF"},
+  {s:"SPY",n:"S&P 500 ETF"},{s:"QQQ",n:"Nasdaq ETF"},{s:"GLD",n:"Gold ETF"},{s:"BTCUSD",n:"Bitcoin USD"},
   {s:"DIA",n:"Dow Jones ETF"},{s:"TLT",n:"Treasury Bond ETF"},
 ];
 
@@ -856,13 +857,18 @@ async function loadMacro(){
 
 // ── INDICES ───────────────────────────────────────────────
 async function loadIndices(){
-  const tickers=[["SPY","spyP","spyC"],["QQQ","qqqP","qqqC"],["DIA","diaP","diaC"],["GLD","gldP","gldC"],["TLT","tltP","tltC"]];
+  const tickers=[["SPY","spyP","spyC"],["QQQ","qqqP","qqqC"],["DIA","diaP","diaC"],["GLD","gldP","gldC"],["TLT","tltP","tltC"],["BINANCE:BTCUSDT","btcP","btcC"]];
   for(const [sym,pid,cid] of tickers){
     try{
       const q=await api(sym,"quote");
       if(!q.c||isNaN(q.c))continue;
       const pct=+((q.c-q.pc)/q.pc*100).toFixed(2);
-      document.getElementById(pid).textContent="$"+(+q.c).toFixed(2);
+      // BTC — מחיר גבוה, הצג ב-K
+      const isBtc = sym.includes("BTC");
+      const priceStr = isBtc
+        ? "$"+(q.c>=1000?(q.c/1000).toFixed(1)+"K":(+q.c).toFixed(0))
+        : "$"+(+q.c).toFixed(2);
+      document.getElementById(pid).textContent=priceStr;
       const cel=document.getElementById(cid);
       cel.textContent=(pct>=0?"+":"")+pct+"%";
       cel.className="idx-chg "+(pct>=0?"up":"dn");
