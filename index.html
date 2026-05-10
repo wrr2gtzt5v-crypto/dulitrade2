@@ -2440,7 +2440,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
 }
 
 // ── CANDLE STORY — ניתוח גרף דינמי לפי אסטרטגיה ────────────
-function buildCandleStory(d, candles, patterns, earnings, insider, sector){
+function buildCandleStory(d, candles, patterns, earnings, insider, sector, preMarket={}){
   const c = candles.c||[], o = candles.o||[], h = candles.h||[], l = candles.l||[], v = candles.v||[];
   const N = c.length;
   if(N < 5) return null;
@@ -2712,7 +2712,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
   const isSell=d.sig==="SELL"||d.sig==="STRONG_SELL";
 
   // ── ניתוח גרף דינמי לפי אסטרטגיה ─────────────────────────
-  const storyLines = buildCandleStory(d, candles, patterns, earnings, insider, sector);
+  const storyLines = buildCandleStory(d, candles, patterns, earnings, insider, sector, preMarket);
   const storyHtml = storyLines
     ? storyLines.map(l=>`<p style="margin:4px 0;font-size:13px;line-height:1.5">${l}</p>`).join("")
     : "";
