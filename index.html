@@ -782,7 +782,7 @@ const _apiCache = {};
 const _API_TTL  = 5 * 60 * 1000;  // 5 דקות — ברירת מחדל
 // TTL ארוך יותר לנתונים שלא משתנים הרבה
 const _API_TTL_LONG = 60 * 60 * 1000; // שעה — פרופיל, מתחרים
-const _LONG_TTL_ENDPOINTS = new Set(["profile","competitors","indicators"]);
+const _LONG_TTL_ENDPOINTS = new Set(["profile","competitors","indicators","candle"]);
 
 async function api(sym, ep, sector=""){
   const key = `${sym}|${ep}|${sector}`;
@@ -3205,7 +3205,7 @@ async function go(){
       api(sym,"macro").catch(()=>({})),
       api(sym,"earnings").catch(()=>({})),
       api(sym,"insider").catch(()=>({})),
-      api(sym,"indicators").catch(()=>({})),
+      Promise.resolve({}).catch(()=>({})), // indicators — לא בשימוש, מחשבים מנרות
       api(sym,"earningscal").catch(()=>({})),
       api(sym,"short").catch(()=>({})),
       api(sym,"premarket").catch(()=>({})),
@@ -3217,7 +3217,9 @@ async function go(){
     _earningsCache[sym] = earningsCal;
 
     const sector = sector1; // כבר טענו מעלה
-    const indFull = calcIndicators(candles, quote, fhIndicators);
+    // חשב אינדיקטורים מנרות בלבד — עקבי ויציב לאורך היום
+    // fhIndicators לא בשימוש כי מחזיר ערכים שונים מ-Finnhub
+    const indFull = calcIndicators(candles, quote, {});
     const scoresFull = scoreAll(sym,quote,candles,indFull,patterns,newsArr,extNewsArr,mergedProfile,macro,earnings,insider,sector);
 
     render(sym,quote,candles,mergedProfile,scoresFull,patterns,competitors,macro,earnings,insider,sector,earningsCal,shortData,preMarket,yahooData);
@@ -4080,7 +4082,9 @@ async function runScanner(auto=false){
 
         // חישוב מחדש עם חדשות מלאות — עכשיו totalScore אמיתי
         if(!scanQuote?.c || +scanQuote.c === 0) return;
-        const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
+        // חשב ind מחדש מנרות בלבד — עקבי עם render
+        const indFull3 = calcIndicators(candles, scanQuote, {});
+        const scores = scoreAll(sym, scanQuote, candles, indFull3, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
