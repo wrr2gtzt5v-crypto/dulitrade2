@@ -3973,29 +3973,18 @@ async function runScanner(auto=false){
         const vr  = scanQuote.vr || 1;
         const price = scanQuote.c;
 
-        // פילטר כמותי בסיסי
+        // ── שלב 1: פילטר בסיסי בלבד ──────────────────────────
         if(price <= 1) return; // לא penny stock
 
-        // Volume Surge בשלב 1 — vr מהשרת (אם זמין) או proxy ע"י dp
-        // vr אמיתי יחושב בשלב 2 מ-calcIndicators עם candles
+        // Volume Surge proxy (vr אמיתי יחושב בשלב 2 עם candles)
         const vrFromQuote = scanQuote.vr || 1;
         const volumeSurge = vrFromQuote >= 3.0 || (Math.abs(pct) >= 3 && vrFromQuote >= 1.5);
         const highVolume  = vrFromQuote >= 1.5 || Math.abs(pct) >= 2;
 
-        // ── שלב 1 חכם — סינון מוקדם ──────────────────────────
-        // 1. מחיר מעל MA50 (אפשר לחשב בקירוב מהשינוי היומי + נפח)
-        //    אין MA50 בquote — נשתמש בסימנים עקיפים:
-        //    מחיר בשיא 52 שבוע > 0.7 = מניה בריאה
-        const high52  = scanQuote.h || price;
-        const low52   = scanQuote.l || price;
-        // מחיר לפחות 10% מעל שפל יומי = אינדיקציה לטרנד
-        const inUptrend = pct > -5; // לא בירידה חדה
+        // פילטר יחיד: ירידה > 8% ללא נפח — דלג
+        if(pct < -8 && !volumeSurge) return;
 
-        // 2. פילטר: מניות בירידה חזקה מאוד ללא נפח — דלג
-        const skipStock = pct < -8 && !volumeSurge;
-        if(skipStock) return;
-
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume, inUptrend });
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume });
       } catch(e){}
     }));
   }
@@ -4054,14 +4043,11 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
         if(!scores || !scores.sig) return;
 
-        // ── פילטר טכני בשלב 2 — רק techScore ─────────────────
-        // לא מסננים לפי totalScore כי news חסר (מוסיף בשלב 3)
-        // מסננים רק לפי ציון טכני + כיוון
+        // ── פילטר שלב 2 — כיוון בלבד ─────────────────────────
+        // לא מסננים לפי ציון/R/R — news חסר, יסונן בשלב 3
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
-        if(!isBuy && !isSell) return;           // חייב כיוון
-        if(scores.techScoreNorm < 45) return;   // ציון טכני מינימלי בלבד
-        if(scores.rrRatio < 1.2) return;        // R/R מינימלי
+        if(!isBuy && !isSell) return; // חייב כיוון
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false });
       } catch(e){}
@@ -4096,7 +4082,8 @@ async function runScanner(auto=false){
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
         if(scores.totalScore < dynamicMinScore) return; // ציון מלא
-        if(confScore < 4) return;                       // Confluence מינימלי
+        if(confScore < 3) return;                       // Confluence מינימלי
+        if(scores.rrRatio < 1.5) return;                // R/R מינימלי
 
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
