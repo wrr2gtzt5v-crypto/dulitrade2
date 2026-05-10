@@ -3374,13 +3374,13 @@ function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
     {name:"Stoch RSI",    v: stochRsi<25?1:stochRsi>75?-1:0},
     {name:"Williams %R",  v: williamsR<-75?1:williamsR>-25?-1:0},
     {name:"CCI",          v: cci<-80?1:cci>80?-1:0},
-    {name:"MACD",         v: macdVal>0?1:-1},
+    {name:"MACD",         v: macdVal>0.05?1:macdVal<-0.05?-1:0},
     {name:"MA50/200",     v: ma50>ma200?1:ma50<ma200?-1:0},
     {name:"בולינג'ר",     v: bbL>0?(rsi<40&&cci<0?1:rsi>65&&cci>0?-1:0):0},
     {name:"נפח",          v: vr>1.5&&pct>0?1:vr>1.5&&pct<0?-1:0},
     {name:"נרות יפניים",  v: patterns.some(p=>p.bull===true)?1:patterns.some(p=>p.bull===false)?-1:0},
     {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0},
-    {name:"ADX",           v: (ind.adx||0)>=20 ? ((ind.diPlus||0)>(ind.diMinus||0)?1:-1) : -1},
+    {name:"ADX",           v: (ind.adx||0)>=20 ? ((ind.diPlus||0)>(ind.diMinus||0)?1:-1) : 0},
     {name:"POC",           v: (()=>{
       // ind לא מכיל price — נבדוק ב-calcConfluence אם poc מועבר
       return 0; // POC מחושב ב-scoreAll ישירות
@@ -4050,11 +4050,13 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
         if(!scores || !scores.sig) return;
 
-        // ── פילטר טכני — פשוט וחזק ──────────────────────────
+        // ── פילטר טכני בשלב 2 — רק techScore ─────────────────
+        // לא מסננים לפי totalScore כי news חסר (מוסיף בשלב 3)
+        // מסננים רק לפי ציון טכני + כיוון
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         if(!isBuy && !isSell) return;           // חייב כיוון
-        if(scores.totalScore < dynamicMinScore) return; // ציון מינימלי דינמי לפי Market Breadth
+        if(scores.techScoreNorm < 45) return;   // ציון טכני מינימלי בלבד
         if(scores.rrRatio < 1.2) return;        // R/R מינימלי
 
         candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false });
@@ -4083,13 +4085,14 @@ async function runScanner(auto=false){
           api(sym,"news"), api(sym,"extnews")
         ]);
 
-        // חישוב מחדש עם חדשות מלאות
+        // חישוב מחדש עם חדשות מלאות — עכשיו totalScore אמיתי
         if(!scanQuote?.c || scanQuote.c === 0) return;
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
         const confScore = scores.confluence || 0;
 
-        // ── פילטר שלב 3: Confluence מינימלי 2 ──────────────
-        if(confScore < 2) return;
+        // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
+        if(scores.totalScore < dynamicMinScore) return; // ציון מלא
+        if(confScore < 4) return;                       // Confluence מינימלי
 
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
@@ -4163,10 +4166,6 @@ async function runScanner(auto=false){
     }));
   }
 
-  // ── מיון דטרמיניסטי ראשוני — לפי SCAN_LIST ─────────────
-  // מבטיח שבאותם נתונים תמיד אותן תוצאות
-  results.sort((a,b) => SCAN_LIST.indexOf(a.sym) - SCAN_LIST.indexOf(b.sym));
-
   // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
   results.sort((a,b)=>{
     // בונוסים נוספים לאיכות העסקה
@@ -4238,7 +4237,9 @@ function renderScanResults(results){
 
   const stars = n => "★".repeat(Math.min(n,5)) + "☆".repeat(Math.max(0,5-n));
 
-  grid.innerHTML = results.slice(0,12).map(r=>`
+  grid.innerHTML = `<div style="font-size:10px;color:var(--text3);font-family:monospace;padding:4px 8px;margin-bottom:4px">
+    ℹ️ לחץ על כרטיס לניתוח מלא — הסורק מציג נתונים חלקיים
+  </div>` + results.slice(0,12).map(r=>`
     <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
       <div class="scan-left">
         <div class="scan-sym">${r.sym}</div>
