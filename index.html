@@ -3224,7 +3224,7 @@ async function go(){
     // ── Retry נרות אם חוזרים ריקים ──────────────────────────
     // Render ישן יכול להחזיר נרות ריקים בניסיון הראשון
     let finalCandles = candles;
-    if(!finalCandles.c || finalCandles.c.length < 10){
+    if(!finalCandles.c || finalCandles.c.length < 2){
       for(let retry = 1; retry <= 3; retry++){
         document.getElementById("out").innerHTML=`<div class="loading">
           <div class="dots"><span></span><span></span><span></span></div>
@@ -3232,11 +3232,10 @@ async function go(){
             🔄 טוען נרות... ניסיון ${retry}/3
           </div>
         </div>`;
-        await new Promise(r => setTimeout(r, 2000)); // המתן 2 שניות
-        // נקה cache של נרות לפני ניסיון חוזר
+        await new Promise(r => setTimeout(r, 2000));
         Object.keys(_apiCache).forEach(k => { if(k.startsWith(sym+"|candle|")) delete _apiCache[k]; });
         const retryCandles = await api(sym, "candle").catch(()=>({}));
-        if(retryCandles.c && retryCandles.c.length >= 10){
+        if(retryCandles.c && retryCandles.c.length >= 2){
           finalCandles = retryCandles;
           break;
         }
