@@ -2813,19 +2813,22 @@ async function analyzeChartImage(){
   const btn = document.getElementById("caAnalyzeBtn");
   const result = document.getElementById("caResult");
   btn.disabled = true;
-  btn.textContent = "⏳ Claude מנתח את הגרף...";
+  btn.textContent = "⏳ שלב 1: מזהה מניה...";
   result.style.display = "none";
 
   try {
+    // שלב 1 — שלח לשרת (הוא יזהה טיקר ואז ינתח עם חדשות)
+    btn.textContent = "⏳ שלב 1: מזהה מניה + חדשות...";
     const resp = await fetch("/api/analyze-chart", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         image: _chartImageB64,
         mediaType: _chartMediaType,
-        ticker: _chartTicker || null  // אם כבר זוהה מניתוח קודם
+        ticker: _chartTicker || null
       })
     });
+    btn.textContent = "⏳ שלב 2: מנתח גרף...";
     const data = await resp.json();
 
     if(data.error){
