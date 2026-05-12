@@ -637,7 +637,7 @@ def get_yahoo_fundamentals(symbol):
         return {"available": False}
 
 
-def get_market_context_for_chart(ticker=None):
+def get_market_context_for_chart(ticker=None, **kwargs):
     """שולף נתוני שוק אמיתיים לפני ניתוח תמונה"""
     ctx = {}
     
@@ -825,6 +825,14 @@ def get_market_context_for_chart(ticker=None):
                             "trend": "עולה" if hc[-1] > hc[-5] else "יורד" if hc[-1] < hc[-5] else "דשדוש",
                         }
         except: pass
+
+        # ── Max Drawdown Protection ──────────────────────────
+        # בדוק אם המשתמש הפסיד 2+ עסקאות ברצף (מ-localStorage דרך header)
+        # השרת מקבל את מצב ה-drawdown מה-Frontend
+        max_dd = kwargs.get("max_drawdown_active", False) if kwargs else False
+        if max_dd:
+            ctx["drawdown_warning"] = "🛑 STOP TRADING — הפסדת 2 עסקאות ברצף! כלל מקצועי: עצור למינימום שעה, בדוק מה השתבש, חזור רק אחרי הפסקה."
+            ctx["drawdown_active"] = True
 
         # ── Liquidity Check ──────────────────────────────────
         if ticker and ticker not in ("", "null", "None"):
@@ -1187,7 +1195,8 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         return {"error": "ANTHROPIC_KEY לא מוגדר"}
     try:
         # שלוף context שוק אמיתי
-        market_ctx = get_market_context_for_chart(ticker)
+        max_dd = body.get('maxDrawdown', False) if 'body' in dir() else False
+        market_ctx = get_market_context_for_chart(ticker, max_drawdown_active=max_dd)
         
         # בנה טקסט context
         ctx_lines = ["═══ נתוני שוק בזמן אמת ═══"]
@@ -1208,6 +1217,11 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
+        # Max Drawdown
+        if market_ctx.get("drawdown_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("!! " + market_ctx["drawdown_warning"])
+
         # Liquidity
         if market_ctx.get("liquidity_warning"):
             ctx_lines.append("")
