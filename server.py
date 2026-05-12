@@ -684,6 +684,29 @@ def get_market_context_for_chart(ticker=None):
                     ctx["premarket_change"] = round((pm - quote["c"]) / quote["c"] * 100, 2) if quote["c"] > 0 else 0
         except: pass
 
+        # ── Sector Context ────────────────────────────────────
+        SECTOR_ETFS = {
+            "Technology":"XLK","Healthcare":"XLV","Financials":"XLF","Energy":"XLE",
+            "Consumer Cyclical":"XLY","Communication Services":"XLC","Industrials":"XLI",
+            "Materials":"XLB","Real Estate":"XLRE","Utilities":"XLU","Consumer Defensive":"XLP",
+        }
+        try:
+            profile = fh(f"/stock/profile2?symbol={ticker}")
+            sector_name = profile.get("finnhubIndustry","")
+            # מצא ETF מתאים
+            sector_etf = None
+            for k, v in SECTOR_ETFS.items():
+                if any(w in sector_name for w in k.split()):
+                    sector_etf = v
+                    break
+            if sector_etf:
+                etf_q = fh(f"/quote?symbol={sector_etf}")
+                if etf_q.get("c"):
+                    ctx["sector_name"]       = sector_name
+                    ctx["sector_etf"]        = sector_etf
+                    ctx["sector_etf_change"] = round(etf_q.get("dp", 0), 2)
+        except: pass
+
         # ── Support/Resistance היסטורי ────────────────────────
         # 52W High/Low + POC מהמערכת הראשית
         try:
@@ -792,6 +815,21 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append(f"MA50: ${market_ctx['ma50']}")
         if market_ctx.get("ma200"):
             ctx_lines.append(f"MA200: ${market_ctx['ma200']}")
+
+        # Sector Context
+        if market_ctx.get("sector_name"):
+            ctx_lines.append("")
+            ctx_lines.append("── ביצועי סקטור ──")
+            ctx_lines.append(f"סקטור: {market_ctx['sector_name']} ({market_ctx.get('sector_etf','')})")
+            etf_chg = market_ctx.get('sector_etf_change', 0)
+            spy_chg = market_ctx.get('spy_change', 0)
+            rel = round(etf_chg - spy_chg, 2)
+            direction = "מוביל ▲" if rel > 0.5 else "פגור ▼" if rel < -0.5 else "ניטרלי"
+            ctx_lines.append(f"ETF היום: {etf_chg:+.2f}% | S&P: {spy_chg:+.2f}% | יחסי: {rel:+.2f}% — {direction}")
+            if rel > 1:
+                ctx_lines.append("⚡ הסקטור חזק מאוד היום — רוח גבית לעסקה")
+            elif rel < -1:
+                ctx_lines.append("⚠️ הסקטור חלש היום — רוח נגדית, הקטן פוזיציה")
         ctx_lines.append("═══════════════════════════")
         context_text = "\n".join(ctx_lines)
         
