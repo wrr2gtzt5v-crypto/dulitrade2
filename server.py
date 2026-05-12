@@ -683,7 +683,69 @@ def get_market_context_for_chart(ticker=None):
                     ctx["premarket_price"]  = round(pm, 2)
                     ctx["premarket_change"] = round((pm - quote["c"]) / quote["c"] * 100, 2) if quote["c"] > 0 else 0
         except: pass
-    
+
+        # ── Support/Resistance היסטורי ────────────────────────
+        # 52W High/Low + POC מהמערכת הראשית
+        try:
+            m = fh(f"/stock/metric?symbol={ticker}&metric=all")
+            metric = m.get("metric", {})
+            w52_high = metric.get("52WeekHigh")
+            w52_low  = metric.get("52WeekLow")
+            price    = ctx.get("ticker_price", 0)
+
+            if w52_high and w52_low and price > 0:
+                ctx["week52_high"] = round(w52_high, 2)
+                ctx["week52_low"]  = round(w52_low, 2)
+                dist_high = round((w52_high - price) / price * 100, 1)
+                dist_low  = round((price - w52_low)  / price * 100, 1)
+                ctx["dist_from_52w_high"] = dist_high
+                ctx["dist_from_52w_low"]  = dist_low
+                # קרוב לשיא/שפל = רמה חשובה
+                ctx["near_52w_high"] = dist_high < 3   # תוך 3% מהשיא
+                ctx["near_52w_low"]  = dist_low  < 3   # תוך 3% מהשפל
+
+            # נרות לחישוב POC ורמות תמיכה/התנגדות
+            candles = get_candles(ticker)
+            if candles.get("c") and len(candles["c"]) >= 20:
+                c = candles["c"]
+                h = candles.get("h", c)
+                l = candles.get("l", c)
+                v = candles.get("v", [1]*len(c))
+
+                # POC — Volume Profile
+                if len(h) >= 20 and len(l) >= 20:
+                    all_h = max(h[-90:]) if len(h) >= 90 else max(h)
+                    all_l = min(l[-90:]) if len(l) >= 90 else min(l)
+                    step  = (all_h - all_l) / 50 if all_h > all_l else 1
+                    vol_map = {}
+                    for i in range(len(c)-min(90,len(c)), len(c)):
+                        hi_i = h[i] if i < len(h) else c[i]
+                        lo_i = l[i] if i < len(l) else c[i]
+                        vi   = v[i] if i < len(v) else 0
+                        bars = max(1, round((hi_i - lo_i) / step))
+                        vpb  = vi / bars
+                        price_lvl = lo_i
+                        while price_lvl <= hi_i:
+                            bucket = round((price_lvl - all_l) / step)
+                            vol_map[bucket] = vol_map.get(bucket, 0) + vpb
+                            price_lvl += step
+                    if vol_map:
+                        max_bucket = max(vol_map, key=vol_map.get)
+                        poc = round(all_l + max_bucket * step, 2)
+                        ctx["poc"] = poc
+
+                # תמיכה/התנגדות — שיא/שפל 20 נרות
+                ctx["resistance_20d"] = round(max(h[-20:]), 2) if len(h) >= 20 else None
+                ctx["support_20d"]    = round(min(l[-20:]), 2) if len(l) >= 20 else None
+
+                # MA50 / MA200
+                if len(c) >= 50:
+                    ctx["ma50"]  = round(sum(c[-50:]) / 50, 2)
+                if len(c) >= 200:
+                    ctx["ma200"] = round(sum(c[-200:]) / 200, 2)
+
+        except: pass
+
     return ctx
 
 
@@ -712,6 +774,24 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
                 ctx_lines.append(f"  • {n}")
+        # Support/Resistance היסטורי
+        if market_ctx.get("week52_high"):
+            ctx_lines.append("")
+            ctx_lines.append("── רמות מפתח היסטוריות ──")
+            near_h = " ← קרוב מאוד!" if market_ctx.get("near_52w_high") else ""
+            near_l = " ← קרוב מאוד!" if market_ctx.get("near_52w_low") else ""
+            ctx_lines.append(f"שיא 52W: ${market_ctx['week52_high']} ({market_ctx.get('dist_from_52w_high',0):+.1f}%){near_h}")
+            ctx_lines.append(f"שפל 52W: ${market_ctx['week52_low']} (-{market_ctx.get('dist_from_52w_low',0):.1f}%){near_l}")
+        if market_ctx.get("poc"):
+            ctx_lines.append(f"POC: ${market_ctx['poc']} — נפח מרוכז (תמיכה/התנגדות חזקה)")
+        if market_ctx.get("resistance_20d"):
+            ctx_lines.append(f"התנגדות 20 ימים: ${market_ctx['resistance_20d']}")
+        if market_ctx.get("support_20d"):
+            ctx_lines.append(f"תמיכה 20 ימים: ${market_ctx['support_20d']}")
+        if market_ctx.get("ma50"):
+            ctx_lines.append(f"MA50: ${market_ctx['ma50']}")
+        if market_ctx.get("ma200"):
+            ctx_lines.append(f"MA200: ${market_ctx['ma200']}")
         ctx_lines.append("═══════════════════════════")
         context_text = "\n".join(ctx_lines)
         
