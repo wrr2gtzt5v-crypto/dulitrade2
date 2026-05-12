@@ -684,6 +684,80 @@ def get_market_context_for_chart(ticker=None):
                     ctx["premarket_change"] = round((pm - quote["c"]) / quote["c"] * 100, 2) if quote["c"] > 0 else 0
         except: pass
 
+        # ── Multi-Timeframe Analysis ──────────────────────────
+        try:
+            # שלוף נרות יומיים + שעתיים לניתוח MTF
+            daily = get_candles(ticker)  # נרות יומיים כבר מחושבים
+            
+            def calc_rsi(closes, n=14):
+                if len(closes) < n+1: return 50
+                gains = losses = 0
+                for i in range(-n, 0):
+                    d = closes[i] - closes[i-1]
+                    if d > 0: gains += d
+                    else: losses -= d
+                ag, al = gains/n, losses/n
+                return round(100 - 100/(1 + ag/al), 1) if al > 0 else 100
+
+            def calc_macd(closes):
+                if len(closes) < 26: return 0
+                k12, k26 = 2/13, 2/27
+                e12 = e26 = closes[0]
+                for p in closes:
+                    e12 = p*k12 + e12*(1-k12)
+                    e26 = p*k26 + e26*(1-k26)
+                return round(e12 - e26, 2)
+
+            def calc_ma(closes, n):
+                if len(closes) < n: return closes[-1] if closes else 0
+                return round(sum(closes[-n:])/n, 2)
+
+            if daily.get("c") and len(daily["c"]) >= 20:
+                dc = daily["c"]
+                dh = daily.get("h", dc)
+                dl = daily.get("l", dc)
+                
+                # Daily indicators
+                d_rsi   = calc_rsi(dc)
+                d_macd  = calc_macd(dc)
+                d_ma50  = calc_ma(dc, 50)
+                d_ma200 = calc_ma(dc, 200)
+                d_price = dc[-1]
+                
+                # מגמה יומית לפי HH/HL
+                d_hh_hl = "עולה (HH/HL)" if len(dc)>=3 and dc[-1]>dc[-3] and min(dl[-3:])>min(dl[-6:-3]) else                           "יורדת (LH/LL)" if len(dc)>=3 and dc[-1]<dc[-3] else "דשדוש"
+                
+                ctx["mtf_daily"] = {
+                    "rsi":    d_rsi,
+                    "macd":   "חיובי ▲" if d_macd > 0 else "שלילי ▼",
+                    "vs_ma50":  f"{'מעל' if d_price > d_ma50 else 'מתחת'} MA50 ({round((d_price/d_ma50-1)*100,1):+.1f}%)" if d_ma50 > 0 else "—",
+                    "vs_ma200": f"{'מעל' if d_price > d_ma200 else 'מתחת'} MA200 ({round((d_price/d_ma200-1)*100,1):+.1f}%)" if d_ma200 > 0 else "—",
+                    "trend":  d_hh_hl,
+                }
+
+                # Hourly — נרות שעתיים מ-Polygon
+                if POLYGON_KEY:
+                    import datetime
+                    to_dt  = datetime.date.today().isoformat()
+                    frm_dt = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
+                    h_data = pg(f"/v2/aggs/ticker/{ticker}/range/1/hour/{frm_dt}/{to_dt}?adjusted=true&sort=asc&limit=100")
+                    h_results = h_data.get("results", [])
+                    if h_results and len(h_results) >= 10:
+                        hc = [r["c"] for r in h_results]
+                        h_rsi  = calc_rsi(hc)
+                        h_macd = calc_macd(hc)
+                        h_ema9 = hc[-1]
+                        k = 2/10
+                        for p in hc[-20:]: h_ema9 = p*k + h_ema9*(1-k)
+                        
+                        ctx["mtf_hourly"] = {
+                            "rsi":  h_rsi,
+                            "macd": "חיובי ▲" if h_macd > 0 else "שלילי ▼",
+                            "ema9_vs_price": "מחיר מעל EMA9 ▲" if hc[-1] > h_ema9 else "מחיר מתחת EMA9 ▼",
+                            "trend": "עולה" if hc[-1] > hc[-5] else "יורד" if hc[-1] < hc[-5] else "דשדוש",
+                        }
+        except: pass
+
         # ── Sector Context ────────────────────────────────────
         SECTOR_ETFS = {
             "Technology":"XLK","Healthcare":"XLV","Financials":"XLF","Energy":"XLE",
@@ -797,6 +871,27 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
                 ctx_lines.append(f"  • {n}")
+        # Multi-Timeframe
+        if market_ctx.get("mtf_daily"):
+            ctx_lines.append("")
+            ctx_lines.append("── Multi-Timeframe Analysis ──")
+            d = market_ctx["mtf_daily"]
+            ctx_lines.append(f"Daily: RSI {d['rsi']} | MACD {d['macd']} | {d['vs_ma50']} | מגמה: {d['trend']}")
+            if d.get("vs_ma200"):
+                ctx_lines.append(f"Daily: {d['vs_ma200']}")
+        if market_ctx.get("mtf_hourly"):
+            h = market_ctx["mtf_hourly"]
+            ctx_lines.append(f"Hourly: RSI {h['rsi']} | MACD {h['macd']} | {h['ema9_vs_price']} | מגמה: {h['trend']}")
+            # סיכום MTF
+            d_bull = market_ctx["mtf_daily"]["trend"].startswith("עולה")
+            h_bull = h["trend"] == "עולה"
+            if d_bull and h_bull:
+                ctx_lines.append("✅ MTF מסכים: יומי + שעתי עולים → כנס LONG בלבד")
+            elif not d_bull and not h_bull:
+                ctx_lines.append("🔴 MTF מסכים: יומי + שעתי יורדים → כנס SHORT בלבד")
+            else:
+                ctx_lines.append("⚠️ MTF סותר: כיוונים שונים → זהירות, המתן להסכמה")
+
         # Support/Resistance היסטורי
         if market_ctx.get("week52_high"):
             ctx_lines.append("")
@@ -1006,7 +1101,7 @@ Swing Trade:
         url = "https://api.anthropic.com/v1/messages"
         payload = {
             "model": "claude-opus-4-5",
-            "max_tokens": 2048,
+            "max_tokens": 3000,
             "messages": [{
                 "role": "user",
                 "content": [
