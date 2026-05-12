@@ -4219,8 +4219,11 @@ async function runScanner(auto=false){
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
         if(scores.totalScore < dynamicMinScore) return; // ציון מלא
-        if(confScore < 3) return;                       // Confluence מינימלי
         if(scores.rrRatio < 1.5) return;                // R/R מינימלי
+        // חייב לעמוד לפחות באחד: Conf>=4 OR סיכון<50
+        const passConf = confScore >= 4;
+        const passRisk = scores.risk < 50;
+        if(!passConf && !passRisk) return; // לא עומד בשום תנאי
 
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
