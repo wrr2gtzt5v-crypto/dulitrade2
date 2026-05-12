@@ -2760,6 +2760,22 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
       source: "Yahoo"
     } : shortData);
 
+  // ── Pre-Market Gap Warning ────────────────────────────────
+  let pmGapHtml = "";
+  if(quote.pmPrice && quote.pmPrice > 0){
+    const pmPct = quote.pmPct || +((quote.pmPrice - (quote._origC||quote.c)) / (quote._origC||quote.c) * 100).toFixed(2);
+    const pmDir = pmPct > 0 ? "▲" : "▼";
+    const pmCol = pmPct > 0 ? "var(--green)" : "var(--red)";
+    const pmAbs = Math.abs(pmPct);
+    if(pmAbs >= 0.5){
+      const warn = pmAbs >= 3 ? `⚠️ Gap גדול — SL/TP חושבו לפי מחיר Pre-Market` : "";
+      pmGapHtml = `<div style="margin:0 1.25rem .75rem;padding:10px 14px;background:var(--bg3);border:1px solid ${pmCol};border-radius:7px;font-size:12px;color:${pmCol}">
+        📊 Pre-Market: <strong>${pmDir}${pmAbs.toFixed(2)}%</strong> · מחיר: <strong>$${quote.pmPrice}</strong>
+        ${warn ? `<br><span style="color:var(--amber);font-size:11px">${warn}</span>` : ""}
+      </div>`;
+    }
+  }
+
   // ── Earnings Warning — דינמי מה-API ──────────────────────
   const hasEarnings = earningsCal?.available && earningsCal?.soon;
   let earningsHtml = "";
@@ -2894,15 +2910,24 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
 
   // ── חדשות ──────────────────────────────────────────────
   const srcColor=s=>s==="CNBC"?"#0057a8":s==="MarketWatch"?"#1a7f3c":s==="Investing.com"?"#e84142":"#6001d2";
-  const nHtml=d.allNews.filter(n=>n.title||n.headline).length?`
+  // סנן ומיין חדשות — חדשות מ-12 שעות אחרונות ראשונות
+  const now12h = Date.now() - 12 * 60 * 60 * 1000;
+  const sortedNews = [...d.allNews].sort((a,b) => {
+    const aRecent = a.datetime && (a.datetime*1000) > now12h;
+    const bRecent = b.datetime && (b.datetime*1000) > now12h;
+    if(aRecent && !bRecent) return -1;
+    if(!aRecent && bRecent) return 1;
+    return 0;
+  });
+  const nHtml=sortedNews.filter(n=>n.title||n.headline).length?`
     <div class="stitle">${T("סנטימנט","סנטימנט")} חדשות — ${d.totalNews} כתבות · ${d.posNews} חיוביות · ${d.negNews} שליליות</div>
-    ${d.allNews.filter(n=>n.title||n.headline).map(n=>{
+    ${sortedNews.filter(n=>n.title||n.headline).map(n=>{
       const c2=n.sentiment==="positive"?"var(--green)":n.sentiment==="negative"?"var(--red)":"var(--amber)";
       const src=n.source||"Yahoo Finance";
       return `<div class="news-item">
         <div class="nbar" style="background:${c2};opacity:.7;"></div>
         <div style="flex:1;">
-          <div class="ntop"><span class="nsrc-badge" style="background:${srcColor(src)}">${src}</span><span class="nsent">${n.sentiment==="positive"?"↑ חיובי":n.sentiment==="negative"?"↓ שלילי":"→ נייטרלי"}</span></div>
+          <div class="ntop"><span class="nsrc-badge" style="background:${srcColor(src)}">${src}</span><span class="nsent">${n.sentiment==="positive"?"↑ חיובי":n.sentiment==="negative"?"↓ שלילי":"→ נייטרלי"}</span>${n.datetime&&(n.datetime*1000)>now12h?'<span style="font-size:10px;color:var(--amber);font-weight:700">🔥 חדש</span>':''}</div>
           <a href="${n.url||"#"}" target="_blank" class="ntitle">${n.title||n.headline||""}</a>
         </div>
       </div>`;
@@ -3090,6 +3115,7 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
     </div>
 
     ${confHtml}
+    ${pmGapHtml}
     ${earningsHtml}
     ${warnHtml}
 
@@ -3287,6 +3313,15 @@ async function go(){
     ]);
 
     if(!quote.c||quote.c===0) throw new Error(`"${sym}" — לא נמצא. נסה AAPL, TSLA, NVDA...`);
+
+    // ── Pre-Market — עדכן מחיר אם פעיל ──────────────────────
+    // אם Pre-Market פעיל ויש מחיר PM — השתמש בו לניתוח
+    if(quote.pmActive && quote.pmPrice && quote.pmPrice > 0){
+      quote._origC  = quote.c;   // שמור מחיר מקורי
+      quote._origDp = quote.dp;
+      quote.c  = quote.pmPrice;
+      quote.dp = quote.pmPct || 0;
+    }
 
     // ── Retry נרות אם חוזרים ריקים ──────────────────────────
     // Render ישן יכול להחזיר נרות ריקים בניסיון הראשון
@@ -4107,6 +4142,12 @@ async function runScanner(auto=false){
 
         // ── שלב 1: פילטר בסיסי בלבד ──────────────────────────
         if(price <= 1) return; // לא penny stock
+
+        // ── Pre-Market Gap filter ──────────────────────────
+        // אם Pre-Market פעיל ויש Gap Down > 4% — דלג (לא מעניין לקנייה)
+        const pmPctRaw = quote.pmPct || 0;
+        const pmActiveRaw = quote.pmActive || false;
+        if(pmActiveRaw && pmPctRaw < -4) return; // Gap Down חד — לא כדאי
 
         // Volume Surge proxy (vr אמיתי יחושב בשלב 2 עם candles)
         const vrFromQuote = scanQuote.vr || 1;
