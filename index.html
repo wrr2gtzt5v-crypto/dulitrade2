@@ -2652,6 +2652,65 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector, preMa
 }
 
 
+// ── WIN RATE MANUAL ADD ──────────────────────────────────
+function showAddToWinRate(sym, price, tp, sl, strategy, holding){
+  // חשב holdDays מ-holding string
+  const holdDays = holding.includes("3-7")?5:holding.includes("שבוע")?7:
+    holding.includes("1-2")?10:holding.includes("2-3")?17:
+    holding.includes("חודש+")?45:30;
+
+  // בדוק אם כבר קיים
+  const trades = JSON.parse(localStorage.getItem("dt_trades")||"[]");
+  const existing = trades.find(t=>t.sym===sym&&t.status==="open");
+  if(existing){
+    alert(`⚠️ ${sym} כבר נמצא ב-Win Rate Tracking (סטטוס: פתוח)`);
+    return;
+  }
+
+  // הצג modal אישור עם פרטים
+  const modal = document.createElement("div");
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;`;
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:1.5rem;max-width:360px;width:92%;font-family:'IBM Plex Mono',monospace">
+      <h4 style="color:var(--green);margin-bottom:12px;font-size:14px">📊 הוסף עסקה ל-Win Rate</h4>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.8">
+        <div>מניה: <strong style="color:var(--text)">${sym}</strong></div>
+        <div>כניסה: <strong style="color:var(--blue)">$${price}</strong></div>
+        <div>יעד TP: <strong style="color:var(--green)">$${tp}</strong></div>
+        <div>SL: <strong style="color:var(--red)">$${sl}</strong></div>
+        <div>אסטרטגיה: <strong style="color:var(--amber)">${strategy||'—'}</strong></div>
+        <div>זמן החזקה: <strong style="color:var(--text)">${holding||'—'} (${holdDays} ימים)</strong></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">
+        לאחר ${holdDays} ימים המערכת תבדוק אם הגיעה ל-TP או פגעה ב-SL
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="confirmAddToWinRate('${sym}','BUY',${price},${tp},${sl},${holdDays},'${strategy||''}');this.closest('[style*=fixed]').remove()"
+          style="flex:1;background:var(--cbtn);border:none;color:#fff;padding:8px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">
+          ✅ הוסף
+        </button>
+        <button onclick="this.closest('[style*=fixed]').remove()"
+          style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:8px;border-radius:6px;font-size:12px;cursor:pointer">
+          ביטול
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function confirmAddToWinRate(sym, sig, entry, tp, sl, holdDays, strategy){
+  saveTrackedTrade(sym, sig, entry, tp, sl, holdDays, strategy);
+  // עדכן widget אם מוצג
+  const wrEl = document.getElementById("winRateWidget");
+  if(wrEl) wrEl.innerHTML = renderWinRateHtml();
+  // הצג אישור
+  const el = document.createElement("div");
+  el.style.cssText = `position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--bg2);border:2px solid var(--green);border-radius:10px;padding:12px 20px;font-family:monospace;font-size:13px;color:var(--green);z-index:9999;text-align:center`;
+  el.textContent = `✅ ${sym} נוסף ל-Win Rate Tracking!`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
 // ── BID/ASK HTML ─────────────────────────────────────────
 function buildBidAskHtml(quote){
   if(!quote||!quote.bid||!quote.ask) return "";
@@ -3072,6 +3131,14 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
         <div class="tbox"><div class="tlbl" onclick="showTip('עצירת הפסד')">${T("עצירת הפסד","עצירת הפסד")}</div><div class="tval sl">$${d.sl}</div><div class="tpct" style="color:var(--red)">${d.slPct}%</div></div>
       </div>
 
+      <!-- כפתור הוספה ידנית ל-Win Rate -->
+      <div id="addToWRBtn" style="margin-bottom:1.25rem">
+        <button onclick="showAddToWinRate('${sym}', ${d.price}, ${d.tp}, ${d.sl}, '${d.strategy||''}', '${d.holding||''}')"
+          style="width:100%;background:var(--cbtn);border:none;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+          📊 הוסף עסקה ל-Win Rate Tracking
+        </button>
+      </div>
+
       <div class="stitle">אינדיקטורים מתקדמים</div>
       <div class="targets" style="grid-template-columns:repeat(4,1fr)">
         <div class="tbox"><div class="tlbl" onclick="showTip('MA50')">${T("MA50","MA50")}</div><div class="tval en" style="font-size:12px">$${d.ma50}</div></div>
@@ -3435,29 +3502,32 @@ function renderHistoryHtml(sym){
 function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
   const {rsi, stochRsi, williamsR, cci, macdVal, ma50, ma200, bbU, bbL, vr, vLbl} = ind;
   // כל אינדיקטור מצביע: +1=קנייה, -1=מכירה, 0=ניטרלי
+  // משקלים — אינדיקטורים חזקים שווים יותר
   const signals = [
-    {name:"RSI",          v: rsi<40?1:rsi>65?-1:0},
-    {name:"Stoch RSI",    v: stochRsi<25?1:stochRsi>75?-1:0},
-    {name:"Williams %R",  v: williamsR<-75?1:williamsR>-25?-1:0},
-    {name:"CCI",          v: cci<-80?1:cci>80?-1:0},
-    {name:"MACD",         v: macdVal>0.05?1:macdVal<-0.05?-1:0},
-    {name:"MA50/200",     v: ma50>ma200?1:ma50<ma200?-1:0},
-    {name:"בולינג'ר",     v: bbL>0?(rsi<40&&cci<0?1:rsi>65&&cci>0?-1:0):0},
-    {name:"נפח",          v: vr>1.5&&pct>0?1:vr>1.5&&pct<0?-1:0},
-    {name:"נרות יפניים",  v: patterns.some(p=>p.bull===true)?1:patterns.some(p=>p.bull===false)?-1:0},
-    {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0},
-    {name:"ADX",           v: (ind.adx||0)>=20 ? ((ind.diPlus||0)>(ind.diMinus||0)?1:-1) : 0},
-    {name:"POC",           v: (()=>{
-      // ind לא מכיל price — נבדוק ב-calcConfluence אם poc מועבר
-      return 0; // POC מחושב ב-scoreAll ישירות
-    })()},
-    {name:"Divergence",    v: ind.divergence==="bullish"?1:ind.divergence==="bearish"?-1:0},
+    {name:"RSI",          v: rsi<40?1:rsi>65?-1:0,          w:2},
+    {name:"Stoch RSI",    v: stochRsi<25?1:stochRsi>75?-1:0, w:1},
+    {name:"Williams %R",  v: williamsR<-75?1:williamsR>-25?-1:0, w:1},
+    {name:"CCI",          v: cci<-80?1:cci>80?-1:0,          w:1},
+    {name:"MACD",         v: macdVal>0.05?1:macdVal<-0.05?-1:0, w:2},
+    {name:"MA50/200",     v: ma50>ma200?1:ma50<ma200?-1:0,   w:2},
+    {name:"בולינג'ר",     v: bbL>0?(rsi<40&&cci<0?1:rsi>65&&cci>0?-1:0):0, w:1},
+    {name:"נפח",          v: vr>1.5&&pct>0?1:vr>1.5&&pct<0?-1:0, w:1},
+    {name:"נרות יפניים",  v: patterns.some(p=>p.bull===true&&(p.strength||1)>=2)?1:patterns.some(p=>p.bull===false&&(p.strength||1)>=2)?-1:0, w:2},
+    {name:"חדשות",        v: totalNews>0?(posNews>negNews?1:negNews>posNews?-1:0):0, w:2},
+    {name:"ADX",          v: (ind.adx||0)>=20?((ind.diPlus||0)>(ind.diMinus||0)?1:-1):0, w:2},
+    {name:"POC",          v: 0, w:1},
+    {name:"Divergence",   v: ind.divergence==="bullish"?1:ind.divergence==="bearish"?-1:0, w:3},
   ];
+
+  // חשב ציון עם משקלים
+  const maxWeight = signals.reduce((s,x)=>s+x.w, 0); // סה"כ משקל מקסימלי
+  const bullWeight = signals.filter(s=>s.v===1).reduce((s,x)=>s+x.w, 0);
+  // נרמל ל-0-10
+  const score = Math.round(bullWeight / maxWeight * 10);
+
   const bulls = signals.filter(s=>s.v===1);
   const bears = signals.filter(s=>s.v===-1);
   const neutral = signals.filter(s=>s.v===0);
-  // ציון 0-10
-  const score = bulls.length;
   return { score, bulls, bears, neutral, total: signals.length };
 }
 
