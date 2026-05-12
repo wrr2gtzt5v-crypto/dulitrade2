@@ -646,7 +646,7 @@ def analyze_chart_image(image_base64, media_type="image/jpeg"):
         url = "https://api.anthropic.com/v1/messages"
         payload = {
             "model": "claude-opus-4-5",
-            "max_tokens": 1024,
+            "max_tokens": 2048,
             "messages": [{
                 "role": "user",
                 "content": [
