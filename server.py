@@ -801,15 +801,33 @@ Market Structure (חשוב לזיהוי מגמה):
 סה"כ: X/16 → המר ל-X/10
 
 ═══════════════════════════════════
-שלב 5 — SL/TP מדויקים
+שלב 5 — Entry Timing מדויק
+═══════════════════════════════════
+בחר את סוג הכניסה המדויק:
+- Breakout Entry: "כנס על פריצת $X עם נר ירוק סוגר מעל הרמה" — אמין יותר, מחיר גבוה יותר
+- Pullback Entry: "כנס על חזרה ל-$X (VWAP/EMA/תמיכה)" — מחיר טוב יותר, R/R גבוה יותר
+- Momentum Entry: "כנס מיד על נר גדול עם נפח" — מהיר, מסוכן יותר
+- Confirmation Entry: "המתן לסגירת נר מעל $X לפני כניסה" — הכי בטוח
+- Volume Trigger: "כנס רק אם נפח הנר > ממוצע 10 נרות"
+
+═══════════════════════════════════
+שלב 6 — SL/TP מדויקים + Risk Management
 ═══════════════════════════════════
 Day Trade:
 - SL: מתחת לשפל הנר האחרון / מתחת ל-VWAP / מתחת ל-OR Low
-- TP: שיא קודם / רמת התנגדות / R/R 2:1 מינימום
+- TP1: יעד ראשון — R/R 1:1.5 (צא 50% כאן)
+- TP2: יעד שני — שיא קודם / רמת התנגדות / R/R 2:1+
+- אחרי הגעה ל-TP1: זוז SL לנקודת הכניסה (Breakeven Stop)
 
 Swing Trade:
-- SL: מתחת לתמיכה / מתחת ל-MA50
-- TP: התנגדות הבאה / Fibonacci extension
+- SL: מתחת לתמיכה / מתחת ל-MA50 / מתחת ל-FVG
+- TP1: התנגדות הקרובה (צא 50% כאן)
+- TP2: Fibonacci extension / התנגדות הבאה
+- אחרי הגעה ל-TP1: זוז SL לכניסה (Breakeven Stop)
+
+כלל זהב — Partial Exit:
+- תמיד צא 50% ב-TP1 ותן לשאר לרוץ ל-TP2
+- זה מבטיח רווח גם אם המחיר לא מגיע ל-TP2
 
 ═══════════════════════════════════
 ענה בפורמט JSON בלבד — ללא טקסט לפני או אחרי:
@@ -837,10 +855,17 @@ Swing Trade:
   "tp": מחיר TP,
   "tp2": מחיר TP שני אם רלוונטי או null,
   "sl": מחיר SL,
-  "tp_pct": אחוז רווח,
+  "tp_pct": אחוז רווח עד TP1,
+  "tp2_pct": אחוז רווח עד TP2 או null,
   "sl_pct": אחוז הפסד,
-  "rr_ratio": יחס R/R,
+  "rr_ratio": יחס R/R עד TP1,
+  "rr_ratio_tp2": יחס R/R עד TP2 או null,
   "strategy": "שם האסטרטגיה המדויקת",
+  "entry_type": "Breakout Entry / Pullback Entry / Momentum Entry / Confirmation Entry / Volume Trigger",
+  "partial_exit": "הוראה מדויקת: למשל צא 50% ב-TP1 ב-$X, הזז SL לכניסה, תן לשאר לרוץ ל-TP2",
+  "breakeven_stop": "מתי לזוז SL לכניסה — למשל: אחרי הגעה ל-$X",
+  "market_structure": "HH/HL עולה / LH/LL יורד / BOS / FVG / Liquidity Sweep",
+  "volume_analysis_detail": "Climax/Dry Up/Normal + מה זה אומר לעסקה",
   "patterns": ["דפוס1", "דפוס2"],
   "trend": "תיאור המגמה",
   "market_context": "הקשר כללי — שוק חזק/חלש, מגמה ראשית",
