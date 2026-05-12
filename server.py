@@ -826,6 +826,34 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── Gap Risk Filter ──────────────────────────────────
+        if ticker and ticker not in ("", "null", "None"):
+            try:
+                candles_g = get_candles(ticker)
+                cg = candles_g.get("c", [])
+                vg = candles_g.get("v", [])
+                if len(cg) >= 2 and len(vg) >= 2:
+                    prev_close = cg[-2]
+                    today_open = candles_g.get("o", cg)[-1]
+                    today_vol  = vg[-1]
+                    avg_vol    = sum(vg[-20:]) / min(20, len(vg)) if len(vg) >= 5 else 0
+
+                    if prev_close > 0:
+                        gap_pct = round((today_open - prev_close) / prev_close * 100, 2)
+                        vol_ratio = round(today_vol / avg_vol, 1) if avg_vol > 0 else 0
+
+                        if abs(gap_pct) >= 3:
+                            if vol_ratio < 1.5:
+                                ctx["gap_warning"] = f"🚨 Gap {'Up' if gap_pct>0 else 'Down'} {gap_pct}% ללא נפח (x{vol_ratio}) — Gap מלכודת! סבירות Gap Fill גבוהה. המתן לאישור."
+                                ctx["gap_type"] = "trap"
+                            else:
+                                ctx["gap_warning"] = f"✅ Gap {'Up' if gap_pct>0 else 'Down'} {gap_pct}% עם נפח (x{vol_ratio}) — Gap אמיתי עם כסף. Gap & Go אפשרי."
+                                ctx["gap_type"] = "real"
+                        elif abs(gap_pct) >= 1.5:
+                            ctx["gap_warning"] = f"🟡 Gap קטן {gap_pct}% — שים לב לרמת הפתיחה."
+                            ctx["gap_type"] = "small"
+            except: pass
+
         # ── Correlation Filter ───────────────────────────────
         try:
             spy_chg = ctx.get("spy_change", 0)
@@ -1113,6 +1141,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
+        # Gap Risk
+        if market_ctx.get("gap_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("── Gap Risk ──")
+            ctx_lines.append(market_ctx["gap_warning"])
+
         # Correlation
         if market_ctx.get("correlation_warning"):
             ctx_lines.append("")
