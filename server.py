@@ -59,6 +59,19 @@ def get_quote(symbol):
                         vr = round(today_vol / avg_vol, 1)
         except: pass
 
+        # ── Pre-Market price ─────────────────────────────────
+        import datetime
+        pm_price = d.get("preMarketPrice") or d.get("extendedPrice")
+        pm_pct   = None
+        pm_active = False
+        if pm_price and pm_price > 0:
+            pm_pct = round((pm_price - c) / c * 100, 2) if c > 0 else 0
+            # בדוק שעת ET
+            now_utc = datetime.datetime.utcnow()
+            is_dst = 3 <= now_utc.month <= 11
+            et_time = (now_utc.hour - (4 if is_dst else 5)) % 24 + now_utc.minute/60
+            pm_active = 4 <= et_time < 9.5
+
         return {
             "c":  round(c, 2),
             "pc": round(d.get("pc", c), 2),
@@ -71,8 +84,11 @@ def get_quote(symbol):
             "spread": spread,
             "spreadPct": spread_pct,
             "vr": vr,
+            "pmPrice":  round(pm_price, 2) if pm_price else None,
+            "pmPct":    pm_pct,
+            "pmActive": pm_active,
         }
-    return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0,"bid":None,"ask":None,"spread":None,"spreadPct":None,"vr":1}
+    return {"c":0,"pc":0,"h":0,"l":0,"o":0,"dp":0,"bid":None,"ask":None,"spread":None,"spreadPct":None,"vr":1,"pmPrice":None,"pmPct":None,"pmActive":False}
 
 def pg(path):
     """Polygon.io API"""
