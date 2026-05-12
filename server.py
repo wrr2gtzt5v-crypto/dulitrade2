@@ -637,32 +637,86 @@ def get_yahoo_fundamentals(symbol):
         return {"available": False}
 
 
-def analyze_chart_image(image_base64, media_type="image/jpeg"):
+def get_market_context_for_chart(ticker=None):
+    """שולף נתוני שוק אמיתיים לפני ניתוח תמונה"""
+    ctx = {}
+    
+    # SPY — מצב השוק הכללי
+    try:
+        spy = fh("/quote?symbol=SPY")
+        if spy.get("c"):
+            ctx["spy_price"] = round(spy["c"], 2)
+            ctx["spy_change"] = round(spy.get("dp", 0), 2)
+            ctx["spy_direction"] = "עולה" if spy.get("dp",0) > 0 else "יורד"
+    except: pass
+    
+    # VIX — מדד פחד
+    try:
+        vix = fh("/quote?symbol=VIX")
+        if vix.get("c"):
+            ctx["vix"] = round(vix["c"], 1)
+            ctx["vix_level"] = "גבוה - פחד" if vix["c"] > 25 else "נמוך - רגוע" if vix["c"] < 15 else "בינוני"
+    except: pass
+    
+    # QQQ — נאסד"ק
+    try:
+        qqq = fh("/quote?symbol=QQQ")
+        if qqq.get("c"):
+            ctx["qqq_change"] = round(qqq.get("dp", 0), 2)
+    except: pass
+    
+    # חדשות + Pre-Market על המניה הספציפית
+    if ticker and ticker not in ("", "null", "None"):
+        try:
+            news = get_news(ticker)
+            if news:
+                ctx["ticker_news"] = [n.get("headline","")[:100] for n in news[:3]]
+        except: pass
+        
+        try:
+            quote = fh(f"/quote?symbol={ticker}")
+            if quote.get("c"):
+                ctx["ticker_price"]  = round(quote["c"], 2)
+                ctx["ticker_change"] = round(quote.get("dp", 0), 2)
+                pm = quote.get("preMarketPrice")
+                if pm:
+                    ctx["premarket_price"]  = round(pm, 2)
+                    ctx["premarket_change"] = round((pm - quote["c"]) / quote["c"] * 100, 2) if quote["c"] > 0 else 0
+        except: pass
+    
+    return ctx
+
+
+def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
     """ניתוח גרף מתמונה עם Claude Vision"""
     anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
     if not anthropic_key:
         return {"error": "ANTHROPIC_KEY לא מוגדר"}
     try:
-        url = "https://api.anthropic.com/v1/messages"
-        payload = {
-            "model": "claude-opus-4-5",
-            "max_tokens": 2048,
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": image_base64,
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": """אתה מנתח טכני מקצועי ברמה של Hedge Fund, מתמחה ב-Day Trading וב-Swing Trading.
-
-═══════════════════════════════════
+        # שלוף context שוק אמיתי
+        market_ctx = get_market_context_for_chart(ticker)
+        
+        # בנה טקסט context
+        ctx_lines = ["═══ נתוני שוק בזמן אמת ═══"]
+        if market_ctx.get("spy_price"):
+            ctx_lines.append(f"SPY: ${market_ctx['spy_price']} ({market_ctx.get('spy_direction','')}{market_ctx.get('spy_change',0):+.2f}%)")
+        if market_ctx.get("vix"):
+            ctx_lines.append(f"VIX: {market_ctx['vix']} — {market_ctx.get('vix_level','')}")
+        if market_ctx.get("qqq_change") is not None:
+            ctx_lines.append(f"QQQ: {market_ctx['qqq_change']:+.2f}%")
+        if market_ctx.get("ticker_price") and ticker:
+            ctx_lines.append(f"{ticker}: ${market_ctx['ticker_price']} ({market_ctx.get('ticker_change',0):+.2f}%)")
+        if market_ctx.get("premarket_price"):
+            ctx_lines.append(f"Pre-Market: ${market_ctx['premarket_price']} ({market_ctx.get('premarket_change',0):+.2f}%)")
+        if market_ctx.get("ticker_news"):
+            ctx_lines.append("חדשות אחרונות:")
+            for n in market_ctx["ticker_news"]:
+                ctx_lines.append(f"  • {n}")
+        ctx_lines.append("═══════════════════════════")
+        context_text = "\n".join(ctx_lines)
+        
+        # בנה טקסט הפרומפט המלא כstring נפרד
+        prompt_body = """═══════════════════════════════════
 שלב 1 — זיהוי מידע בסיסי מהגרף
 ═══════════════════════════════════
 1. זהה את שם/טיקר המניה (מוצג בדרך כלל בפינה שמאל עליון ב-TradingView — למשל AAPL, NVDA, SPY)
@@ -784,6 +838,26 @@ Swing Trade:
   "reasoning": "הסבר מקצועי מפורט בעברית: מה אתה רואה, למה זו הכניסה, מה הקטליסט, מה הסיכון",
   "warnings": ["אזהרה ספציפית אם יש"]
 }"""
+        full_prompt = context_text + "\n\n" + prompt_body
+        
+        url = "https://api.anthropic.com/v1/messages"
+        payload = {
+            "model": "claude-opus-4-5",
+            "max_tokens": 2048,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_base64,
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": full_prompt
                     }
                 ]
             }]
@@ -909,10 +983,11 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.loads(self.rfile.read(length))
                 image_b64 = body.get("image", "")
                 media_type = body.get("mediaType", "image/jpeg")
+                ticker = body.get("ticker", None)  # טיקר אם כבר ידוע
                 if not image_b64:
                     self._json({"error": "חסרה תמונה"}, 400)
                     return
-                result = analyze_chart_image(image_b64, media_type)
+                result = analyze_chart_image(image_b64, media_type, ticker)
                 self._json(result)
             except Exception as e:
                 self._json({"error": str(e)}, 500)
