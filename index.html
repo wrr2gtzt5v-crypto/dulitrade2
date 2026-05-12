@@ -524,6 +524,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
       <button class="sbtn" id="abtn" onclick="go()">נתח ←</button>
       <div class="ac" id="ac"></div>
     </div>
+    <div style="margin-bottom:8px">
+      <button onclick="openChartAnalyzer()" style="background:linear-gradient(135deg,#1a73e8,#7c3aed);border:none;color:#fff;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;justify-content:center">
+        📸 נתח גרף מתמונה — Claude AI
+      </button>
+    </div>
     <div class="quick">
       <button class="qbtn" onclick="q('AAPL')">AAPL</button>
       <button class="qbtn" onclick="q('NVDA')">NVDA</button>
@@ -2709,6 +2714,187 @@ function confirmAddToWinRate(sym, sig, entry, tp, sl, holdDays, strategy){
   el.textContent = `✅ ${sym} נוסף ל-Win Rate Tracking!`;
   document.body.appendChild(el);
   setTimeout(()=>el.remove(), 3000);
+}
+
+// ── CHART ANALYZER — Claude Vision ──────────────────────
+function openChartAnalyzer(){
+  const modal = document.createElement("div");
+  modal.id = "chartAnalyzerModal";
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem`;
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3 style="font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+          📸 ניתוח גרף עם Claude AI
+        </h3>
+        <button onclick="document.getElementById('chartAnalyzerModal').remove()" 
+          style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
+      </div>
+
+      <div id="caDropZone" 
+        style="border:2px dashed var(--border2);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;margin-bottom:1rem;transition:border-color .2s"
+        onclick="document.getElementById('caFileInput').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+        ondragleave="this.style.borderColor='var(--border2)'"
+        ondrop="handleChartDrop(event)">
+        <div style="font-size:2rem;margin-bottom:8px">📊</div>
+        <div style="font-size:13px;color:var(--text2)">גרר תמונת גרף לכאן</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">או לחץ לבחירה מהגלריה</div>
+      </div>
+      <input id="caFileInput" type="file" accept="image/*" style="display:none" onchange="handleChartFile(event)">
+
+      <div id="caPreview" style="display:none;margin-bottom:1rem">
+        <img id="caImg" style="width:100%;border-radius:8px;border:1px solid var(--border)">
+      </div>
+
+      <button id="caAnalyzeBtn" onclick="analyzeChartImage()" 
+        style="display:none;width:100%;background:var(--cbtn);border:none;color:#fff;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:1rem">
+        🔍 נתח עם Claude AI
+      </button>
+
+      <div id="caResult" style="display:none"></div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+let _chartImageB64 = "";
+let _chartMediaType = "image/jpeg";
+
+function handleChartDrop(e){
+  e.preventDefault();
+  document.getElementById("caDropZone").style.borderColor = "var(--border2)";
+  const file = e.dataTransfer.files[0];
+  if(file) loadChartFile(file);
+}
+
+function handleChartFile(e){
+  const file = e.target.files[0];
+  if(file) loadChartFile(file);
+}
+
+function loadChartFile(file){
+  _chartMediaType = file.type || "image/jpeg";
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    _chartImageB64 = dataUrl.split(",")[1]; // base64 בלבד
+    // הצג preview
+    const img = document.getElementById("caImg");
+    const preview = document.getElementById("caPreview");
+    const btn = document.getElementById("caAnalyzeBtn");
+    if(img) img.src = dataUrl;
+    if(preview) preview.style.display = "block";
+    if(btn) btn.style.display = "block";
+    document.getElementById("caDropZone").style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeChartImage(){
+  if(!_chartImageB64){ alert("יש להעלות תמונה קודם"); return; }
+
+  const btn = document.getElementById("caAnalyzeBtn");
+  const result = document.getElementById("caResult");
+  btn.disabled = true;
+  btn.textContent = "⏳ Claude מנתח את הגרף...";
+  result.style.display = "none";
+
+  try {
+    const resp = await fetch("/api/analyze-chart", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({image: _chartImageB64, mediaType: _chartMediaType})
+    });
+    const data = await resp.json();
+
+    if(data.error){
+      result.innerHTML = `<div style="color:var(--red);font-size:13px">❌ שגיאה: ${data.error}</div>`;
+      result.style.display = "block";
+      return;
+    }
+
+    const a = data.analysis;
+    const sigColor = a.signal==="LONG"?"var(--green)":a.signal==="SHORT"?"var(--red)":"var(--amber)";
+    const sigIcon  = a.signal==="LONG"?"▲ לונג":a.signal==="SHORT"?"▼ שורט":"◆ ניטרלי";
+    const confStars = "★".repeat(Math.min(Math.round((a.confidence||5)/2),5)) + "☆".repeat(5-Math.min(Math.round((a.confidence||5)/2),5));
+
+    result.innerHTML = `
+      <div style="background:var(--bg3);border:1px solid ${sigColor};border-radius:10px;padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:22px;font-weight:700;color:${sigColor};font-family:monospace">${sigIcon}</div>
+          <div style="text-align:left">
+            <div style="font-size:11px;color:var(--text3);font-family:monospace">ביטחון</div>
+            <div style="font-size:14px;color:var(--amber)">${confStars} ${a.confidence||'—'}/10</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">כניסה</div>
+            <div style="font-size:14px;font-weight:700;color:var(--blue);font-family:monospace">${a.entry?"$"+a.entry:"—"}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">יעד TP</div>
+            <div style="font-size:14px;font-weight:700;color:var(--green);font-family:monospace">${a.tp?"$"+a.tp:"—"}</div>
+            <div style="font-size:10px;color:var(--green)">${a.tp_pct?"+"+a.tp_pct+"%":""}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">SL</div>
+            <div style="font-size:14px;font-weight:700;color:var(--red);font-family:monospace">${a.sl?"$"+a.sl:"—"}</div>
+            <div style="font-size:10px;color:var(--red)">${a.sl_pct?"-"+a.sl_pct+"%":""}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:var(--bg2);border-radius:6px;padding:8px">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">R/R יחס</div>
+            <div style="font-size:14px;font-weight:700;color:${(a.rr_ratio||0)>=2?"var(--green)":"var(--amber)"};font-family:monospace">1:${a.rr_ratio||"—"}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:6px;padding:8px">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">אסטרטגיה</div>
+            <div style="font-size:11px;color:var(--blue);font-family:monospace">${a.strategy||"—"}</div>
+          </div>
+        </div>
+
+        ${a.patterns&&a.patterns.length?`
+        <div style="margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:5px">דפוסי נרות שזוהו</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${a.patterns.map(p=>`<span style="background:var(--gdim);border:1px solid var(--green);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--green);font-family:monospace">${p}</span>`).join("")}
+          </div>
+        </div>`:""}
+
+        ${a.trend?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">📊 מגמה: <strong>${a.trend}</strong></div>`:""}
+        ${a.holding?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">⏱ זמן החזקה: <strong>${a.holding}</strong></div>`:""}
+
+        <div style="background:var(--bg2);border-radius:6px;padding:10px;border-right:3px solid ${sigColor}">
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:4px">ניתוח Claude</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6">${a.reasoning||"—"}</div>
+        </div>
+
+        <button onclick="resetChartAnalyzer()" 
+          style="width:100%;margin-top:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:6px;font-size:12px;cursor:pointer">
+          📸 נתח תמונה אחרת
+        </button>
+      </div>`;
+    result.style.display = "block";
+
+  } catch(e) {
+    result.innerHTML = `<div style="color:var(--red);font-size:13px">❌ שגיאת רשת: ${e.message}</div>`;
+    result.style.display = "block";
+  }
+
+  btn.disabled = false;
+  btn.textContent = "🔍 נתח עם Claude AI";
+}
+
+function resetChartAnalyzer(){
+  _chartImageB64 = "";
+  document.getElementById("caDropZone").style.display = "block";
+  document.getElementById("caPreview").style.display = "none";
+  document.getElementById("caAnalyzeBtn").style.display = "none";
+  document.getElementById("caResult").style.display = "none";
+  document.getElementById("caFileInput").value = "";
 }
 
 // ── BID/ASK HTML ─────────────────────────────────────────
