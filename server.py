@@ -826,6 +826,47 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── News Sentiment Score ─────────────────────────────
+        if ticker and ticker not in ("", "null", "None"):
+            try:
+                pos_words = ["beat","beats","surge","surges","rise","rises","gain","gains",
+                             "strong","record","buy","upgrade","rally","bullish","profit",
+                             "growth","exceed","exceeds","positive","boost","jump","jumps"]
+                neg_words = ["miss","misses","drop","drops","fall","falls","loss","losses",
+                             "weak","sell","warn","warns","crash","bearish","decline",
+                             "cut","downgrade","debt","lawsuit","risk","concern","disappoint"]
+                
+                all_headlines = []
+                news_items = ctx.get("ticker_news", [])
+                for n in news_items:
+                    h = n.get("h","") if isinstance(n, dict) else str(n)
+                    all_headlines.append(h.lower())
+                
+                pos_count = sum(1 for h in all_headlines 
+                               for w in pos_words if w in h)
+                neg_count = sum(1 for h in all_headlines 
+                               for w in neg_words if w in h)
+                total = pos_count + neg_count
+                
+                if total > 0:
+                    sentiment_score = round((pos_count - neg_count) / total * 10, 1)
+                    if sentiment_score >= 3:
+                        ctx["news_sentiment"] = f"✅ סנטימנט חדשות: חיובי מאוד ({pos_count}+ vs {neg_count}-) ציון: +{sentiment_score}/10"
+                        ctx["news_sentiment_level"] = "bullish"
+                    elif sentiment_score >= 1:
+                        ctx["news_sentiment"] = f"🟡 סנטימנט חדשות: חיובי ({pos_count}+ vs {neg_count}-) ציון: +{sentiment_score}/10"
+                        ctx["news_sentiment_level"] = "slight_bullish"
+                    elif sentiment_score <= -3:
+                        ctx["news_sentiment"] = f"🚨 סנטימנט חדשות: שלילי מאוד ({neg_count}- vs {pos_count}+) ציון: {sentiment_score}/10 — זהירות עם LONG!"
+                        ctx["news_sentiment_level"] = "bearish"
+                    elif sentiment_score <= -1:
+                        ctx["news_sentiment"] = f"⚠️ סנטימנט חדשות: שלילי ({neg_count}- vs {pos_count}+) ציון: {sentiment_score}/10"
+                        ctx["news_sentiment_level"] = "slight_bearish"
+                    else:
+                        ctx["news_sentiment"] = f"🟡 סנטימנט חדשות: ניטרלי (ציון: {sentiment_score}/10)"
+                        ctx["news_sentiment_level"] = "neutral"
+            except: pass
+
         # ── Gap Risk Filter ──────────────────────────────────
         if ticker and ticker not in ("", "null", "None"):
             try:
@@ -1141,6 +1182,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
+        # News Sentiment
+        if market_ctx.get("news_sentiment"):
+            ctx_lines.append("")
+            ctx_lines.append("── סנטימנט חדשות ──")
+            ctx_lines.append(market_ctx["news_sentiment"])
+
         # Gap Risk
         if market_ctx.get("gap_warning"):
             ctx_lines.append("")
