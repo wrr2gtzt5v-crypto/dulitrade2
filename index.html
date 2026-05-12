@@ -2817,6 +2817,33 @@ async function analyzeChartImage(){
   result.style.display = "none";
 
   try {
+    // בדוק Max Drawdown לפני ניתוח
+    const trades = JSON.parse(localStorage.getItem("dt_trades")||"[]");
+    const recentLosses = trades.filter(t=>t.status==="loss")
+      .sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,2);
+    const maxDrawdownActive = recentLosses.length>=2 &&
+      recentLosses.every(t=>new Date(t.date)>new Date(Date.now()-86400000));
+
+    if(maxDrawdownActive){
+      result.innerHTML = `<div style="background:var(--rdim);border:2px solid var(--red);border-radius:10px;padding:1.25rem;text-align:center">
+        <div style="font-size:24px;margin-bottom:8px">🛑</div>
+        <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:8px">STOP TRADING</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">
+          הפסדת 2 עסקאות ברצף ב-24 שעות האחרונות.<br>
+          כלל מקצועי: עצור למינימום שעה.<br>
+          בדוק מה השתבש לפני שתחזור.
+        </div>
+        <button onclick="document.getElementById('caResult').style.display='none'" 
+          style="margin-top:12px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px 16px;border-radius:6px;font-size:12px;cursor:pointer">
+          הבנתי — אמשיך בזהירות
+        </button>
+      </div>`;
+      result.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "🔍 נתח עם Claude AI";
+      return;
+    }
+
     // שלב 1 — שלח לשרת (הוא יזהה טיקר ואז ינתח עם חדשות)
     btn.textContent = "⏳ שלב 1: מזהה מניה + חדשות...";
     const resp = await fetch("/api/analyze-chart", {
@@ -2825,7 +2852,8 @@ async function analyzeChartImage(){
       body: JSON.stringify({
         image: _chartImageB64,
         mediaType: _chartMediaType,
-        ticker: _chartTicker || null
+        ticker: _chartTicker || null,
+        maxDrawdown: maxDrawdownActive
       })
     });
     btn.textContent = "⏳ שלב 2: מנתח גרף...";
