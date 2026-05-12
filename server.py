@@ -816,6 +816,40 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── Volatility Filter (ATR) ──────────────────────────
+        if ticker and ticker not in ("", "null", "None"):
+            try:
+                candles_v = get_candles(ticker)
+                cv = candles_v.get("c", [])
+                hv = candles_v.get("h", [])
+                lv = candles_v.get("l", [])
+                if len(cv) >= 15 and len(hv) >= 15 and len(lv) >= 15:
+                    atr_len = 14
+                    tr_sum = 0
+                    for i in range(len(cv)-atr_len, len(cv)):
+                        tr = max(hv[i]-lv[i],
+                                 abs(hv[i]-cv[i-1]),
+                                 abs(lv[i]-cv[i-1]))
+                        tr_sum += tr
+                    atr = round(tr_sum / atr_len, 2)
+                    price = cv[-1]
+                    atr_pct = round(atr / price * 100, 1)
+                    ctx["atr"] = atr
+                    ctx["atr_pct"] = atr_pct
+                    if atr_pct > 4:
+                        ctx["volatility_level"] = "גבוהה מאוד"
+                        ctx["volatility_warning"] = f"🔥 ATR {atr_pct}% — תנודתיות גבוהה מאוד! הקטן פוזיציה ב-50%, הרחב SL."
+                    elif atr_pct > 2.5:
+                        ctx["volatility_level"] = "גבוהה"
+                        ctx["volatility_warning"] = f"⚠️ ATR {atr_pct}% — תנודתיות גבוהה. הקטן פוזיציה ב-25%."
+                    elif atr_pct > 1.5:
+                        ctx["volatility_level"] = "בינונית"
+                        ctx["volatility_warning"] = f"✅ ATR {atr_pct}% — תנודתיות בינונית. פוזיציה רגילה."
+                    else:
+                        ctx["volatility_level"] = "נמוכה"
+                        ctx["volatility_warning"] = f"💤 ATR {atr_pct}% — תנודתיות נמוכה. תנועות קטנות, R/R נמוך."
+            except: pass
+
         # ── Earnings Filter ──────────────────────────────────
         if ticker and ticker not in ("", "null", "None"):
             try:
@@ -988,6 +1022,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
                 ctx_lines.append(f"  • {n}")
+        # Volatility
+        if market_ctx.get("volatility_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("── תנודתיות (ATR) ──")
+            ctx_lines.append(market_ctx["volatility_warning"])
+
         # Earnings Warning
         if market_ctx.get("earnings_warning"):
             ctx_lines.append("")
