@@ -826,6 +826,32 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── Liquidity Check ──────────────────────────────────
+        if ticker and ticker not in ("", "null", "None"):
+            try:
+                candles_l = get_candles(ticker)
+                vl = candles_l.get("v", [])
+                cl = candles_l.get("c", [])
+                if len(vl) >= 20 and len(cl) >= 1:
+                    avg_vol_20 = sum(vl[-20:]) / 20
+                    price_l = cl[-1]
+                    # Dollar Volume = נפח × מחיר
+                    dollar_vol = avg_vol_20 * price_l
+
+                    if avg_vol_20 < 300000:
+                        ctx["liquidity_warning"] = f"🚨 נפח ממוצע נמוך מאוד ({int(avg_vol_20/1000)}K מניות/יום) — מניה לא נזילה! קשה לצאת מהר. הקטן פוזיציה ב-75%."
+                        ctx["liquidity_level"] = "very_low"
+                    elif avg_vol_20 < 1000000:
+                        ctx["liquidity_warning"] = f"⚠️ נפח ממוצע נמוך ({int(avg_vol_20/1000)}K מניות/יום) — נזילות בינונית. הקטן פוזיציה ב-25%."
+                        ctx["liquidity_level"] = "low"
+                    elif avg_vol_20 >= 10000000:
+                        ctx["liquidity_warning"] = f"✅ נפח ממוצע גבוה מאוד ({int(avg_vol_20/1000000)}M מניות/יום) — נזילות מצוינת. אין בעיה."
+                        ctx["liquidity_level"] = "excellent"
+                    else:
+                        ctx["liquidity_warning"] = f"✅ נפח ממוצע תקין ({int(avg_vol_20/1000)}K מניות/יום) — נזילות טובה."
+                        ctx["liquidity_level"] = "good"
+            except: pass
+
         # ── News Sentiment Score ─────────────────────────────
         if ticker and ticker not in ("", "null", "None"):
             try:
@@ -1182,6 +1208,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
+        # Liquidity
+        if market_ctx.get("liquidity_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("── נזילות ──")
+            ctx_lines.append(market_ctx["liquidity_warning"])
+
         # News Sentiment
         if market_ctx.get("news_sentiment"):
             ctx_lines.append("")
