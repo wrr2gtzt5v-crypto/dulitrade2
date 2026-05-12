@@ -3033,6 +3033,13 @@ async function analyzeChartImage(){
           <div style="font-size:13px;color:var(--text2);line-height:1.7">${a.reasoning||"—"}</div>
         </div>
 
+        <!-- כפתור Win Rate — רק אתה מחליט -->
+        ${a.signal!=="NEUTRAL"?`
+        <button onclick="showAddToWinRate('${_chartTicker||a.ticker||'?'}', ${a.entry||0}, ${a.tp||0}, ${a.sl||0}, '${(a.strategy||'').replace(/'/g,'')}', '${a.holding||''}')"
+          style="width:100%;background:var(--cbtn);border:none;color:#fff;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">
+          📊 הוסף עסקה ל-Win Rate Tracking
+        </button>`:""}
+
         <button onclick="resetChartAnalyzer()"
           style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:6px;font-size:12px;cursor:pointer">
           📸 נתח תמונה אחרת
