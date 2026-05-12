@@ -2731,6 +2731,22 @@ function openChartAnalyzer(){
           style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
       </div>
 
+      <!-- הנחיות Setup ב-TradingView -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px">
+        <div style="font-weight:700;color:var(--amber);margin-bottom:6px;font-family:monospace">📋 הכן את הגרף לפני העלאה:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <div style="color:var(--green)">✅ הוסף VWAP</div>
+          <div style="color:var(--green)">✅ הוסף EMA 9 + EMA 20</div>
+          <div style="color:var(--green)">✅ הצג נפח בתחתית</div>
+          <div style="color:var(--green)">✅ נרות יפניים (לא Heikin Ashi)</div>
+          <div style="color:var(--blue)">📌 Day Trade: Timeframe 1-15 דקות</div>
+          <div style="color:var(--blue)">📌 Swing: Timeframe 1h-Daily</div>
+        </div>
+        <div style="margin-top:6px;color:var(--text3);border-top:1px solid var(--border);padding-top:5px">
+          💡 ככל שהגרף נקי יותר — הניתוח מדויק יותר
+        </div>
+      </div>
+
       <div id="caDropZone" 
         style="border:2px dashed var(--border2);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;margin-bottom:1rem;transition:border-color .2s"
         onclick="document.getElementById('caFileInput').click()"
