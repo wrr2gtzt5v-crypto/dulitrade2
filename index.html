@@ -2816,64 +2816,169 @@ async function analyzeChartImage(){
     const a = data.analysis;
     const sigColor = a.signal==="LONG"?"var(--green)":a.signal==="SHORT"?"var(--red)":"var(--amber)";
     const sigIcon  = a.signal==="LONG"?"▲ לונג":a.signal==="SHORT"?"▼ שורט":"◆ ניטרלי";
-    const confStars = "★".repeat(Math.min(Math.round((a.confidence||5)/2),5)) + "☆".repeat(5-Math.min(Math.round((a.confidence||5)/2),5));
+    const isDayTrade = a.trade_type==="DAY_TRADE";
+    const tradeTypeLbl = isDayTrade?"⚡ Day Trade":"📈 Swing Trade";
+    const tradeTypeCol = isDayTrade?"var(--amber)":"var(--blue)";
+    const cb = a.confidence_breakdown || {};
+
+    // confidence breakdown bars
+    const confItems = [
+      {k:"pattern",    lbl:"דפוס נרות"},
+      {k:"vwap",       lbl:"VWAP"},
+      {k:"volume",     lbl:"נפח"},
+      {k:"trend",      lbl:"מגמה"},
+      {k:"rr",         lbl:"R/R"},
+      {k:"opening_range", lbl:"Opening Range"},
+      {k:"ema_ma",     lbl:"EMA/MA"},
+      {k:"no_resistance", lbl:"אין התנגדות"},
+    ];
+    const confBreakdownHtml = confItems.map(item => {
+      const val = cb[item.k] ?? 0;
+      const bars = "█".repeat(val) + "░".repeat(2-val);
+      const col = val===2?"var(--green)":val===1?"var(--amber)":"var(--text3)";
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text2)">${item.lbl}</span>
+        <span style="font-family:monospace;font-size:12px;color:${col}">${bars} ${val}/2</span>
+      </div>`;
+    }).join("");
 
     result.innerHTML = `
       <div style="background:var(--bg3);border:1px solid ${sigColor};border-radius:10px;padding:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:22px;font-weight:700;color:${sigColor};font-family:monospace">${sigIcon}</div>
-          <div style="text-align:left">
-            <div style="font-size:11px;color:var(--text3);font-family:monospace">ביטחון</div>
-            <div style="font-size:14px;color:var(--amber)">${confStars} ${a.confidence||'—'}/10</div>
+
+        <!-- Header: טיקר + סיגנל + סוג -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div>
+            ${a.ticker?`<div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:2px">זוהה: <strong style="color:var(--text);font-size:13px">${a.ticker}</strong></div>`:""}
+            <div style="font-size:24px;font-weight:700;color:${sigColor};font-family:monospace">${sigIcon}</div>
+            <div style="font-size:11px;color:${tradeTypeCol};font-family:monospace;margin-top:2px">${tradeTypeLbl}${a.timeframe?" · "+a.timeframe:""}${a.current_price?" · $"+a.current_price:""}</div>
+          </div>
+          <div style="text-align:left;background:var(--bg2);border-radius:8px;padding:8px 12px;border:1px solid ${(a.confidence||0)>=7?"var(--green)":(a.confidence||0)>=5?"var(--amber)":"var(--red)"}">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:2px">ביטחון</div>
+            <div style="font-size:22px;font-weight:700;font-family:monospace;color:${(a.confidence||0)>=7?"var(--green)":(a.confidence||0)>=5?"var(--amber)":"var(--red)"}">${a.confidence||"—"}/10</div>
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">${cb.total||0}/16 גורמים</div>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center">
+        <!-- Entry/TP/SL -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--blue)">
             <div style="font-size:9px;color:var(--text3);font-family:monospace">כניסה</div>
-            <div style="font-size:14px;font-weight:700;color:var(--blue);font-family:monospace">${a.entry?"$"+a.entry:"—"}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--blue);font-family:monospace">${a.entry?"$"+a.entry:"—"}</div>
           </div>
-          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center">
-            <div style="font-size:9px;color:var(--text3);font-family:monospace">יעד TP</div>
-            <div style="font-size:14px;font-weight:700;color:var(--green);font-family:monospace">${a.tp?"$"+a.tp:"—"}</div>
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--green)">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">TP${a.tp2?" 1":""}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--green);font-family:monospace">${a.tp?"$"+a.tp:"—"}</div>
             <div style="font-size:10px;color:var(--green)">${a.tp_pct?"+"+a.tp_pct+"%":""}</div>
           </div>
-          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center">
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--red)">
             <div style="font-size:9px;color:var(--text3);font-family:monospace">SL</div>
-            <div style="font-size:14px;font-weight:700;color:var(--red);font-family:monospace">${a.sl?"$"+a.sl:"—"}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--red);font-family:monospace">${a.sl?"$"+a.sl:"—"}</div>
             <div style="font-size:10px;color:var(--red)">${a.sl_pct?"-"+a.sl_pct+"%":""}</div>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <!-- TP2 אם קיים -->
+        ${a.tp2?`<div style="background:var(--bg2);border:1px solid var(--green);border-radius:6px;padding:7px 10px;margin-bottom:8px;display:flex;justify-content:space-between">
+          <span style="font-size:11px;color:var(--text3);font-family:monospace">🎯 TP2 (יעד שני)</span>
+          <span style="font-size:13px;font-weight:700;color:var(--green);font-family:monospace">$${a.tp2}</span>
+        </div>`:""}
+
+        <!-- R/R + אסטרטגיה -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
           <div style="background:var(--bg2);border-radius:6px;padding:8px">
             <div style="font-size:9px;color:var(--text3);font-family:monospace">R/R יחס</div>
-            <div style="font-size:14px;font-weight:700;color:${(a.rr_ratio||0)>=2?"var(--green)":"var(--amber)"};font-family:monospace">1:${a.rr_ratio||"—"}</div>
+            <div style="font-size:16px;font-weight:700;color:${(a.rr_ratio||0)>=2?"var(--green)":"var(--amber)"};font-family:monospace">1:${a.rr_ratio||"—"}</div>
           </div>
           <div style="background:var(--bg2);border-radius:6px;padding:8px">
             <div style="font-size:9px;color:var(--text3);font-family:monospace">אסטרטגיה</div>
-            <div style="font-size:11px;color:var(--blue);font-family:monospace">${a.strategy||"—"}</div>
+            <div style="font-size:11px;color:var(--blue);font-family:monospace;line-height:1.4">${a.strategy||"—"}</div>
           </div>
         </div>
 
+        <!-- Entry Timing -->
+        ${a.entry_timing?`<div style="background:var(--bg2);border:1px solid var(--amber);border-radius:6px;padding:8px 10px;margin-bottom:10px">
+          <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:3px">⏰ ENTRY TIMING</div>
+          <div style="font-size:12px;color:var(--amber);font-weight:600">${a.entry_timing}</div>
+        </div>`:""}
+
+        <!-- VWAP + Opening Range (Day Trade) -->
+        ${isDayTrade&&(a.vwap||a.opening_range_high||a.ema9)?`
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+          ${a.vwap?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">VWAP</div>
+            <div style="font-size:12px;font-weight:700;color:var(--amber);font-family:monospace">$${a.vwap}</div>
+            <div style="font-size:9px;color:${a.vwap_position==="above"?"var(--green)":"var(--red)"}">${a.vwap_position==="above"?"מעל ▲":"מתחת ▼"}</div>
+          </div>`:"<div></div>"}
+          ${a.opening_range_high?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">OR</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--green)">H:$${a.opening_range_high}</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--red)">L:$${a.opening_range_low||"—"}</div>
+          </div>`:"<div></div>"}
+          ${a.ema9?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">EMA</div>
+            <div style="font-size:10px;font-family:monospace;color:var(--blue)">9: $${a.ema9}</div>
+            ${a.ema20?`<div style="font-size:10px;font-family:monospace;color:var(--text2)">20: $${a.ema20}</div>`:""}
+          </div>`:"<div></div>"}
+        </div>`:""}
+
+        <!-- Volume Analysis -->
+        ${a.volume_analysis?`<div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;gap:8px;align-items:center">
+          <span style="font-size:16px">📊</span>
+          <div>
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">ניתוח נפח</div>
+            <div style="font-size:12px;color:var(--text2)">${a.volume_analysis}</div>
+          </div>
+        </div>`:""}
+
+        <!-- רמת ביטחון מפורטת -->
+        <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:8px;display:flex;justify-content:space-between">
+            <span>🎯 פירוט רמת ביטחון</span>
+            <span style="color:${(a.confidence||0)>=7?"var(--green)":"var(--amber)"}">${cb.total||0}/16 נקודות</span>
+          </div>
+          ${confBreakdownHtml}
+        </div>
+
+        <!-- דפוסי נרות -->
         ${a.patterns&&a.patterns.length?`
         <div style="margin-bottom:10px">
-          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:5px">דפוסי נרות שזוהו</div>
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:5px">🕯 דפוסי נרות</div>
           <div style="display:flex;flex-wrap:wrap;gap:5px">
             ${a.patterns.map(p=>`<span style="background:var(--gdim);border:1px solid var(--green);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--green);font-family:monospace">${p}</span>`).join("")}
           </div>
         </div>`:""}
 
-        ${a.trend?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">📊 מגמה: <strong>${a.trend}</strong></div>`:""}
+        <!-- רמות מפתח -->
+        ${a.key_levels&&a.key_levels.length?`
+        <div style="margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:5px">📌 רמות מפתח</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${a.key_levels.map(l=>`<span style="background:var(--bdim);border:1px solid var(--blue);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--blue);font-family:monospace">${l}</span>`).join("")}
+          </div>
+        </div>`:""}
+
+        <!-- Market Context -->
+        ${a.market_context?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px;padding:6px 10px;background:var(--bg2);border-radius:6px">
+          🌍 <strong>הקשר שוק:</strong> ${a.market_context}
+        </div>`:""}
+
+        ${a.trend?`<div style="font-size:12px;color:var(--text2);margin-bottom:6px">📊 מגמה: <strong>${a.trend}</strong></div>`:""}
         ${a.holding?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">⏱ זמן החזקה: <strong>${a.holding}</strong></div>`:""}
 
-        <div style="background:var(--bg2);border-radius:6px;padding:10px;border-right:3px solid ${sigColor}">
-          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:4px">ניתוח Claude</div>
-          <div style="font-size:13px;color:var(--text2);line-height:1.6">${a.reasoning||"—"}</div>
+        <!-- אזהרות -->
+        ${a.warnings&&a.warnings.length?`
+        <div style="margin-bottom:10px;padding:8px 10px;background:var(--adim);border:1px solid var(--amber);border-radius:6px">
+          ${a.warnings.map(w=>`<div style="font-size:11px;color:var(--amber)">⚠️ ${w}</div>`).join("")}
+        </div>`:""}
+
+        <!-- ניתוח מפורט -->
+        <div style="background:var(--bg2);border-radius:6px;padding:10px;border-right:3px solid ${sigColor};margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:4px">🧠 ניתוח Claude</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">${a.reasoning||"—"}</div>
         </div>
 
-        <button onclick="resetChartAnalyzer()" 
-          style="width:100%;margin-top:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:6px;font-size:12px;cursor:pointer">
+        <button onclick="resetChartAnalyzer()"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:6px;font-size:12px;cursor:pointer">
           📸 נתח תמונה אחרת
         </button>
       </div>`;
