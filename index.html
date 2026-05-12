@@ -2759,6 +2759,7 @@ function openChartAnalyzer(){
 
 let _chartImageB64 = "";
 let _chartMediaType = "image/jpeg";
+let _chartTicker = null; // טיקר שזוהה מניתוח קודם
 
 function handleChartDrop(e){
   e.preventDefault();
@@ -2803,7 +2804,11 @@ async function analyzeChartImage(){
     const resp = await fetch("/api/analyze-chart", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({image: _chartImageB64, mediaType: _chartMediaType})
+      body: JSON.stringify({
+        image: _chartImageB64,
+        mediaType: _chartMediaType,
+        ticker: _chartTicker || null  // אם כבר זוהה מניתוח קודם
+      })
     });
     const data = await resp.json();
 
@@ -2814,6 +2819,8 @@ async function analyzeChartImage(){
     }
 
     const a = data.analysis;
+    // שמור ticker לניתוחים עתידיים
+    if(a.ticker && a.ticker !== "null") _chartTicker = a.ticker;
     const sigColor = a.signal==="LONG"?"var(--green)":a.signal==="SHORT"?"var(--red)":"var(--amber)";
     const sigIcon  = a.signal==="LONG"?"▲ לונג":a.signal==="SHORT"?"▼ שורט":"◆ ניטרלי";
     const isDayTrade = a.trade_type==="DAY_TRADE";
@@ -2995,6 +3002,7 @@ async function analyzeChartImage(){
 
 function resetChartAnalyzer(){
   _chartImageB64 = "";
+  _chartTicker = null;
   document.getElementById("caDropZone").style.display = "block";
   document.getElementById("caPreview").style.display = "none";
   document.getElementById("caAnalyzeBtn").style.display = "none";
