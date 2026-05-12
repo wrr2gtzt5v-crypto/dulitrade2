@@ -2979,6 +2979,13 @@ async function analyzeChartImage(){
           </div>
         </div>`:""}
 
+        <!-- דפוסי אלגוריתם + Claude -->
+        ${a.algo_confirmed_patterns&&a.algo_confirmed_patterns.length?`
+        <div style="background:var(--bg2);border:1px solid var(--green);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--green);font-family:monospace;margin-bottom:6px">🤖 אישור כפול — אלגוריתם + Claude</div>
+          ${a.algo_confirmed_patterns.map(p=>`<div style="font-size:12px;color:var(--green);margin-bottom:3px">✅ ${p}</div>`).join("")}
+        </div>`:""}
+
         <!-- רמת ביטחון מפורטת -->
         <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:10px">
           <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:8px;display:flex;justify-content:space-between">
