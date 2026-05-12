@@ -816,6 +816,46 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── Time of Day Filter ───────────────────────────────
+        try:
+            import datetime
+            now_utc = datetime.datetime.utcnow()
+            is_dst  = 3 <= now_utc.month <= 11
+            et_hour = (now_utc.hour - (4 if is_dst else 5)) % 24
+            et_min  = now_utc.minute
+            et_time = et_hour + et_min / 60
+
+            if 9.5 <= et_time < 10.0:
+                ctx["time_of_day"] = "open"
+                ctx["time_warning"] = "⚠️ 9:30-10:00 ET — פתיחה תנודתית מאוד. מומלץ להמתין 30 דקות לפני כניסה."
+                ctx["time_quality"] = "נמוכה"
+            elif 10.0 <= et_time < 11.5:
+                ctx["time_of_day"] = "prime"
+                ctx["time_warning"] = "✅ 10:00-11:30 ET — זמן מסחר אופטימלי. הכי טוב ל-Day Trade."
+                ctx["time_quality"] = "גבוהה"
+            elif 11.5 <= et_time < 14.0:
+                ctx["time_of_day"] = "midday"
+                ctx["time_warning"] = "🟡 11:30-14:00 ET — צהריים, נפח יורד. עדיף Swing על Day Trade."
+                ctx["time_quality"] = "בינונית"
+            elif 14.0 <= et_time < 15.5:
+                ctx["time_of_day"] = "slow"
+                ctx["time_warning"] = "⚠️ 14:00-15:30 ET — נפח נמוך, תנועות לא אמינות. הימנע מכניסות חדשות."
+                ctx["time_quality"] = "נמוכה"
+            elif 15.5 <= et_time < 16.0:
+                ctx["time_of_day"] = "close"
+                ctx["time_warning"] = "⚡ 15:30-16:00 ET — סגירה, תנועות חדות. הזדמנויות אבל סיכון גבוה."
+                ctx["time_quality"] = "גבוהה-מסוכנת"
+            elif et_time < 9.5 and et_time >= 4.0:
+                ctx["time_of_day"] = "premarket"
+                ctx["time_warning"] = "📊 Pre-Market — נפח נמוך, מחירים פחות אמינים. זהירות."
+                ctx["time_quality"] = "נמוכה"
+            else:
+                ctx["time_of_day"] = "closed"
+                ctx["time_warning"] = "🔴 שוק סגור — ניתוח לתכנון מחר."
+                ctx["time_quality"] = "—"
+            ctx["et_time_str"] = f"{et_hour:02d}:{et_min:02d} ET"
+        except: pass
+
         # ── Sector Context ────────────────────────────────────
         SECTOR_ETFS = {
             "Technology":"XLK","Healthcare":"XLV","Financials":"XLF","Energy":"XLE",
@@ -929,6 +969,13 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
                 ctx_lines.append(f"  • {n}")
+        # Time of Day
+        if market_ctx.get("time_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("── שעת מסחר ──")
+            ctx_lines.append(f"שעה: {market_ctx.get('et_time_str','—')} | איכות: {market_ctx.get('time_quality','—')}")
+            ctx_lines.append(market_ctx["time_warning"])
+
         # Pattern Recognition מהאלגוריתם
         if market_ctx.get("algo_patterns"):
             ctx_lines.append("")
