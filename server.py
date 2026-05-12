@@ -684,6 +684,64 @@ def get_market_context_for_chart(ticker=None):
                     ctx["premarket_change"] = round((pm - quote["c"]) / quote["c"] * 100, 2) if quote["c"] > 0 else 0
         except: pass
 
+        # ── Pattern Recognition מהמערכת ────────────────────────
+        try:
+            candles_for_pat = daily if daily.get("c") else get_candles(ticker)
+            if candles_for_pat.get("c") and len(candles_for_pat["c"]) >= 5:
+                c = candles_for_pat["c"]
+                o = candles_for_pat.get("o", c)
+                h = candles_for_pat.get("h", c)
+                l = candles_for_pat.get("l", c)
+                v = candles_for_pat.get("v", [0]*len(c))
+                N = len(c)
+
+                detected = []
+
+                # Hammer
+                if N >= 2:
+                    body = abs(c[-2]-o[-2]) if len(o)>1 else 0
+                    rng  = h[-2]-l[-2] if len(h)>1 else 0
+                    lwick = min(c[-2],o[-2])-l[-2] if len(l)>1 else 0
+                    if rng > 0 and body > 0 and lwick > body*1.5 and c[-1] > c[-2]:
+                        detected.append("Hammer מאושר 🔨 (שורי)")
+
+                # Bullish Engulfing
+                if N >= 2 and c[-1] > o[-1] and c[-2] < o[-2]:
+                    if c[-1] > o[-2] and o[-1] < c[-2]:
+                        detected.append("Bullish Engulfing 🟢 (שורי חזק)")
+
+                # Bearish Engulfing
+                if N >= 2 and c[-1] < o[-1] and c[-2] > o[-2]:
+                    if c[-1] < o[-2] and o[-1] > c[-2]:
+                        detected.append("Bearish Engulfing 🔴 (דובי חזק)")
+
+                # Doji
+                if N >= 1:
+                    body = abs(c[-1]-o[-1]) if o else 0
+                    rng  = h[-1]-l[-1] if h and l else 0
+                    if rng > 0 and body/rng < 0.1:
+                        detected.append("Doji ⚖️ (אי-החלטיות)")
+
+                # Three White Soldiers
+                if N >= 3 and all(c[i]>o[i] for i in [-3,-2,-1]) and c[-1]>c[-2]>c[-3]:
+                    detected.append("Three White Soldiers 🚀 (מומנטום שורי)")
+
+                # Three Black Crows
+                if N >= 3 and all(c[i]<o[i] for i in [-3,-2,-1]) and c[-1]<c[-2]<c[-3]:
+                    detected.append("Three Black Crows 📉 (מומנטום דובי)")
+
+                # Morning Star
+                if N >= 3:
+                    big_red   = c[-3] < o[-3] and abs(c[-3]-o[-3]) > (h[-3]-l[-3])*0.5
+                    small_mid = abs(c[-2]-o[-2]) < (h[-2]-l[-2])*0.3 if h and l else False
+                    big_green = c[-1] > o[-1] and c[-1] > (o[-3]+c[-3])/2
+                    if big_red and small_mid and big_green:
+                        detected.append("Morning Star 🌅 (היפוך שורי)")
+
+                if detected:
+                    ctx["algo_patterns"] = detected
+        except: pass
+
         # ── Multi-Timeframe Analysis ──────────────────────────
         try:
             # שלוף נרות יומיים + שעתיים לניתוח MTF
@@ -871,6 +929,14 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
                 ctx_lines.append(f"  • {n}")
+        # Pattern Recognition מהאלגוריתם
+        if market_ctx.get("algo_patterns"):
+            ctx_lines.append("")
+            ctx_lines.append("── דפוסי נרות שזוהו על ידי האלגוריתם ──")
+            for pat in market_ctx["algo_patterns"]:
+                ctx_lines.append(f"  ✓ {pat}")
+            ctx_lines.append("השווה לדפוסים שאתה רואה בגרף — אישור כפול = כניסה חזקה יותר")
+
         # Multi-Timeframe
         if market_ctx.get("mtf_daily"):
             ctx_lines.append("")
