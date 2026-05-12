@@ -2928,12 +2928,38 @@ async function analyzeChartImage(){
           </div>`:"<div></div>"}
         </div>`:""}
 
+        <!-- Entry Type -->
+        ${a.entry_type?`<div style="background:var(--bg2);border:1px solid var(--blue);border-radius:6px;padding:7px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;color:var(--text3);font-family:monospace">סוג כניסה</span>
+          <span style="font-size:12px;color:var(--blue);font-weight:600">${a.entry_type}</span>
+        </div>`:""}
+
+        <!-- Partial Exit + Breakeven -->
+        ${a.partial_exit||a.breakeven_stop?`
+        <div style="background:var(--bg2);border:1px solid var(--green);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+          <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:5px">💰 ניהול עסקה</div>
+          ${a.partial_exit?`<div style="font-size:11px;color:var(--green);margin-bottom:3px">📤 ${a.partial_exit}</div>`:""}
+          ${a.breakeven_stop?`<div style="font-size:11px;color:var(--amber)">🔒 ${a.breakeven_stop}</div>`:""}
+        </div>`:""}
+
+        <!-- TP2 R/R -->
+        ${a.rr_ratio_tp2?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">🎯 R/R ל-TP2: <strong style="color:var(--green)">1:${a.rr_ratio_tp2}</strong></div>`:""}
+
+        <!-- Market Structure -->
+        ${a.market_structure?`<div style="background:var(--bg2);border-radius:6px;padding:7px 10px;margin-bottom:8px;display:flex;gap:8px;align-items:center">
+          <span style="font-size:14px">🏗️</span>
+          <div>
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">מבנה שוק</div>
+            <div style="font-size:12px;color:var(--text2)">${a.market_structure}</div>
+          </div>
+        </div>`:""}
+
         <!-- Volume Analysis -->
-        ${a.volume_analysis?`<div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;gap:8px;align-items:center">
+        ${a.volume_analysis_detail||a.volume_analysis?`<div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;gap:8px;align-items:center">
           <span style="font-size:16px">📊</span>
           <div>
             <div style="font-size:9px;color:var(--text3);font-family:monospace">ניתוח נפח</div>
-            <div style="font-size:12px;color:var(--text2)">${a.volume_analysis}</div>
+            <div style="font-size:12px;color:var(--text2)">${a.volume_analysis_detail||a.volume_analysis}</div>
           </div>
         </div>`:""}
 
