@@ -816,6 +816,25 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── Earnings Filter ──────────────────────────────────
+        if ticker and ticker not in ("", "null", "None"):
+            try:
+                ec = get_earnings_calendar(ticker)
+                if ec.get("available") and ec.get("daysUntil") is not None:
+                    days = ec["daysUntil"]
+                    date_str = ec.get("date", "")
+                    hour = "לפני פתיחה" if ec.get("hour") == "bmo" else "אחרי סגירה"
+                    if days == 0:
+                        ctx["earnings_warning"] = f"🚨 דוח רווחים היום ({hour}) — סיכון גבוה מאוד! לא מומלץ להיכנס לעסקה."
+                        ctx["earnings_days"] = 0
+                    elif days <= 2:
+                        ctx["earnings_warning"] = f"⚠️ דוח רווחים בעוד {days} ימים ({date_str} {hour}) — שנה אסטרטגיה: SL רחוק יותר, פוזיציה קטנה יותר."
+                        ctx["earnings_days"] = days
+                    elif days <= 7:
+                        ctx["earnings_warning"] = f"📅 דוח רווחים בעוד {days} ימים ({date_str}) — שים לב, תנודתיות עשויה לעלות."
+                        ctx["earnings_days"] = days
+            except: pass
+
         # ── Time of Day Filter ───────────────────────────────
         try:
             import datetime
@@ -969,6 +988,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
                 ctx_lines.append(f"  • {n}")
+        # Earnings Warning
+        if market_ctx.get("earnings_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("── דוח רווחים ──")
+            ctx_lines.append(market_ctx["earnings_warning"])
+
         # Time of Day
         if market_ctx.get("time_warning"):
             ctx_lines.append("")
