@@ -637,6 +637,82 @@ def get_yahoo_fundamentals(symbol):
         return {"available": False}
 
 
+def analyze_chart_image(image_base64, media_type="image/jpeg"):
+    """ניתוח גרף מתמונה עם Claude Vision"""
+    anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
+    if not anthropic_key:
+        return {"error": "ANTHROPIC_KEY לא מוגדר"}
+    try:
+        url = "https://api.anthropic.com/v1/messages"
+        payload = {
+            "model": "claude-opus-4-5",
+            "max_tokens": 1024,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_base64,
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": """אתה מנתח טכני מקצועי. נתח את הגרף הזה ותן המלצה מסחר.
+
+עבור את הגרף ובדוק:
+1. דפוסי נרות יפניים (Hammer, Engulfing, Doji, Morning Star וכו')
+2. מגמה כללית (עולה/יורדת/דשדוש)
+3. רמות תמיכה והתנגדות הנראות בגרף
+4. ממוצעים נעים אם מוצגים
+5. RSI/MACD אם מוצגים
+
+ענה בפורמט JSON בלבד (ללא טקסט נוסף):
+{
+  "signal": "LONG" או "SHORT" או "NEUTRAL",
+  "confidence": מספר 1-10,
+  "entry": מחיר כניסה מוצע (מהגרף),
+  "tp": מחיר יעד רווח,
+  "sl": מחיר עצירת הפסד,
+  "tp_pct": אחוז רווח מוצע,
+  "sl_pct": אחוז הפסד מקסימלי,
+  "rr_ratio": יחס סיכון/תגמול,
+  "patterns": ["דפוס1", "דפוס2"],
+  "trend": "תיאור המגמה",
+  "support": מחיר תמיכה עיקרי,
+  "resistance": מחיר התנגדות עיקרי,
+  "reasoning": "הסבר קצר בעברית מדוע ההמלצה",
+  "strategy": "שם האסטרטגיה המתאימה",
+  "holding": "זמן החזקה מוצע"
+}"""
+                    }
+                ]
+            }]
+        }
+        req = Request(url, 
+            data=json.dumps(payload).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": anthropic_key,
+                "anthropic-version": "2023-06-01"
+            },
+            method="POST"
+        )
+        with urlopen(req, timeout=30) as r:
+            resp = json.loads(r.read())
+        
+        # חלץ את הטקסט מהתגובה
+        text = resp.get("content", [{}])[0].get("text", "")
+        # נקה backticks אם יש
+        text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        result = json.loads(text)
+        return {"success": True, "analysis": result}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def get_usdils():
     """מחיר דולר/שקל מ-ExchangeRate API (חינמי, ללא key)"""
     try:
@@ -701,9 +777,29 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def handle_error(self, request, client_address): pass
 
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/analyze-chart":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length))
+                image_b64 = body.get("image", "")
+                media_type = body.get("mediaType", "image/jpeg")
+                if not image_b64:
+                    self._json({"error": "חסרה תמונה"}, 400)
+                    return
+                result = analyze_chart_image(image_b64, media_type)
+                self._json(result)
+            except Exception as e:
+                self._json({"error": str(e)}, 500)
+            return
+        self.send_response(404); self.end_headers()
+
     def do_OPTIONS(self):
         self.send_response(200)
-        for k,v in HEADERS_OUT.items(): self.send_header(k,v)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
     def do_GET(self):
