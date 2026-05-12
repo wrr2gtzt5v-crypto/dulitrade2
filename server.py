@@ -668,9 +668,19 @@ def get_market_context_for_chart(ticker=None):
     # חדשות + Pre-Market על המניה הספציפית
     if ticker and ticker not in ("", "null", "None"):
         try:
+            # חדשות Finnhub
             news = get_news(ticker)
+            all_news = []
             if news:
-                ctx["ticker_news"] = [n.get("headline","")[:100] for n in news[:3]]
+                all_news += [{"src":"Finnhub","h":n.get("headline","")[:120]} for n in news[:5]]
+            # חדשות CNBC
+            try:
+                ext = get_extnews(ticker)
+                if ext:
+                    all_news += [{"src":"CNBC","h":n.get("title","")[:120]} for n in ext[:3]]
+            except: pass
+            if all_news:
+                ctx["ticker_news"] = all_news
         except: pass
         
         try:
@@ -997,6 +1007,54 @@ def get_market_context_for_chart(ticker=None):
     return ctx
 
 
+def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
+    """שלב 1 — זיהוי טיקר מהתמונה בלבד (מהיר)"""
+    anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
+    if not anthropic_key:
+        return None
+    try:
+        url = "https://api.anthropic.com/v1/messages"
+        payload = {
+            "model": "claude-opus-4-5",
+            "max_tokens": 50,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_base64,
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": "What is the stock ticker symbol shown in this chart? Reply with ONLY the ticker symbol (e.g. AAPL, TSLA, NVDA). If you cannot identify it, reply with: null"
+                    }
+                ]
+            }]
+        }
+        req = Request(url,
+            data=json.dumps(payload).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": anthropic_key,
+                "anthropic-version": "2023-06-01"
+            },
+            method="POST"
+        )
+        with urlopen(req, timeout=15) as r:
+            resp = json.loads(r.read())
+        ticker = resp.get("content", [{}])[0].get("text", "").strip().upper()
+        # נקה — רק אותיות וספרות
+        import re
+        ticker = re.sub(r"[^A-Z0-9.]", "", ticker)
+        return ticker if ticker and ticker != "NULL" and len(ticker) <= 6 else None
+    except:
+        return None
+
+
 def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
     """ניתוח גרף מתמונה עם Claude Vision"""
     anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
@@ -1021,7 +1079,10 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         if market_ctx.get("ticker_news"):
             ctx_lines.append("חדשות אחרונות:")
             for n in market_ctx["ticker_news"]:
-                ctx_lines.append(f"  • {n}")
+                if isinstance(n, dict):
+                    ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
+                else:
+                    ctx_lines.append(f"  • {n}")
         # Volatility
         if market_ctx.get("volatility_warning"):
             ctx_lines.append("")
@@ -1419,11 +1480,24 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.loads(self.rfile.read(length))
                 image_b64 = body.get("image", "")
                 media_type = body.get("mediaType", "image/jpeg")
-                ticker = body.get("ticker", None)  # טיקר אם כבר ידוע
+                ticker = body.get("ticker", None)
+
                 if not image_b64:
                     self._json({"error": "חסרה תמונה"}, 400)
                     return
+
+                # שלב 1 — אם אין טיקר, זהה קודם (מהיר)
+                if not ticker:
+                    ticker = identify_ticker_from_chart(image_b64, media_type)
+
+                # שלב 2 — ניתוח מלא עם context + חדשות
                 result = analyze_chart_image(image_b64, media_type, ticker)
+
+                # הוסף את הטיקר שזוהה לתגובה
+                if ticker and result.get("success"):
+                    if result.get("analysis") and not result["analysis"].get("ticker"):
+                        result["analysis"]["ticker"] = ticker
+
                 self._json(result)
             except Exception as e:
                 self._json({"error": str(e)}, 500)
