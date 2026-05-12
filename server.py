@@ -929,6 +929,70 @@ def get_market_context_for_chart(ticker=None, **kwargs):
                             ctx["gap_type"] = "small"
             except: pass
 
+        # ── VWAP Standard Deviation Bands ────────────────────
+        if ticker and ticker not in ("", "null", "None"):
+            try:
+                candles_sd = get_candles(ticker)
+                csd = candles_sd.get("c", [])
+                hsd = candles_sd.get("h", [])
+                lsd = candles_sd.get("l", [])
+                vsd = candles_sd.get("v", [])
+
+                if len(csd) >= 20 and len(vsd) >= 20:
+                    # חשב VWAP יומי (מהנרות האחרונים)
+                    hlc3 = [(hsd[i]+lsd[i]+csd[i])/3 for i in range(len(csd))]
+                    total_vol = sum(vsd[-20:])
+                    if total_vol > 0:
+                        vwap_val = sum(hlc3[i]*vsd[i] for i in range(len(csd)-20, len(csd))) / total_vol
+
+                        # סטיית תקן מ-VWAP
+                        variance = sum(vsd[i] * (hlc3[i] - vwap_val)**2
+                                      for i in range(len(csd)-20, len(csd))) / total_vol
+                        import math
+                        sd_val = math.sqrt(variance)
+
+                        # רמות SD
+                        sd1_upper = round(vwap_val + sd_val, 2)
+                        sd1_lower = round(vwap_val - sd_val, 2)
+                        sd2_upper = round(vwap_val + 2*sd_val, 2)
+                        sd2_lower = round(vwap_val - 2*sd_val, 2)
+                        sd3_upper = round(vwap_val + 3*sd_val, 2)
+                        sd3_lower = round(vwap_val - 3*sd_val, 2)
+                        vwap_r    = round(vwap_val, 2)
+                        price_sd  = csd[-1]
+
+                        ctx["vwap_calc"]    = vwap_r
+                        ctx["sd1_upper"]    = sd1_upper
+                        ctx["sd1_lower"]    = sd1_lower
+                        ctx["sd2_upper"]    = sd2_upper
+                        ctx["sd2_lower"]    = sd2_lower
+                        ctx["sd3_upper"]    = sd3_upper
+                        ctx["sd3_lower"]    = sd3_lower
+
+                        # זיהוי מיקום המחיר ביחס ל-SD bands
+                        if price_sd >= sd3_upper:
+                            ctx["sd_position"] = f"מעל SD3 ({sd3_upper}) — קיצוני! היפוך SHORT צפוי בסבירות גבוהה מאוד"
+                            ctx["sd_signal"] = "extreme_high"
+                        elif price_sd >= sd2_upper:
+                            ctx["sd_position"] = f"בין SD2 ({sd2_upper}) ל-SD3 — מתוח, זהירות עם LONG חדש"
+                            ctx["sd_signal"] = "high"
+                        elif price_sd >= sd1_upper:
+                            ctx["sd_position"] = f"בין SD1 ({sd1_upper}) ל-SD2 — מעל VWAP, מגמה חיובית"
+                            ctx["sd_signal"] = "bullish"
+                        elif price_sd <= sd3_lower:
+                            ctx["sd_position"] = f"מתחת SD3 ({sd3_lower}) — קיצוני! היפוך LONG צפוי בסבירות גבוהה מאוד"
+                            ctx["sd_signal"] = "extreme_low"
+                        elif price_sd <= sd2_lower:
+                            ctx["sd_position"] = f"בין SD3 ל-SD2 ({sd2_lower}) — מתוח, זהירות עם SHORT חדש"
+                            ctx["sd_signal"] = "low"
+                        elif price_sd <= sd1_lower:
+                            ctx["sd_position"] = f"בין SD2 ל-SD1 ({sd1_lower}) — מתחת VWAP, מגמה שלילית"
+                            ctx["sd_signal"] = "bearish"
+                        else:
+                            ctx["sd_position"] = f"בתוך SD1 (VWAP: {vwap_r}) — אזור ניטרלי, המתן לפריצה"
+                            ctx["sd_signal"] = "neutral"
+            except: pass
+
         # ── Correlation Filter ───────────────────────────────
         try:
             spy_chg = ctx.get("spy_change", 0)
@@ -1217,6 +1281,21 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
+        # VWAP SD Bands
+        if market_ctx.get("sd_position"):
+            ctx_lines.append("")
+            ctx_lines.append("── VWAP Standard Deviation Bands ──")
+            ctx_lines.append(f"VWAP: ${market_ctx.get('vwap_calc','—')} | SD1: ${market_ctx.get('sd1_lower','—')}-${market_ctx.get('sd1_upper','—')}")
+            ctx_lines.append(f"SD2: ${market_ctx.get('sd2_lower','—')}-${market_ctx.get('sd2_upper','—')} | SD3: ${market_ctx.get('sd3_lower','—')}-${market_ctx.get('sd3_upper','—')}")
+            ctx_lines.append(f"מיקום נוכחי: {market_ctx['sd_position']}")
+            sig = market_ctx.get("sd_signal","")
+            if sig == "extreme_high":
+                ctx_lines.append("=> המלצה: SHORT על נגיעה ב-SD3, SL מעל SD3, TP ב-VWAP")
+            elif sig == "extreme_low":
+                ctx_lines.append("=> המלצה: LONG על נגיעה ב-SD3, SL מתחת SD3, TP ב-VWAP")
+            elif sig == "neutral":
+                ctx_lines.append("=> המתן לפריצה מעל SD1 או שבירה מתחת SD1")
+
         # Max Drawdown
         if market_ctx.get("drawdown_warning"):
             ctx_lines.append("")
