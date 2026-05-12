@@ -826,6 +826,36 @@ def get_market_context_for_chart(ticker=None):
                         }
         except: pass
 
+        # ── Correlation Filter ───────────────────────────────
+        try:
+            spy_chg = ctx.get("spy_change", 0)
+            qqq_chg = ctx.get("qqq_change", 0)
+            
+            # זיהוי סקטור המניה לקורלציה
+            is_tech = any(w in (ctx.get("sector_name","")).lower() 
+                         for w in ["tech","software","semiconductor","internet"])
+            
+            if spy_chg <= -1.5:
+                ctx["correlation_warning"] = f"🚨 SPY יורד {spy_chg}% — שוק חלש מאוד. הסבירות ל-LONG להצליח: נמוכה מאוד. עדיף SHORT בלבד."
+                ctx["correlation_level"] = "critical"
+            elif spy_chg <= -0.8:
+                ctx["correlation_warning"] = f"⚠️ SPY יורד {spy_chg}% — רוח נגדית. LONG בסיכון גבוה. אם נכנס — פוזיציה קטנה בחצי."
+                ctx["correlation_level"] = "warning"
+            elif spy_chg >= 1.5:
+                ctx["correlation_warning"] = f"✅ SPY עולה {spy_chg}% — שוק חזק. LONG מועדף, רוח גבית."
+                ctx["correlation_level"] = "bullish"
+            elif spy_chg >= 0.5:
+                ctx["correlation_warning"] = f"🟡 SPY עולה {spy_chg}% — שוק ניטרלי-חיובי."
+                ctx["correlation_level"] = "neutral_bull"
+            else:
+                ctx["correlation_warning"] = f"🟡 SPY {spy_chg}% — שוק ניטרלי."
+                ctx["correlation_level"] = "neutral"
+
+            # קורלציה לטכנולוגיה
+            if is_tech and qqq_chg <= -1.0:
+                ctx["correlation_warning"] += f" QQQ יורד {qqq_chg}% - מניות טכנולוגיה בסיכון מוגבר."
+        except: pass
+
         # ── Volatility Filter (ATR) ──────────────────────────
         if ticker and ticker not in ("", "null", "None"):
             try:
@@ -1083,6 +1113,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
+        # Correlation
+        if market_ctx.get("correlation_warning"):
+            ctx_lines.append("")
+            ctx_lines.append("── קורלציה עם השוק ──")
+            ctx_lines.append(market_ctx["correlation_warning"])
+
         # Volatility
         if market_ctx.get("volatility_warning"):
             ctx_lines.append("")
