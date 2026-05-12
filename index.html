@@ -500,9 +500,23 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
   <!-- SCANNER -->
   <div class="scanner-section">
     <div class="scanner-head">
-      <h3>🔍 סורק עסקאות — מוצא הזדמנויות בזמן אמת</h3>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <h3 id="scanTitle">🔍 סורק עסקאות — <span id="scanTFLabel">שבוע+</span></h3>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="scanner-status" id="scanStatus">לא סרוק עדיין</span>
+        <div style="display:flex;gap:4px">
+          <button onclick="setScanTF('today')" id="tfToday"
+            style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2)">
+            ⚡ היום
+          </button>
+          <button onclick="setScanTF('tomorrow')" id="tfTomorrow"
+            style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2)">
+            📅 מחר
+          </button>
+          <button onclick="setScanTF('week')" id="tfWeek"
+            style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--cbtn);background:var(--cbtn);color:#fff">
+            📈 שבוע+
+          </button>
+        </div>
         <button class="tbtn" onclick="runScanner()" id="scanBtn" style="font-size:11px;background:var(--cbtn);color:#fff;border:none;padding:5px 14px;font-weight:700;">▶ סרוק עכשיו</button>
       </div>
     </div>
@@ -4371,6 +4385,119 @@ function renderWinRateHtml(){
   </div>`;
 }
 
+// ── STRATEGY DETECTOR — בדיקת אסטרטגיות אמיתיות ────────────
+function detectStrategies(candles, quote, ind, tf){
+  const c = candles.c||[], o = candles.o||[], h = candles.h||[], l = candles.l||[], v = candles.v||[];
+  const N = c.length;
+  if(N < 5) return {matched:[], score:0};
+
+  const price  = quote.c || c[N-1];
+  const pct    = quote.dp || 0;
+  const ma50   = ind.ma50  || price;
+  const ma200  = ind.ma200 || price;
+  const rsi    = ind.rsi   || 50;
+  const macd   = ind.macdVal || 0;
+  const vr     = ind.vr    || 1;
+  const adx    = ind.adx   || 0;
+
+  const avgVol = v.length >= 10 ? v.slice(-10).reduce((a,b)=>a+b,0)/10 : 1;
+  const max20  = h.length >= 20 ? h.slice(-20).reduce((a,b)=>Math.max(a,b), 0) : price;
+  const min20  = l.length >= 20 ? l.slice(-20).reduce((a,b)=>Math.min(a,b), Infinity) : price;
+
+  const matched = [];
+  let totalScore = 0;
+
+  // ── Trend Pullback ───────────────────────────────────────
+  if(ma50 > ma200 && ma50 > 0){
+    const distMa50 = Math.abs(price - ma50) / price;
+    if(distMa50 <= 0.04 && rsi >= 38 && rsi <= 58 && price >= ma50*0.97){
+      const s = distMa50 <= 0.02 ? 3 : 2;
+      matched.push({name:"Trend Pullback 🔄📊", score:s, tf:["week","tomorrow"]});
+      totalScore += s;
+    }
+  }
+
+  // ── Breakout ─────────────────────────────────────────────
+  if(price >= max20 * 0.995 && vr >= 1.8 && pct > 0 && macd > 0){
+    const s = vr >= 2.5 ? 3 : 2;
+    matched.push({name:"Breakout 🚀", score:s, tf:["today","tomorrow","week"]});
+    totalScore += s;
+  }
+
+  // ── Bull Flag ────────────────────────────────────────────
+  if(N >= 6){
+    const recent5 = c.slice(-5);
+    const prev3   = c.slice(-8,-5);
+    const prevHigh = prev3.length ? Math.max(...prev3) : 0;
+    const recentRange = Math.max(...recent5) - Math.min(...recent5);
+    const recentVol5  = v.slice(-5).reduce((a,b)=>a+b,0)/5;
+    const prevVol3    = v.slice(-8,-5).reduce((a,b)=>a+b,0)/3;
+    // Flag: עמוד + דחיסה עם נפח יורד
+    if(prevHigh > 0 && recentRange/prevHigh < 0.03 && recentVol5 < prevVol3*0.8 && macd > 0){
+      matched.push({name:"Bull Flag 🚩", score:3, tf:["today","tomorrow"]});
+      totalScore += 3;
+    }
+  }
+
+  // ── VWAP Reclaim ─────────────────────────────────────────
+  // מחיר היה מתחת VWAP וחזר מעל (לפי POC כ-proxy ל-VWAP)
+  if(ind.poc > 0 && N >= 3){
+    const prev2 = c[N-2] || price;
+    const prev3c = c[N-3] || price;
+    const vwapProxy = ind.poc;
+    if(prev3c < vwapProxy && prev2 < vwapProxy && price > vwapProxy && vr >= 1.3){
+      matched.push({name:"VWAP Reclaim ↩️", score:3, tf:["today"]});
+      totalScore += 3;
+    }
+  }
+
+  // ── Support Bounce ───────────────────────────────────────
+  if(min20 > 0){
+    const distMin = (price - min20) / price;
+    if(distMin <= 0.025 && rsi < 45 && vr >= 1.2){
+      const s = distMin <= 0.01 ? 3 : 2;
+      matched.push({name:"Support Bounce 🎯", score:s, tf:["today","tomorrow","week"]});
+      totalScore += s;
+    }
+  }
+
+  // ── Gap & Go ─────────────────────────────────────────────
+  if(N >= 2 && c[N-2] > 0){
+    const gapPct = (c[N-1] - c[N-2]) / c[N-2] * 100;
+    if(Math.abs(gapPct) >= 2 && vr >= 1.5 && Math.abs(pct) > 0){
+      const s = Math.abs(gapPct) >= 4 ? 3 : 2;
+      matched.push({name:"Gap & Go ⚡", score:s, tf:["today"]});
+      totalScore += s;
+    }
+  }
+
+  // ── Momentum ────────────────────────────────────────────
+  if(pct >= 1.5 && rsi >= 50 && rsi <= 70 && macd > 0 && vr >= 1.3 && adx >= 20){
+    matched.push({name:"Momentum 📈", score:2, tf:["today","tomorrow"]});
+    totalScore += 2;
+  }
+
+  // ── RS Leader ────────────────────────────────────────────
+  if(ma50 > ma200 && rsi >= 55 && rsi <= 72 && macd > 0 && adx >= 25){
+    matched.push({name:"RS Leader 🏆", score:2, tf:["week"]});
+    totalScore += 2;
+  }
+
+  // ── Mean Reversion ───────────────────────────────────────
+  if(rsi < 32 && price < (ind.bbL||price*0.99) && N >= 3 && c[N-1] > c[N-2]){
+    matched.push({name:"Mean Reversion 🔄", score:3, tf:["today","tomorrow"]});
+    totalScore += 3;
+  }
+
+  // סנן לפי timeframe
+  const filtered = matched.filter(s => s.tf.includes(tf));
+  return {
+    matched: filtered,
+    score: filtered.reduce((s,x)=>s+x.score, 0),
+    best: filtered.sort((a,b)=>b.score-a.score)[0] || null
+  };
+}
+
 // ── SCANNER ENGINE ────────────────────────────────────────
 const SCAN_LIST = [
   // Mega Cap Tech
@@ -4405,6 +4532,27 @@ const SCAN_LIST = [
 ];
 
 let scannerRunning = false;
+let scannerTimeframe = "week"; // ברירת מחדל
+
+function setScanTF(tf){
+  scannerTimeframe = tf;
+  const labels = {today:"⚡ היום", tomorrow:"📅 מחר", week:"📈 שבוע+"};
+  const el = document.getElementById("scanTFLabel");
+  if(el) el.textContent = labels[tf] || tf;
+  ["today","tomorrow","week"].forEach(t => {
+    const btn = document.getElementById("tf"+t.charAt(0).toUpperCase()+t.slice(1));
+    if(!btn) return;
+    if(t === tf){
+      btn.style.background = "var(--cbtn)";
+      btn.style.borderColor = "var(--cbtn)";
+      btn.style.color = "#fff";
+    } else {
+      btn.style.background = "var(--bg3)";
+      btn.style.borderColor = "var(--border)";
+      btn.style.color = "var(--text2)";
+    }
+  });
+}
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let lastScanResults = [];
@@ -4602,16 +4750,20 @@ async function runScanner(auto=false){
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
         if(!scores || !scores.sig) return;
 
+        // ── בדוק אסטרטגיות אמיתיות ──────────────────────────
+        const strats = detectStrategies(candles, scanQuote, ind, scannerTimeframe);
+        // חייב לפחות אסטרטגיה אחת שמתאימה ל-timeframe
+        if(strats.matched.length === 0) return;
+
         // ── פילטר שלב 2 — טכני בלבד (ללא news) ─────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
         const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
         const isHold = scores.sig==="HOLD";
-        // אם HOLD אבל techScore גבוה — עדיין מעניין (news יחליט בשלב 3)
         const techOk = scores.techScoreNorm >= 48;
-        if(isHold && !techOk) return; // HOLD עם טכני חלש — דלג
-        if(!isBuy && !isSell && !isHold) return; // sig לא תקין
+        if(isHold && !techOk) return;
+        if(!isBuy && !isSell && !isHold) return;
 
-        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false });
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false, detectedStrats: strats });
       } catch(e){}
     }));
   }
@@ -4645,12 +4797,16 @@ async function runScanner(auto=false){
         const confScore = scores.confluence || 0;
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
-        if(scores.totalScore < dynamicMinScore) return; // ציון מלא
-        if(scores.rrRatio < 1.5) return;                // R/R מינימלי
-        // חייב לעמוד לפחות באחד: Conf>=4 OR סיכון<50
-        const passConf = confScore >= 4;
-        const passRisk = scores.risk < 50;
-        if(!passConf && !passRisk) return; // לא עומד בשום תנאי
+        if(scores.totalScore < dynamicMinScore) return;
+
+        // פילטרים לפי timeframe
+        const minRR   = scannerTimeframe==="today" ? 1.5 : scannerTimeframe==="tomorrow" ? 1.8 : 2.0;
+        const minConf = scannerTimeframe==="today" ? 4   : scannerTimeframe==="tomorrow" ? 4   : 5;
+        const maxRisk = 60; // מניות בטוחות בכל timeframe
+
+        if(scores.rrRatio < minRR) return;
+        if(confScore < minConf) return;
+        if(scores.risk >= maxRisk) return; // סיכון גבוה מדי
 
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
@@ -4703,6 +4859,7 @@ async function runScanner(auto=false){
 
         results.push({
           sym, price: scanQuote.c, pct: scores.pct,
+          detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
@@ -4809,10 +4966,11 @@ function renderScanResults(results){
         <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
         <div class="scan-tags">
           ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
+          ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
         <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center;">
-          <span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 6px;border-radius:4px">${r.strategy||""}</span>
+          <span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 6px;border-radius:4px">${r.detectedStrats&&r.detectedStrats.best?r.detectedStrats.best.name:r.strategy||""}</span>
           ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace">⏱ ${r.holding}</span>`:""}
         </div>
       </div>
