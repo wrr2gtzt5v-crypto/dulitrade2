@@ -802,9 +802,36 @@ Swing Trade:
         
         # חלץ את הטקסט מהתגובה
         text = resp.get("content", [{}])[0].get("text", "")
-        # נקה backticks אם יש
-        text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-        result = json.loads(text)
+        # נקה backticks ותוכן לפני/אחרי JSON
+        text = text.strip()
+        # הסר ```json ו-```
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+        # מצא את ה-JSON בתוך הטקסט — מ-{ עד }
+        start = text.find("{")
+        end   = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            text = text[start:end]
+        # נסה parse
+        try:
+            result = json.loads(text)
+        except json.JSONDecodeError:
+            # נקה תווים בעייתיים ונסה שוב
+            import re
+            # הסר newlines בתוך string values
+            text = re.sub(r'(?<=: ")([^"]*)\n([^"]*?)(?=")', r'\1 \2', text)
+            try:
+                result = json.loads(text)
+            except:
+                # fallback — החזר תוצאה חלקית
+                result = {
+                    "signal": "NEUTRAL",
+                    "confidence": 5,
+                    "reasoning": text[:500] if text else "לא ניתן לנתח את התגובה",
+                    "warnings": ["הניתוח חזר בפורמט לא תקין — נסה שוב"]
+                }
         return {"success": True, "analysis": result}
     except Exception as e:
         return {"error": str(e)}
