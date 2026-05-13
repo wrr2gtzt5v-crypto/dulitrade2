@@ -4731,7 +4731,19 @@ async function runScanner(auto=false){
         // "היום" — חייב Volume Surge או תנועה
         if(scannerTimeframe === "today" && vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume });
+        // ── ניקוד תנועה יומית — מניות שזזות עכשיו עולות לראש ──
+        // ככל שהמניה זזת יותר היום עם נפח — ציון גבוה יותר
+        let todayMomentum = 0;
+        if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
+        else if(Math.abs(pct) >= 3 && vrFromQuote >= 1.5) todayMomentum = 4; // תנועה חזקה + נפח
+        else if(Math.abs(pct) >= 2 && vrFromQuote >= 1.5) todayMomentum = 3; // תנועה בינונית + נפח
+        else if(vrFromQuote >= 3.0) todayMomentum = 3; // נפח פי 3+ (גם ללא תנועה גדולה)
+        else if(Math.abs(pct) >= 3) todayMomentum = 2; // תנועה חזקה בלי נפח
+        else if(vrFromQuote >= 2.0) todayMomentum = 2; // נפח פי 2+
+        else if(Math.abs(pct) >= 1.5) todayMomentum = 1; // תנועה קטנה
+        else todayMomentum = 0; // ניטרלי
+
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum });
       } catch(e){}
     }));
   }
@@ -4741,10 +4753,14 @@ async function runScanner(auto=false){
   // בודק: RSI, MACD, נרות, ציון טכני >= 48
   // ══════════════════════════════════════════════════════════
   // מיין pass1 — Volume Surge קודם
-  // מיון דטרמיניסטי: Volume Surge קודם, אחר כך לפי סדר SCAN_LIST
+  // מיון לפי todayMomentum — מניות שזזות היום קודם
   pass1.sort((a,b) => {
+    // קודם todayMomentum (תנועה יומית)
+    if(b.todayMomentum !== a.todayMomentum) return b.todayMomentum - a.todayMomentum;
+    // אחר כך Volume Surge
     const vDiff = (b.volumeSurge?2:b.highVolume?1:0) - (a.volumeSurge?2:a.highVolume?1:0);
     if(vDiff !== 0) return vDiff;
+    // סדר SCAN_LIST (דטרמיניסטי)
     return SCAN_LIST.indexOf(a.sym) - SCAN_LIST.indexOf(b.sym);
   });
 
@@ -4899,6 +4915,7 @@ async function runScanner(auto=false){
         results.push({
           sym, price: scanQuote.c, pct: scores.pct,
           detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
+          todayMomentum: (pass1.find(x=>x.sym===sym)||{}).todayMomentum||0,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
@@ -5010,6 +5027,7 @@ function renderScanResults(results){
         <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
         <div class="scan-tags">
           ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
+          ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק היום</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה יומית</span>':""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
