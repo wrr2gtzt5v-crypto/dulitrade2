@@ -4631,9 +4631,9 @@ async function runScanner(auto=false){
       label: "📈 Swing Trade — שבוע+",
       minVR: 1.0,
       minPct: 0,
-      minConf: 5,
+      minConf: 4,
       maxRisk: 60,
-      minRR: 2.0,
+      minRR: 1.5,
       candleEp: "candle",
       strategies: ["Trend Pullback 🔄📊","RS Leader 🏆","Support Bounce 🎯","Breakout 🚀","Earnings Momentum 💰","Fibonacci 📐"],
     }
@@ -4792,8 +4792,7 @@ async function runScanner(auto=false){
 
         // ── בדוק אסטרטגיות אמיתיות ──────────────────────────
         const strats = detectStrategies(candles, scanQuote, ind, scannerTimeframe);
-        // חייב לפחות אסטרטגיה אחת שמתאימה ל-timeframe
-        if(strats.matched.length === 0) return;
+        // שמור את האסטרטגיות לתצוגה — לא פוסל אם אין (scoreAll יחליט)
 
         // ── פילטר שלב 2 — טכני בלבד (ללא news) ─────────────
         const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
@@ -4845,7 +4844,7 @@ async function runScanner(auto=false){
         const confScore = scores.confluence || 0;
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
-        if(scores.totalScore < dynamicMinScore) return;
+        if(scores.totalScore < Math.max(dynamicMinScore - 3, 47)) return; // קצת גמיש יותר
 
         // פילטרים לפי TF config
         if(scores.rrRatio < tfCfg.minRR) return;
