@@ -4594,13 +4594,51 @@ async function runScanner(auto=false){
   if(scannerRunning) return;
   scannerRunning = true;
 
-  // נקה cache של quote לפני סריקה — כדי לקבל נתונים עדכניים
-  // (שומר cache של candles/profile שלא משתנים)
+  // נקה cache לפני סריקה
   Object.keys(_apiCache).forEach(k => {
     if(k.includes("|quote|") || k.includes("|macro|") || k.includes("|extnews|")) {
       delete _apiCache[k];
     }
+    // לסריקת היום — נקה גם candles שעתיים
+    if(scannerTimeframe === "today" && k.includes("|candle_hourly|")) {
+      delete _apiCache[k];
+    }
   });
+
+  // ── הגדרות לפי Timeframe ──────────────────────────────
+  const TF_CONFIG = {
+    today: {
+      label: "⚡ Day Trade — היום",
+      minVR: 1.5,          // נפח מינימלי
+      minPct: 0,           // שינוי מינימלי (גם 0% בסדר אם Volume Surge)
+      minConf: 4,
+      maxRisk: 60,
+      minRR: 1.5,
+      candleEp: "candle_hourly", // נרות שעתיים
+      strategies: ["Bull Flag 🚩","Breakout 🚀","VWAP Reclaim ↩️","Gap & Go ⚡","Momentum 📈","Mean Reversion 🔄"],
+    },
+    tomorrow: {
+      label: "📅 Short Swing — מחר",
+      minVR: 1.2,
+      minPct: 0,
+      minConf: 4,
+      maxRisk: 60,
+      minRR: 1.8,
+      candleEp: "candle",
+      strategies: ["Trend Pullback 🔄📊","Support Bounce 🎯","Bull Flag 🚩","Breakout 🚀","Gap & Go ⚡","Momentum 📈"],
+    },
+    week: {
+      label: "📈 Swing Trade — שבוע+",
+      minVR: 1.0,
+      minPct: 0,
+      minConf: 5,
+      maxRisk: 60,
+      minRR: 2.0,
+      candleEp: "candle",
+      strategies: ["Trend Pullback 🔄📊","RS Leader 🏆","Support Bounce 🎯","Breakout 🚀","Earnings Momentum 💰","Fibonacci 📐"],
+    }
+  };
+  const tfCfg = TF_CONFIG[scannerTimeframe] || TF_CONFIG.week;
 
   const btn = document.getElementById("scanBtn");
   const status = document.getElementById("scanStatus");
@@ -4612,7 +4650,7 @@ async function runScanner(auto=false){
   btn.textContent = "⏳ סורק...";
   progress.style.display = "block";
   fill.style.width = "0%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/3 — סורק ${SCAN_LIST.length} מניות (MA50 · נפח · מגמה)...</div>`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>${tfCfg.label} — סורק ${SCAN_LIST.length} מניות...</div>`;
 
   const ms = getMarketStatus();
 
@@ -4646,7 +4684,7 @@ async function runScanner(auto=false){
 
   // הצג Market Breadth מעל הסורק
   status.textContent = `${breadthLabel} (${breadthAbove}/${breadthTotal} מניות מעל MA50) · סף ציון: ${dynamicMinScore}`;
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 1/3 — סורק ${SCAN_LIST.length} מניות (MA50 · נפח · מגמה)...</div>`;
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>${tfCfg.label} — סורק ${SCAN_LIST.length} מניות...</div>`;
 
   // ══════════════════════════════════════════════════════════
   // שלב 1 — מסנן כמותי מהיר (quote בלבד)
@@ -4688,8 +4726,10 @@ async function runScanner(auto=false){
         const volumeSurge = vrFromQuote >= 3.0 || (Math.abs(pct) >= 3 && vrFromQuote >= 1.5);
         const highVolume  = vrFromQuote >= 1.5 || Math.abs(pct) >= 2;
 
-        // פילטר יחיד: ירידה > 8% ללא נפח — דלג
+        // פילטר לפי TF
         if(pct < -8 && !volumeSurge) return;
+        // "היום" — חייב Volume Surge או תנועה
+        if(scannerTimeframe === "today" && vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
 
         pass1.push({ sym, scanQuote, volumeSurge, highVolume });
       } catch(e){}
@@ -4722,7 +4762,7 @@ async function runScanner(auto=false){
     await Promise.allSettled(batch.map(async ({sym, scanQuote, volumeSurge: volSurge}) => {
       try {
         const [candles, profile, earnings, insider] = await Promise.all([
-          api(sym,"candle"), api(sym,"profile"),
+          api(sym, tfCfg.candleEp), api(sym,"profile"),
           api(sym,"earnings"), api(sym,"insider")
         ]);
 
@@ -4799,14 +4839,10 @@ async function runScanner(auto=false){
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
         if(scores.totalScore < dynamicMinScore) return;
 
-        // פילטרים לפי timeframe
-        const minRR   = scannerTimeframe==="today" ? 1.5 : scannerTimeframe==="tomorrow" ? 1.8 : 2.0;
-        const minConf = scannerTimeframe==="today" ? 4   : scannerTimeframe==="tomorrow" ? 4   : 5;
-        const maxRisk = 60; // מניות בטוחות בכל timeframe
-
-        if(scores.rrRatio < minRR) return;
-        if(confScore < minConf) return;
-        if(scores.risk >= maxRisk) return; // סיכון גבוה מדי
+        // פילטרים לפי TF config
+        if(scores.rrRatio < tfCfg.minRR) return;
+        if(confScore < tfCfg.minConf) return;
+        if(scores.risk >= tfCfg.maxRisk) return;
 
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
