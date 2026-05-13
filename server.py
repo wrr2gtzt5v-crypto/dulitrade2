@@ -1270,7 +1270,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
             },
             method="POST"
         )
-        with urlopen(req, timeout=15) as r:
+        with urlopen(req, timeout=20) as r:
             resp = json.loads(r.read())
         ticker = resp.get("content", [{}])[0].get("text", "").strip().upper()
         # נקה — רק אותיות וספרות
@@ -1639,7 +1639,7 @@ Swing Trade:
             },
             method="POST"
         )
-        with urlopen(req, timeout=30) as r:
+        with urlopen(req, timeout=60) as r:
             resp = json.loads(r.read())
         
         # חלץ את הטקסט מהתגובה
