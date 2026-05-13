@@ -1560,7 +1560,7 @@ Swing Trade:
   "trade_type": "DAY_TRADE" או "SWING_TRADE",
   "timeframe": "הזמן שזוהה (1m/5m/15m/1h/4h/Daily)",
   "current_price": המחיר הנוכחי הנראה בגרף,
-  "signal": "LONG" או "SHORT" או "NEUTRAL",
+  "signal": "LONG" או "SHORT" או "NEUTRAL" — חשוב: אם R/R מתחת ל-1.0 (כלומר הסיכון גדול מהרווח) — חובה להחזיר NEUTRAL עם הסבר ב-reasoning,
   "confidence": מספר 1-10 (חשב לפי total/16*10, עגל),
   "confidence_breakdown": {
     "pattern": 0=אין דפוס / 1=דפוס חלש (Doji,Inside Bar) / 2=דפוס חזק (Engulfing,Hammer,Flag),
