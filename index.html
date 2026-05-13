@@ -4752,23 +4752,23 @@ async function runScanner(auto=false){
   fill.style.width = "30%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/3 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
 
-  const BATCH2 = 5;
+  const BATCH2 = 8; // מהיר יותר כי רק candle+profile
   for(let i = 0; i < pass1.length; i += BATCH2){
     const batch = pass1.slice(i, i+BATCH2);
     fill.style.width = 30 + Math.round((i/Math.max(pass1.length,1))*35) + "%"; // 30-65%
     status.textContent = `שלב 2/3 — טכני ${i+1}-${Math.min(i+BATCH2,pass1.length)} מתוך ${pass1.length}...`;
 
-    await sleep(400);
+    await sleep(250); // מהיר יותר
     await Promise.allSettled(batch.map(async ({sym, scanQuote, volumeSurge: volSurge}) => {
       try {
-        const [candles, profile, earnings, insider] = await Promise.all([
-          api(sym, tfCfg.candleEp), api(sym,"profile"),
-          api(sym,"earnings"), api(sym,"insider")
+        // שלב 2: רק candle + profile — מהיר!
+        // earnings/insider/sector יטענו בשלב 3 על המועמדות בלבד
+        const [candles, profile] = await Promise.all([
+          api(sym, tfCfg.candleEp), api(sym,"profile")
         ]);
-
-        const sector = profile.sector
-          ? await api(sym, "sector", profile.sector).catch(()=>({}))
-          : {};
+        const earnings = {};
+        const insider  = {};
+        const sector   = {};
 
         if(!scanQuote?.c || scanQuote.c === 0) return;
         const ind = calcIndicators(candles, scanQuote, {});
@@ -4825,15 +4825,23 @@ async function runScanner(auto=false){
     await sleep(600);
     await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider, volumeSurge: volSurge3}) => {
       try {
-        const [newsArr, extNewsArr] = await Promise.all([
-          api(sym,"news"), api(sym,"extnews")
+        // שלב 3: טען earnings/insider/sector + news על המועמדות בלבד
+        const [newsArr, extNewsArr, earnings3, insider3, sector3] = await Promise.all([
+          api(sym,"news"), api(sym,"extnews"),
+          api(sym,"earnings").catch(()=>({})),
+          api(sym,"insider").catch(()=>({})),
+          profile.sector ? api(sym,"sector",profile.sector).catch(()=>({})) : Promise.resolve({})
         ]);
+        // השתמש בנתונים המלאים
+        const _earnings = earnings3 || {};
+        const _insider  = insider3  || {};
+        const _sector   = sector3   || {};
 
         // חישוב מחדש עם חדשות מלאות — עכשיו totalScore אמיתי
         if(!scanQuote?.c || +scanQuote.c === 0) return;
         // חשב ind מחדש מנרות בלבד — עקבי עם render
         const indFull3 = calcIndicators(candles, scanQuote, {});
-        const scores = scoreAll(sym, scanQuote, candles, indFull3, patterns, newsArr, extNewsArr, profile, null, earnings, insider, sector);
+        const scores = scoreAll(sym, scanQuote, candles, indFull3, patterns, newsArr, extNewsArr, profile, null, _earnings, _insider, _sector);
         const confScore = scores.confluence || 0;
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
@@ -4847,11 +4855,11 @@ async function runScanner(auto=false){
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
         let catalystCount = 0;
-        if(scores.posNews > 0)           catalystCount++; // חדשות חיוביות
-        if(ind.vr > 1.3)                 catalystCount++; // נפח גבוה
-        if(earnings?.surprise > 2)       catalystCount++; // Earnings Surprise
-        if(insider?.net >= 1)            catalystCount++; // Insider קנה
-        if(volSurge3)                    catalystCount++; // Volume Surge
+        if(scores.posNews > 0)           catalystCount++;
+        if(ind.vr > 1.3)                 catalystCount++;
+        if(_earnings?.surprise > 2)      catalystCount++;
+        if(_insider?.net >= 1)           catalystCount++;
+        if(volSurge3)                    catalystCount++;
         const hasCatalyst = catalystCount >= 2; // לפחות 2 סיבות
 
         // ── ציון חוזק עסקה (0-7) — כמה כיוונים מסכימים ──────
