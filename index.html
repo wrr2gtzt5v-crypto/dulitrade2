@@ -4609,12 +4609,12 @@ async function runScanner(auto=false){
   const TF_CONFIG = {
     today: {
       label: "⚡ Day Trade — היום",
-      minVR: 1.5,          // נפח מינימלי
-      minPct: 0,           // שינוי מינימלי (גם 0% בסדר אם Volume Surge)
+      minVR: 1.5,
+      minPct: 0,
       minConf: 4,
       maxRisk: 60,
       minRR: 1.5,
-      candleEp: "candle_hourly", // נרות שעתיים
+      candleEp: "candle", // נרות יומיים — שעתיים לא זמינים ב-Polygon חינמי
       strategies: ["Bull Flag 🚩","Breakout 🚀","VWAP Reclaim ↩️","Gap & Go ⚡","Momentum 📈","Mean Reversion 🔄"],
     },
     tomorrow: {
@@ -4813,7 +4813,7 @@ async function runScanner(auto=false){
   // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
   // ══════════════════════════════════════════════════════════
   console.log(`שלב 2 debug: noQuote=${_dbg2.noQuote} MA=${_dbg2.ma} Hold=${_dbg2.hold} Sig=${_dbg2.sig} candidates=${candidates.length}`);
-  status.textContent = `בדיקה... candidates=${candidates.length} (MA:${_dbg2.ma} Hold:${_dbg2.hold})`;
+  status.textContent = `שלב 3/3 — ${candidates.length} מועמדות (סונן: MA:${_dbg2.ma} Hold:${_dbg2.hold})`;
   const results = [];
   const _dbg = {rr:0,conf:0,risk:0,score:0}; // debug counters
   fill.style.width = "65%";
