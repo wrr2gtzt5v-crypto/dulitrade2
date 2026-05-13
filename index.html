@@ -4885,14 +4885,6 @@ async function runScanner(auto=false){
         const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
         const reason = topFactor?.t || scores.trend;
 
-        // שמור לWin Rate Tracking אוטומטית
-        saveTrackedTrade(
-          sym, scores.sig, scanQuote.c,
-          scores.tp, scores.sl,
-          scores.holding?.includes("3-7")?5:scores.holding?.includes("שבוע")?7:scores.holding?.includes("1-2")?10:scores.holding?.includes("2-3")?17:scores.holding?.includes("חודש+")?45:30,
-          scores.strategy||""
-        );
-
         results.push({
           sym, price: scanQuote.c, pct: scores.pct,
           detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
