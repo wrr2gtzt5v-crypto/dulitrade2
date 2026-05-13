@@ -4812,6 +4812,7 @@ async function runScanner(auto=false){
   // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
   // ══════════════════════════════════════════════════════════
   const results = [];
+  const _dbg = {rr:0,conf:0,risk:0,score:0}; // debug counters
   fill.style.width = "65%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 3/3 — חדשות ו-Confluence על ${candidates.length} מועמדות...</div>`;
 
@@ -4844,12 +4845,12 @@ async function runScanner(auto=false){
         const confScore = scores.confluence || 0;
 
         // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
-        if(scores.totalScore < Math.max(dynamicMinScore - 3, 47)) return; // קצת גמיש יותר
+        if(scores.totalScore < Math.max(dynamicMinScore - 3, 47)){ _dbg.score++; return; } // ציון
 
-        // פילטרים לפי TF config
-        if(scores.rrRatio < tfCfg.minRR) return;
-        if(confScore < tfCfg.minConf) return;
-        if(scores.risk >= tfCfg.maxRisk) return;
+        // פילטרים לפי TF config — עם debug counters
+        if(scores.rrRatio < tfCfg.minRR){ _dbg.rr++; return; }
+        if(confScore < tfCfg.minConf)   { _dbg.conf++; return; }
+        if(scores.risk >= tfCfg.maxRisk){ _dbg.risk++; return; }
 
         // ── Catalyst Detection ───────────────────────────────
         // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
@@ -4955,6 +4956,11 @@ async function runScanner(auto=false){
     }
   }
 
+  console.log(`סורק debug: RR=${_dbg.rr} Conf=${_dbg.conf} Risk=${_dbg.risk} Score=${_dbg.score} עברו=${results.length}`);
+  if(results.length === 0){
+    const total = _dbg.rr+_dbg.conf+_dbg.risk+_dbg.score;
+    status.textContent += ` | נדחו: RR:${_dbg.rr} Conf:${_dbg.conf} Risk:${_dbg.risk} Score:${_dbg.score}`;
+  }
   lastScanResults = diversified;
   renderScanResults(diversified);
 
