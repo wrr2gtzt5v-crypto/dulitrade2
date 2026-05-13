@@ -101,6 +101,35 @@ def pg(path):
             return json.loads(r.read())
     except: return {}
 
+def get_candles_hourly(symbol):
+    """נרות שעתיים — Polygon"""
+    import datetime
+    if not POLYGON_KEY:
+        return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
+    try:
+        to_dt  = datetime.date.today().isoformat()
+        frm_dt = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
+        for attempt in range(3):
+            try:
+                d = pg(f"/v2/aggs/ticker/{symbol}/range/1/hour/{frm_dt}/{to_dt}?adjusted=true&sort=asc&limit=200")
+                results = d.get("results", [])
+                if results and len(results) >= 5:
+                    return {
+                        "c": [round(r["c"],2) for r in results],
+                        "o": [round(r["o"],2) for r in results],
+                        "h": [round(r["h"],2) for r in results],
+                        "l": [round(r["l"],2) for r in results],
+                        "v": [int(r.get("v",0)) for r in results],
+                        "t": [int(r["t"]//1000) for r in results],
+                        "s": "ok", "source": "polygon_hourly"
+                    }
+                if attempt < 2: time.sleep(1)
+            except:
+                if attempt < 2: time.sleep(1)
+    except: pass
+    return {"c":[],"o":[],"h":[],"l":[],"v":[],"t":[],"s":"no_data"}
+
+
 def get_candles(symbol):
     """נרות יומיים — Polygon ראשי, Finnhub fallback, עם retry"""
     import datetime
@@ -1782,6 +1811,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if   endpoint=="quote":       data = get_quote(symbol)
                 elif endpoint=="candle":      data = get_candles(symbol)
+                elif endpoint=="candle_hourly": data = get_candles_hourly(symbol)
                 elif endpoint=="profile":     data = get_profile(symbol)
                 elif endpoint=="news":        data = get_news(symbol)
                 elif endpoint=="extnews":     data = get_extnews(symbol)
