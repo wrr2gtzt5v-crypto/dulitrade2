@@ -4749,6 +4749,7 @@ async function runScanner(auto=false){
   });
 
   const candidates = [];
+  const _dbg2 = {noQuote:0,ma:0,hold:0,sig:0}; // phase2 debug
   fill.style.width = "30%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/3 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
 
@@ -4770,7 +4771,7 @@ async function runScanner(auto=false){
         const insider  = {};
         const sector   = {};
 
-        if(!scanQuote?.c || scanQuote.c === 0) return;
+        if(!scanQuote?.c || scanQuote.c === 0){ _dbg2.noQuote++; return; }
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
 
@@ -4785,7 +4786,7 @@ async function runScanner(auto=false){
         const price_2 = scanQuote.c;
         const pct_2 = scanQuote.dp || 0;
         // אם מניה מתחת לשני הממוצעים + לא ירידה חדה עם נפח = דלג
-        if(ma50_2 > 0 && ma200_2 > 0 && price_2 < ma50_2 * 0.92 && price_2 < ma200_2 * 0.92 && !volSurge) return;
+        if(ma50_2 > 0 && ma200_2 > 0 && price_2 < ma50_2 * 0.92 && price_2 < ma200_2 * 0.92 && !volSurge){ _dbg2.ma++; return; }
 
         const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
         if(!scores || !scores.sig) return;
@@ -4811,6 +4812,8 @@ async function runScanner(auto=false){
   // ══════════════════════════════════════════════════════════
   // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
   // ══════════════════════════════════════════════════════════
+  console.log(`שלב 2 debug: noQuote=${_dbg2.noQuote} MA=${_dbg2.ma} Hold=${_dbg2.hold} Sig=${_dbg2.sig} candidates=${candidates.length}`);
+  status.textContent = `בדיקה... candidates=${candidates.length} (MA:${_dbg2.ma} Hold:${_dbg2.hold})`;
   const results = [];
   const _dbg = {rr:0,conf:0,risk:0,score:0}; // debug counters
   fill.style.width = "65%";
