@@ -1086,7 +1086,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
     try:
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-sonnet-4-5",
+            "model": "claude-sonnet-4-20250514",
             "max_tokens": 50,
             "messages": [{
                 "role": "user",
@@ -1315,7 +1315,7 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-sonnet-4-5",
+            "model": "claude-sonnet-4-20250514",
             "max_tokens": 3000,
             "messages": [{
                 "role": "user",
