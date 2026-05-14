@@ -723,63 +723,7 @@ def get_market_context_for_chart(ticker=None, **kwargs):
                     ctx["premarket_change"] = round((pm - quote["c"]) / quote["c"] * 100, 2) if quote["c"] > 0 else 0
         except: pass
 
-        # ── Pattern Recognition מהמערכת ────────────────────────
-        try:
-            candles_for_pat = daily if daily.get("c") else get_candles(ticker)
-            if candles_for_pat.get("c") and len(candles_for_pat["c"]) >= 5:
-                c = candles_for_pat["c"]
-                o = candles_for_pat.get("o", c)
-                h = candles_for_pat.get("h", c)
-                l = candles_for_pat.get("l", c)
-                v = candles_for_pat.get("v", [0]*len(c))
-                N = len(c)
-
-                detected = []
-
-                # Hammer
-                if N >= 2:
-                    body = abs(c[-2]-o[-2]) if len(o)>1 else 0
-                    rng  = h[-2]-l[-2] if len(h)>1 else 0
-                    lwick = min(c[-2],o[-2])-l[-2] if len(l)>1 else 0
-                    if rng > 0 and body > 0 and lwick > body*1.5 and c[-1] > c[-2]:
-                        detected.append("Hammer מאושר 🔨 (שורי)")
-
-                # Bullish Engulfing
-                if N >= 2 and c[-1] > o[-1] and c[-2] < o[-2]:
-                    if c[-1] > o[-2] and o[-1] < c[-2]:
-                        detected.append("Bullish Engulfing 🟢 (שורי חזק)")
-
-                # Bearish Engulfing
-                if N >= 2 and c[-1] < o[-1] and c[-2] > o[-2]:
-                    if c[-1] < o[-2] and o[-1] > c[-2]:
-                        detected.append("Bearish Engulfing 🔴 (דובי חזק)")
-
-                # Doji
-                if N >= 1:
-                    body = abs(c[-1]-o[-1]) if o else 0
-                    rng  = h[-1]-l[-1] if h and l else 0
-                    if rng > 0 and body/rng < 0.1:
-                        detected.append("Doji ⚖️ (אי-החלטיות)")
-
-                # Three White Soldiers
-                if N >= 3 and all(c[i]>o[i] for i in [-3,-2,-1]) and c[-1]>c[-2]>c[-3]:
-                    detected.append("Three White Soldiers 🚀 (מומנטום שורי)")
-
-                # Three Black Crows
-                if N >= 3 and all(c[i]<o[i] for i in [-3,-2,-1]) and c[-1]<c[-2]<c[-3]:
-                    detected.append("Three Black Crows 📉 (מומנטום דובי)")
-
-                # Morning Star
-                if N >= 3:
-                    big_red   = c[-3] < o[-3] and abs(c[-3]-o[-3]) > (h[-3]-l[-3])*0.5
-                    small_mid = abs(c[-2]-o[-2]) < (h[-2]-l[-2])*0.3 if h and l else False
-                    big_green = c[-1] > o[-1] and c[-1] > (o[-3]+c[-3])/2
-                    if big_red and small_mid and big_green:
-                        detected.append("Morning Star 🌅 (היפוך שורי)")
-
-                if detected:
-                    ctx["algo_patterns"] = detected
-        except: pass
+        # Pattern Recognition הוסר — Claude מזהה דפוסים מהתמונה
 
         # ── Multi-Timeframe Analysis ──────────────────────────
         try:
@@ -863,31 +807,7 @@ def get_market_context_for_chart(ticker=None, **kwargs):
             ctx["drawdown_warning"] = "🛑 STOP TRADING — הפסדת 2 עסקאות ברצף! כלל מקצועי: עצור למינימום שעה, בדוק מה השתבש, חזור רק אחרי הפסקה."
             ctx["drawdown_active"] = True
 
-        # ── Liquidity Check ──────────────────────────────────
-        if ticker and ticker not in ("", "null", "None"):
-            try:
-                candles_l = get_candles(ticker)
-                vl = candles_l.get("v", [])
-                cl = candles_l.get("c", [])
-                if len(vl) >= 20 and len(cl) >= 1:
-                    avg_vol_20 = sum(vl[-20:]) / 20
-                    price_l = cl[-1]
-                    # Dollar Volume = נפח × מחיר
-                    dollar_vol = avg_vol_20 * price_l
-
-                    if avg_vol_20 < 300000:
-                        ctx["liquidity_warning"] = f"🚨 נפח ממוצע נמוך מאוד ({int(avg_vol_20/1000)}K מניות/יום) — מניה לא נזילה! קשה לצאת מהר. הקטן פוזיציה ב-75%."
-                        ctx["liquidity_level"] = "very_low"
-                    elif avg_vol_20 < 1000000:
-                        ctx["liquidity_warning"] = f"⚠️ נפח ממוצע נמוך ({int(avg_vol_20/1000)}K מניות/יום) — נזילות בינונית. הקטן פוזיציה ב-25%."
-                        ctx["liquidity_level"] = "low"
-                    elif avg_vol_20 >= 10000000:
-                        ctx["liquidity_warning"] = f"✅ נפח ממוצע גבוה מאוד ({int(avg_vol_20/1000000)}M מניות/יום) — נזילות מצוינת. אין בעיה."
-                        ctx["liquidity_level"] = "excellent"
-                    else:
-                        ctx["liquidity_warning"] = f"✅ נפח ממוצע תקין ({int(avg_vol_20/1000)}K מניות/יום) — נזילות טובה."
-                        ctx["liquidity_level"] = "good"
-            except: pass
+        # Liquidity הוסר
 
         # ── News Sentiment Score ─────────────────────────────
         if ticker and ticker not in ("", "null", "None"):
@@ -930,33 +850,7 @@ def get_market_context_for_chart(ticker=None, **kwargs):
                         ctx["news_sentiment_level"] = "neutral"
             except: pass
 
-        # ── Gap Risk Filter ──────────────────────────────────
-        if ticker and ticker not in ("", "null", "None"):
-            try:
-                candles_g = get_candles(ticker)
-                cg = candles_g.get("c", [])
-                vg = candles_g.get("v", [])
-                if len(cg) >= 2 and len(vg) >= 2:
-                    prev_close = cg[-2]
-                    today_open = candles_g.get("o", cg)[-1]
-                    today_vol  = vg[-1]
-                    avg_vol    = sum(vg[-20:]) / min(20, len(vg)) if len(vg) >= 5 else 0
-
-                    if prev_close > 0:
-                        gap_pct = round((today_open - prev_close) / prev_close * 100, 2)
-                        vol_ratio = round(today_vol / avg_vol, 1) if avg_vol > 0 else 0
-
-                        if abs(gap_pct) >= 3:
-                            if vol_ratio < 1.5:
-                                ctx["gap_warning"] = f"🚨 Gap {'Up' if gap_pct>0 else 'Down'} {gap_pct}% ללא נפח (x{vol_ratio}) — Gap מלכודת! סבירות Gap Fill גבוהה. המתן לאישור."
-                                ctx["gap_type"] = "trap"
-                            else:
-                                ctx["gap_warning"] = f"✅ Gap {'Up' if gap_pct>0 else 'Down'} {gap_pct}% עם נפח (x{vol_ratio}) — Gap אמיתי עם כסף. Gap & Go אפשרי."
-                                ctx["gap_type"] = "real"
-                        elif abs(gap_pct) >= 1.5:
-                            ctx["gap_warning"] = f"🟡 Gap קטן {gap_pct}% — שים לב לרמת הפתיחה."
-                            ctx["gap_type"] = "small"
-            except: pass
+        # Gap Risk הוסר — Claude רואה Gap בתמונה
 
         # ── VWAP Standard Deviation Bands ────────────────────
         if ticker and ticker not in ("", "null", "None"):
@@ -1022,35 +916,7 @@ def get_market_context_for_chart(ticker=None, **kwargs):
                             ctx["sd_signal"] = "neutral"
             except: pass
 
-        # ── Correlation Filter ───────────────────────────────
-        try:
-            spy_chg = ctx.get("spy_change", 0)
-            qqq_chg = ctx.get("qqq_change", 0)
-            
-            # זיהוי סקטור המניה לקורלציה
-            is_tech = any(w in (ctx.get("sector_name","")).lower() 
-                         for w in ["tech","software","semiconductor","internet"])
-            
-            if spy_chg <= -1.5:
-                ctx["correlation_warning"] = f"🚨 SPY יורד {spy_chg}% — שוק חלש מאוד. הסבירות ל-LONG להצליח: נמוכה מאוד. עדיף SHORT בלבד."
-                ctx["correlation_level"] = "critical"
-            elif spy_chg <= -0.8:
-                ctx["correlation_warning"] = f"⚠️ SPY יורד {spy_chg}% — רוח נגדית. LONG בסיכון גבוה. אם נכנס — פוזיציה קטנה בחצי."
-                ctx["correlation_level"] = "warning"
-            elif spy_chg >= 1.5:
-                ctx["correlation_warning"] = f"✅ SPY עולה {spy_chg}% — שוק חזק. LONG מועדף, רוח גבית."
-                ctx["correlation_level"] = "bullish"
-            elif spy_chg >= 0.5:
-                ctx["correlation_warning"] = f"🟡 SPY עולה {spy_chg}% — שוק ניטרלי-חיובי."
-                ctx["correlation_level"] = "neutral_bull"
-            else:
-                ctx["correlation_warning"] = f"🟡 SPY {spy_chg}% — שוק ניטרלי."
-                ctx["correlation_level"] = "neutral"
-
-            # קורלציה לטכנולוגיה
-            if is_tech and qqq_chg <= -1.0:
-                ctx["correlation_warning"] += f" QQQ יורד {qqq_chg}% - מניות טכנולוגיה בסיכון מוגבר."
-        except: pass
+        # Correlation הוסר — SPY נשלח ישירות
 
         # ── Volatility Filter (ATR) ──────────────────────────
         if ticker and ticker not in ("", "null", "None"):
@@ -1145,28 +1011,7 @@ def get_market_context_for_chart(ticker=None, **kwargs):
             ctx["et_time_str"] = f"{et_hour:02d}:{et_min:02d} ET"
         except: pass
 
-        # ── Sector Context ────────────────────────────────────
-        SECTOR_ETFS = {
-            "Technology":"XLK","Healthcare":"XLV","Financials":"XLF","Energy":"XLE",
-            "Consumer Cyclical":"XLY","Communication Services":"XLC","Industrials":"XLI",
-            "Materials":"XLB","Real Estate":"XLRE","Utilities":"XLU","Consumer Defensive":"XLP",
-        }
-        try:
-            profile = fh(f"/stock/profile2?symbol={ticker}")
-            sector_name = profile.get("finnhubIndustry","")
-            # מצא ETF מתאים
-            sector_etf = None
-            for k, v in SECTOR_ETFS.items():
-                if any(w in sector_name for w in k.split()):
-                    sector_etf = v
-                    break
-            if sector_etf:
-                etf_q = fh(f"/quote?symbol={sector_etf}")
-                if etf_q.get("c"):
-                    ctx["sector_name"]       = sector_name
-                    ctx["sector_etf"]        = sector_etf
-                    ctx["sector_etf_change"] = round(etf_q.get("dp", 0), 2)
-        except: pass
+        # Sector הוסר — Claude יודע סקטור מטיקר
 
         # ── Support/Resistance היסטורי ────────────────────────
         # 52W High/Low + POC מהמערכת הראשית
@@ -1241,7 +1086,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
     try:
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-haiku-4-5-20251001",
+            "model": "claude-sonnet-4-5-20251015",
             "max_tokens": 50,
             "messages": [{
                 "role": "user",
@@ -1330,29 +1175,11 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append("")
             ctx_lines.append("!! " + market_ctx["drawdown_warning"])
 
-        # Liquidity
-        if market_ctx.get("liquidity_warning"):
-            ctx_lines.append("")
-            ctx_lines.append("── נזילות ──")
-            ctx_lines.append(market_ctx["liquidity_warning"])
-
         # News Sentiment
         if market_ctx.get("news_sentiment"):
             ctx_lines.append("")
             ctx_lines.append("── סנטימנט חדשות ──")
             ctx_lines.append(market_ctx["news_sentiment"])
-
-        # Gap Risk
-        if market_ctx.get("gap_warning"):
-            ctx_lines.append("")
-            ctx_lines.append("── Gap Risk ──")
-            ctx_lines.append(market_ctx["gap_warning"])
-
-        # Correlation
-        if market_ctx.get("correlation_warning"):
-            ctx_lines.append("")
-            ctx_lines.append("── קורלציה עם השוק ──")
-            ctx_lines.append(market_ctx["correlation_warning"])
 
         # Volatility
         if market_ctx.get("volatility_warning"):
@@ -1373,13 +1200,7 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append(f"שעה: {market_ctx.get('et_time_str','—')} | איכות: {market_ctx.get('time_quality','—')}")
             ctx_lines.append(market_ctx["time_warning"])
 
-        # Pattern Recognition מהאלגוריתם
-        if market_ctx.get("algo_patterns"):
-            ctx_lines.append("")
-            ctx_lines.append("── דפוסי נרות שזוהו על ידי האלגוריתם ──")
-            for pat in market_ctx["algo_patterns"]:
-                ctx_lines.append(f"  ✓ {pat}")
-            ctx_lines.append("השווה לדפוסים שאתה רואה בגרף — אישור כפול = כניסה חזקה יותר")
+        # Pattern context הוסר
 
         # Multi-Timeframe
         if market_ctx.get("mtf_daily"):
@@ -1421,20 +1242,7 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         if market_ctx.get("ma200"):
             ctx_lines.append(f"MA200: ${market_ctx['ma200']}")
 
-        # Sector Context
-        if market_ctx.get("sector_name"):
-            ctx_lines.append("")
-            ctx_lines.append("── ביצועי סקטור ──")
-            ctx_lines.append(f"סקטור: {market_ctx['sector_name']} ({market_ctx.get('sector_etf','')})")
-            etf_chg = market_ctx.get('sector_etf_change', 0)
-            spy_chg = market_ctx.get('spy_change', 0)
-            rel = round(etf_chg - spy_chg, 2)
-            direction = "מוביל ▲" if rel > 0.5 else "פגור ▼" if rel < -0.5 else "ניטרלי"
-            ctx_lines.append(f"ETF היום: {etf_chg:+.2f}% | S&P: {spy_chg:+.2f}% | יחסי: {rel:+.2f}% — {direction}")
-            if rel > 1:
-                ctx_lines.append("⚡ הסקטור חזק מאוד היום — רוח גבית לעסקה")
-            elif rel < -1:
-                ctx_lines.append("⚠️ הסקטור חלש היום — רוח נגדית, הקטן פוזיציה")
+        # Sector context הוסר
         ctx_lines.append("═══════════════════════════")
         context_text = "\n".join(ctx_lines)
         
@@ -1507,8 +1315,8 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 2000,
+            "model": "claude-sonnet-4-5-20251015",
+            "max_tokens": 3000,
             "messages": [{
                 "role": "user",
                 "content": [
