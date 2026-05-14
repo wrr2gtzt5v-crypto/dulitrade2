@@ -1241,7 +1241,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
     try:
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-opus-4-5",
+            "model": "claude-sonnet-4-5-20251015",
             "max_tokens": 50,
             "messages": [{
                 "role": "user",
@@ -1701,7 +1701,7 @@ Swing Trade:
         
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-opus-4-5",
+            "model": "claude-sonnet-4-5-20251015",
             "max_tokens": 3000,
             "messages": [{
                 "role": "user",
