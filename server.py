@@ -1164,11 +1164,9 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             ctx_lines.append(f"מיקום נוכחי: {market_ctx['sd_position']}")
             sig = market_ctx.get("sd_signal","")
             if sig == "extreme_high":
-                ctx_lines.append("=> המלצה: SHORT על נגיעה ב-SD3, SL מעל SD3, TP ב-VWAP")
+                ctx_lines.append("הערה: מחיר מעל SD3 = מתוח מאוד, שקול זהירות בכניסת LONG")
             elif sig == "extreme_low":
-                ctx_lines.append("=> המלצה: LONG על נגיעה ב-SD3, SL מתחת SD3, TP ב-VWAP")
-            elif sig == "neutral":
-                ctx_lines.append("=> המתן לפריצה מעל SD1 או שבירה מתחת SD1")
+                ctx_lines.append("הערה: מחיר מתחת SD3 = מתוח מאוד, שקול זהירות בכניסת SHORT")
 
         # Max Drawdown
         if market_ctx.get("drawdown_warning"):
@@ -1217,11 +1215,11 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
             d_bull = market_ctx["mtf_daily"]["trend"].startswith("עולה")
             h_bull = h["trend"] == "עולה"
             if d_bull and h_bull:
-                ctx_lines.append("✅ MTF מסכים: יומי + שעתי עולים → כנס LONG בלבד")
+                ctx_lines.append("MTF: יומי + שעתי עולים — רוח גבית ל-LONG")
             elif not d_bull and not h_bull:
-                ctx_lines.append("🔴 MTF מסכים: יומי + שעתי יורדים → כנס SHORT בלבד")
+                ctx_lines.append("MTF: יומי + שעתי יורדים — רוח גבית ל-SHORT")
             else:
-                ctx_lines.append("⚠️ MTF סותר: כיוונים שונים → זהירות, המתן להסכמה")
+                ctx_lines.append("MTF: כיוונים שונים — זהירות, בדוק את הגרף בקפידה")
 
         # Support/Resistance היסטורי
         if market_ctx.get("week52_high"):
@@ -1258,6 +1256,18 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
 6. VWAP: מעל/מתחת/Reclaim (גורם אישור בלבד — לא עיקרי)
 7. EMA/MA: מאשר/מתנגד
 8. Order Blocks + Breaker Blocks + Liquidity Pools אם נראים
+
+שלב ראשון — זהה Market Regime:
+לפני כל החלטה, קבע באיזה מצב השוק:
+
+TRENDING: HH/HL ברורים (עלייה) או LH/LL ברורים (ירידה) + נפח תומך + נרות בכיוון אחד
+→ כנס עם המגמה, Setup ברור
+
+BREAKOUT: מניה יצאה מאזור דחיסה עם נפח פי 1.5+ מהממוצע
+→ כנס בכיוון הפריצה, SL מתחת לאזור הדחיסה
+
+CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל עלייה נמחקת
+→ NEUTRAL חובה — אין עסקה ב-Choppy market
 
 כללי ברזל:
 1. R/R מתחת ל-1.0 → NEUTRAL חובה, אל תציע עסקה
