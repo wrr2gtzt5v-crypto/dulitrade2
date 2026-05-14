@@ -1259,7 +1259,14 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
 7. EMA/MA: מאשר/מתנגד
 8. Order Blocks + Breaker Blocks + Liquidity Pools אם נראים
 
-כלל ברזל: אם R/R מתחת ל-1.0 → NEUTRAL חובה.
+כללי ברזל:
+1. R/R מתחת ל-1.0 → NEUTRAL חובה, אל תציע עסקה
+2. השתמש בכל הגרף להבנת הקשר ומגמה, אבל קבל החלטת כניסה לפי הנרות האחרונים בצד ימין
+3. אל תיכנס LONG אם המגמה הכללית בגרף היא LH/LL (ירידה) — המתן ל-CHoCH מאושר קודם
+4. אל תיכנס SHORT אם המגמה הכללית היא HH/HL (עלייה) — המתן ל-CHoCH מאושר קודם
+5. Entry Timing מדויק: תמיד דרוש סגירת נר מעל/מתחת הרמה — לא פריצה בלבד, כי פריצות מזויפות שכיחות
+6. אם הגרף לא ברור ואין Setup מובהק — עדיף NEUTRAL מאשר כניסה מסוכנת
+
 סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
 Psychology of Price Action:
