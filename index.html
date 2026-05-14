@@ -3997,10 +3997,12 @@ function calcConfluence(ind, pct, patterns, posNews, negNews, totalNews){
   ];
 
   // חשב ציון עם משקלים
-  const maxWeight = signals.reduce((s,x)=>s+x.w, 0); // סה"כ משקל מקסימלי
   const bullWeight = signals.filter(s=>s.v===1).reduce((s,x)=>s+x.w, 0);
-  // נרמל ל-0-10
-  const score = Math.round(bullWeight / maxWeight * 10);
+  const bearWeight = signals.filter(s=>s.v===-1).reduce((s,x)=>s+x.w, 0);
+  const maxWeight  = signals.reduce((s,x)=>s+x.w, 0);
+  // ציון: כמה אינדיקטורים מסכימים לכיוון הדומיננטי (0-10)
+  const domWeight = Math.max(bullWeight, bearWeight);
+  const score = Math.round(domWeight / maxWeight * 10);
 
   const bulls = signals.filter(s=>s.v===1);
   const bears = signals.filter(s=>s.v===-1);
@@ -4653,7 +4655,7 @@ async function runScanner(auto=false){
       label: "⚡ Day Trade — היום",
       minVR: 1.5,
       minPct: 0,
-      minConf: 4,
+      minConf: 3,
       maxRisk: 60,
       minRR: 1.5,
       candleEp: "candle", // נרות יומיים — שעתיים לא זמינים ב-Polygon חינמי
@@ -4663,9 +4665,9 @@ async function runScanner(auto=false){
       label: "📅 Short Swing — מחר",
       minVR: 1.2,
       minPct: 0,
-      minConf: 4,
+      minConf: 3,
       maxRisk: 60,
-      minRR: 1.8,
+      minRR: 1.5,
       candleEp: "candle",
       strategies: ["Trend Pullback 🔄📊","Support Bounce 🎯","Bull Flag 🚩","Breakout 🚀","Gap & Go ⚡","Momentum 📈"],
     },
@@ -4673,7 +4675,7 @@ async function runScanner(auto=false){
       label: "📈 Swing Trade — שבוע+",
       minVR: 1.0,
       minPct: 0,
-      minConf: 4,
+      minConf: 3,
       maxRisk: 60,
       minRR: 1.5,
       candleEp: "candle",
