@@ -1481,6 +1481,22 @@ VWAP הוא כלי אחד מתוך רבים — משקלו 1/12 בלבד.
 - Falling Three Methods: נר אדום גדול + 3 נרות ירוקים קטנים בתוכו + נר אדום חזק = המשך ירידה
 - Deliberation Pattern: 3 נרות ירוקים עולים שהולכים וקטנים = מגמת עלייה מתשת, היפוך קרוב
 
+Power of 3 (AMD) + Change of Character (CHoCH):
+Power of 3 — מבנה יומי של Smart Money:
+- Accumulation: בוקר — Smart Money צובר פוזיציות בשקט, תנועה איטית + נפח נמוך
+- Manipulation: אמצע — תנועה מזויפת לכיוון ההפוך (ציד SL) + נפח גבוה פתאומי
+- Distribution: אחה"צ — התנועה האמיתית מתחילה, Smart Money מוכר לקהל
+- זהה: Gap Up בפתיחה → ירידה (Manipulation) → עלייה חזקה (Distribution) = LONG
+- זהה: Gap Down בפתיחה → עלייה (Manipulation) → ירידה חזקה (Distribution) = SHORT
+
+Change of Character (CHoCH) — זיהוי היפוך מוקדם:
+- Bullish CHoCH: במגמת ירידה — שיא חדש נשבר מעלה לראשונה = היפוך מגמה מתחיל
+- Bearish CHoCH: במגמת עלייה — שפל חדש נשבר מטה לראשונה = היפוך מגמה מתחיל
+- Strong CHoCH: שבירה עם נפח גבוה + נר גדול = אמין מאוד
+- Weak CHoCH: שבירה ללא נפח = ייתכן False Break
+- CHoCH + Order Block = כניסה מושלמת בתחילת מגמה חדשה
+- CHoCH vs BOS: CHoCH = היפוך | BOS = המשך מגמה
+
 Rejection Wicks + Compression — דחייה ודחיסה לפני פיצוץ:
 - Rejection Wick: פתיל > 3× גוף הנר = דחייה חזקה מרמה → כנס בכיוון ההפוך
 - Long Upper Wick: פתיל עליון ארוך = דחייה מהתנגדות → כניסה SHORT
