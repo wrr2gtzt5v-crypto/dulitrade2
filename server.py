@@ -1262,6 +1262,24 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
 כלל ברזל: אם R/R מתחת ל-1.0 → NEUTRAL חובה.
 סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
+Psychology of Price Action:
+- זהה איפה SL של Longs (מתחת שפלים) ו-Shorts (מעל שיאים) - Smart Money יצוד אותם
+- Retail Trap: פריצה ברורה ואז היפוך מיידי = מלכודת לקהל
+- Fear Zone: אחרי ירידה חדה = הזדמנות קנייה. Greed Zone: אחרי עלייה חדה = זמן לצאת
+
+Confluence Score:
+- כל גורם מאשר = +1, גורמים חזקים (OB/FVG/CHoCH/VWAP Reclaim) = +2
+- 8+ = כניסה חזקה מאוד | 5-7 = טובה | 3-4 = בינונית, הקטן פוזיציה | מתחת 3 = אל תיכנס
+
+3 תרחישי כניסה:
+Conservative: SL קרוב, TP קרוב, R/R 1.5 (לסוחרים זהירים)
+Standard: SL בינוני, TP בינוני, R/R 2.0 (המלצה רגילה)
+Aggressive: SL רחוק, TP רחוק, R/R 3.0 (לסוחרים אגרסיביים)
+
+What Could Go Wrong:
+- ציין מחיר/תנאי שיבטל את ה-Setup לחלוטין
+- מה הסימן הראשון שהעסקה נכשלת
+
 ענה JSON בלבד:
 {
   "ticker": "טיקר או null",
@@ -1309,7 +1327,15 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
   "key_levels": ["רמה1","רמה2"],
   "holding": "זמן החזקה",
   "reasoning": "הסבר מפורט בעברית",
-  "warnings": ["אזהרה אם יש"]
+  "warnings": ["אזהרה אם יש"],
+  "confluence_score": מספר 0-15,
+  "confluence_factors": ["גורם1", "גורם2"],
+  "psychology": "מה הסוחרים האחרים חושבים ואיפה ה-SL שלהם",
+  "scenario_conservative": {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
+  "scenario_standard":     {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
+  "scenario_aggressive":   {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
+  "invalidation": "מחיר/תנאי שיבטל את ה-Setup",
+  "first_warning_sign": "הסימן הראשון שהעסקה נכשלת"
 }"""
         full_prompt = context_text + "\n\n" + prompt_body
         
