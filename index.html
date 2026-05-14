@@ -3072,6 +3072,48 @@ async function analyzeChartImage(){
           ${a.warnings.map(w=>`<div style="font-size:11px;color:var(--amber)">⚠️ ${w}</div>`).join("")}
         </div>`:""}
 
+        <!-- Confluence Score -->
+        ${a.confluence_score!=null?`
+        <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:10px;color:var(--text3);font-family:monospace">🎯 Confluence Score</span>
+            <span style="font-size:16px;font-weight:700;font-family:monospace;color:${(a.confluence_score||0)>=8?"var(--green)":(a.confluence_score||0)>=5?"var(--amber)":"var(--red)"}">${a.confluence_score}/15</span>
+          </div>
+          ${a.confluence_factors&&a.confluence_factors.length?`<div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${a.confluence_factors.map(f=>`<span style="background:var(--gdim);border:1px solid var(--green);border-radius:4px;padding:2px 7px;font-size:10px;color:var(--green)">${f}</span>`).join("")}
+          </div>`:""}
+        </div>`:""}
+
+        <!-- 3 תרחישים -->
+        ${a.scenario_standard?`
+        <div style="margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:6px">📊 3 תרחישי כניסה</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">
+            ${[["🛡️ Conservative",a.scenario_conservative,"var(--blue)"],["⚖️ Standard",a.scenario_standard,"var(--green)"],["🚀 Aggressive",a.scenario_aggressive,"var(--amber)"]].filter(s=>s[1]).map(([label,s,col])=>`
+            <div style="background:var(--bg2);border:1px solid ${col};border-radius:6px;padding:7px;text-align:center">
+              <div style="font-size:9px;color:${col};margin-bottom:4px">${label}</div>
+              <div style="font-size:10px;color:var(--green);font-family:monospace">TP $${s.tp}</div>
+              <div style="font-size:10px;color:var(--red);font-family:monospace">SL $${s.sl}</div>
+              <div style="font-size:10px;color:${col};font-family:monospace">1:${s.rr}</div>
+            </div>`).join("")}
+          </div>
+        </div>`:""}
+
+        <!-- Psychology -->
+        ${a.psychology?`
+        <div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:10px;border-right:3px solid var(--amber)">
+          <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:3px">🧠 Psychology of Price</div>
+          <div style="font-size:12px;color:var(--text2)">${a.psychology}</div>
+        </div>`:""}
+
+        <!-- What Could Go Wrong -->
+        ${a.invalidation?`
+        <div style="background:var(--rdim);border:1px solid var(--red);border-radius:6px;padding:8px 10px;margin-bottom:10px">
+          <div style="font-size:9px;color:var(--red);font-family:monospace;margin-bottom:3px">⛔ ביטול Setup</div>
+          <div style="font-size:12px;color:var(--text2)">${a.invalidation}</div>
+          ${a.first_warning_sign?`<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠️ סימן ראשון: ${a.first_warning_sign}</div>`:""}
+        </div>`:""}
+
         <!-- ניתוח מפורט -->
         <div style="background:var(--bg2);border-radius:6px;padding:10px;border-right:3px solid ${sigColor};margin-bottom:10px">
           <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:4px">🧠 ניתוח Claude</div>
