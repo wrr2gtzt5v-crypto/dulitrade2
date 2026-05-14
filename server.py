@@ -1439,270 +1439,76 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         context_text = "\n".join(ctx_lines)
         
         # בנה טקסט הפרומפט המלא כstring נפרד
-        prompt_body = """═══════════════════════════════════
-שלב 1 — זיהוי מידע בסיסי מהגרף
-═══════════════════════════════════
-1. זהה את שם/טיקר המניה (מוצג בדרך כלל בפינה שמאל עליון ב-TradingView — למשל AAPL, NVDA, SPY)
-2. זהה את ה-Timeframe (1m/2m/3m/5m/10m/15m/30m/1h/2h/4h/D/W)
-3. זהה את המחיר הנוכחי (המחיר האחרון הנראה בגרף)
-4. קבע סוג מסחר: DAY_TRADE (דקות) או SWING_TRADE (שעה ומעלה)
+        prompt_body = """אתה מנתח טכני מקצועי. נתח את הגרף ותן המלצת מסחר.
 
-═══════════════════════════════════
-שלב 2 — ניתוח Day Trading (נרות דקות)
-═══════════════════════════════════
-חשוב: זהה תחילה את האסטרטגיה הדומיננטית מהרשימה — אל תתמקד רק ב-VWAP!
-VWAP הוא כלי אחד מתוך רבים — משקלו 1/12 בלבד.
+זהה:
+1. טיקר + Timeframe + מחיר נוכחי + סוג (DAY_TRADE/SWING_TRADE)
+2. האסטרטגיה הדומיננטית: Bull Flag, Bear Flag, VWAP Reclaim, Breakout, Breakdown, Support Bounce, Resistance Rejection, Gap Fill, 3 Bar Play, Flat Top, Cup & Handle, Double Bottom/Top, Mean Reversion, Order Block, FVG, CHoCH, Liquidity Sweep, Pin Bar, Compression/Squeeze, Rubber Band
+3. דפוסי נרות: Hammer, Engulfing, Doji, Morning/Evening Star, Marubozu, Harami, Inside Bar, Abandoned Baby, Kicker, Belt Hold, Tasuki Gap, Three Methods, Deliberation, Rejection Wick
+4. Market Structure: HH/HL עולה / LH/LL יורד / BOS / FVG / CHoCH / Liquidity Sweep
+5. נפח: גבוה/נמוך/Climax/Dry Up
+6. VWAP: מעל/מתחת/Reclaim (גורם אישור בלבד — לא עיקרי)
+7. EMA/MA: מאשר/מתנגד
+8. Order Blocks + Breaker Blocks + Liquidity Pools אם נראים
 
-אסטרטגיות Day Trade — זהה איזו מהן מופיעה בגרף:
-- Bull Flag: עמוד → דחיסה → פריצה
-- Bear Flag: ירידה חדה → דחיסה → המשך ירידה
-- VWAP Bounce: נגיעה ב-VWAP + נר היפוך
-- Momentum Scalp: נר גדול + נפח גבוה + המשך כיוון
-- Gap Fill: פתיחה עם Gap → ממלא לכיוון הסגירה
-- 9/20 EMA Cross: EMA9 חוצה EMA20
-- Supply/Demand Zone: פריצת אזור היצע/ביקוש היסטורי
-- HOD/LOD Reversal: היפוך בשיא/שפל היום
-- Pre-Market Level Break: פריצת רמת Pre-Market
-- Inside Bar Breakout: נר בתוך הקודם → פריצה
-- 3 Bar Play: נר 1 גדול → נר 2 קטן → נר 3 פורץ מעל נר 1 = כניסה
-- Flat Top Breakout: התנגדות אופקית עם 3+ נגיעות → פריצה עם נפח = כניסה חזקה
-- Ascending Triangle: תחתיות עולות + התנגדות אופקית → פריצה כלפי מעלה
-- Descending Triangle: שיאים יורדים + תמיכה אופקית → שבירה כלפי מטה
-- Cup & Handle: עיגול + דחיסה קטנה → פריצה = אחת האסטרטגיות האמינות ביותר
-- Double Bottom (W): שני שפלים זהים + פריצת הצוואר = היפוך שורי חזק
-- Double Top (M): שני שיאים זהים + שבירת הצוואר = היפוך דובי חזק
-- Rubber Band: מניה ירדה 3%+ מהממוצע ב-5 נרות → חזרה מהירה לממוצע
-- Abandoned Baby: נר + Doji עם גאפ + נר הפוך = היפוך חזק מאוד (נדיר ואמין)
-- Kicker Pattern: גאפ פתאומי לכיוון הפוך עם נר חזק = שינוי מגמה חד וחריף
-- Belt Hold Bullish: נר ירוק גדול שנפתח בשפל ועולה ללא צל תחתון = כניסה אגרסיבית
-- Belt Hold Bearish: נר אדום גדול שנפתח בשיא ויורד ללא צל עליון = לחץ מכירה חזק
-- Tasuki Gap: 3 נרות — גדול + גאפ + נר קטן הפוך לא מסגר את הגאפ = המשך מגמה
-- Rising Three Methods: נר ירוק גדול + 3 נרות אדומים קטנים בתוכו + נר ירוק חזק = המשך עלייה
-- Falling Three Methods: נר אדום גדול + 3 נרות ירוקים קטנים בתוכו + נר אדום חזק = המשך ירידה
-- Deliberation Pattern: 3 נרות ירוקים עולים שהולכים וקטנים = מגמת עלייה מתשת, היפוך קרוב
+כלל ברזל: אם R/R מתחת ל-1.0 → NEUTRAL חובה.
+סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
-Breaker Blocks + Liquidity Pools — Smart Money Advanced:
-Breaker Block — Order Block שהפך לרמה הפוכה:
-- Bullish Breaker: Order Block דובי שנשבר כלפי מעלה → הופך לתמיכה חזקה
-- Bearish Breaker: Order Block שורי שנשבר כלפי מטה → הופך להתנגדות חזקה
-- כניסה על Breaker = כניסה חזקה כי Smart Money שינה כיוון
-- Breaker + FVG = צירוף חזק מאוד לכניסה
-
-Liquidity Pools — ציד SL של Smart Money:
-- Buy Side Liquidity (BSL): SL מצטברים מעל שיאים קודמים → Smart Money ינסה לגעת בהם
-- Sell Side Liquidity (SSL): SL מצטברים מתחת לשפלים קודמים → Smart Money ינסה לגעת בהם
-- Equal Highs: 2+ שיאים זהים = BSL חזק, Smart Money ישבור מעלה ואז יהפוך
-- Equal Lows: 2+ שפלים זהים = SSL חזק, Smart Money ישבור מטה ואז יהפוך
-- Liquidity Sweep: פריצת שיא/שפל + היפוך מיידי = Smart Money סיים ציד, כנס בכיוון ההפוך
-- Stop Hunt: ירידה מהירה מתחת לשפל + חזרה מיידית = Long squeeze, כניסה LONG
-- זהה: מחיר עולה לשיאים קודמים (BSL) → נר דחייה → כניסה SHORT
-- זהה: מחיר יורד לשפלים קודמים (SSL) → נר דחייה → כניסה LONG
-
-Power of 3 (AMD) + Change of Character (CHoCH):
-Power of 3 — מבנה יומי של Smart Money:
-- Accumulation: בוקר — Smart Money צובר פוזיציות בשקט, תנועה איטית + נפח נמוך
-- Manipulation: אמצע — תנועה מזויפת לכיוון ההפוך (ציד SL) + נפח גבוה פתאומי
-- Distribution: אחה"צ — התנועה האמיתית מתחילה, Smart Money מוכר לקהל
-- זהה: Gap Up בפתיחה → ירידה (Manipulation) → עלייה חזקה (Distribution) = LONG
-- זהה: Gap Down בפתיחה → עלייה (Manipulation) → ירידה חזקה (Distribution) = SHORT
-
-Change of Character (CHoCH) — זיהוי היפוך מוקדם:
-- Bullish CHoCH: במגמת ירידה — שיא חדש נשבר מעלה לראשונה = היפוך מגמה מתחיל
-- Bearish CHoCH: במגמת עלייה — שפל חדש נשבר מטה לראשונה = היפוך מגמה מתחיל
-- Strong CHoCH: שבירה עם נפח גבוה + נר גדול = אמין מאוד
-- Weak CHoCH: שבירה ללא נפח = ייתכן False Break
-- CHoCH + Order Block = כניסה מושלמת בתחילת מגמה חדשה
-- CHoCH vs BOS: CHoCH = היפוך | BOS = המשך מגמה
-
-Rejection Wicks + Compression — דחייה ודחיסה לפני פיצוץ:
-- Rejection Wick: פתיל > 3× גוף הנר = דחייה חזקה מרמה → כנס בכיוון ההפוך
-- Long Upper Wick: פתיל עליון ארוך = דחייה מהתנגדות → כניסה SHORT
-- Long Lower Wick: פתיל תחתון ארוך = דחייה מתמיכה → כניסה LONG
-- Multiple Rejection Wicks: 2+ פתילים ארוכים באותה רמה = התנגדות/תמיכה חזקה מאוד
-- Pin Bar: גוף קטן + פתיל ארוך מאוד (> 4× גוף) = אחד הדפוסים האמינים ביותר
-- Compression (Squeeze): טווח נרות הולך וקטן ב-5+ נרות + נפח יורד = פיצוץ מגמה קרוב
-- Tight Consolidation: 3+ נרות בטווח צר מאוד (< 0.5%) = אנרגיה מצטברת לפני תנועה
-- NR7 (Narrowest Range 7): הנר עם הטווח הקטן ביותר מ-7 נרות = פיצוץ קרוב מאוד
-- Inside Bar Compression: 2+ Inside Bars ברצף = דחיסה כפולה, פיצוץ חזק
-- Bollinger Band Squeeze: רצועות BB מתכנסות = תנועה גדולה קרובה
-
-Fair Value Gap (FVG) + Imbalance — פערים שהמחיר חוזר למלא:
-- Bullish FVG: פער בין שפל נר 1 לשיא נר 3 (נר 2 גדול עלה) = מגנט למחיר מלמטה
-- Bearish FVG: פער בין שיא נר 1 לשפל נר 3 (נר 2 גדול ירד) = מגנט למחיר מלמעלה
-- Fresh FVG: פער שטרם מולא = כניסה חזקה כשמחיר נוגע בו
-- Filled FVG: פער שכבר מולא = פחות אמין
-- Partial Fill: פער שמולא חלקית = עדיין פעיל
-- Balanced Price Range: שני FVG מולאו = אזור ניטרלי
-- כאשר מחיר חוזר ל-FVG + נר היפוך = כניסה מדויקת מאוד
-- FVG על טיים פריים גבוה (1h/4h) = חזק יותר מ-FVG על 5 דקות
-- Imbalance: תנועה חדה בנר אחד = בדרך כלל תימלא לפני המשך מגמה
-
-Order Blocks — אזורי כניסה של מוסדיים (חשוב מאוד):
-זהה Order Blocks בגרף — אלה האזורים שממנם Smart Money נכנס:
-- Bullish Order Block: נר אדום גדול לפני תנועת עלייה חזקה — המחיר חוזר לבדוק אותו = כניסה LONG
-- Bearish Order Block: נר ירוק גדול לפני תנועת ירידה חזקה — המחיר חוזר לבדוק אותו = כניסה SHORT
-- Strong Order Block: נר עם נפח חריג + תנועה חדה אחריו = אזור חזק במיוחד
-- Mitigated Order Block: אזור שכבר נבדק — פחות אמין לכניסה נוספת
-- Unmitigated Order Block: אזור שטרם נבדק = הכי חזק לכניסה
-- כאשר מחיר חוזר ל-Order Block + יש דפוס נרות = כניסה מושלמת
-
-גורמי אישור (לא עיקריים — רק מחזקים את האסטרטגיה):
-- VWAP: מחיר מעל = חיובי, מתחת = שלילי, Reclaim = חזק (משקל 1/12)
-- Opening Range: פריצה מעל OR High = חיובי, שבירה = שלילי (משקל 1/12)
-- EMA9/EMA20: מחיר מעל EMA = חיובי (משקל 1/12)
-
-נפח — ניתוח מתקדם (חשוב מאוד):
-- נפח גבוה + תנועה = תנועה אמיתית ומהימנה
-- נפח נמוך + תנועה = לא אמין, הימנע מכניסה
-- Climax Volume: נפח חריג פי 3+ מהממוצע = תנועה מתשת, לרוב היפוך קרוב — אל תיכנס!
-- Dry Up Volume: נפח נמוך מאוד אחרי ירידה = דחיסה לפני פריצה, המתן לנפח
-- Volume Spread Analysis: נר גדול + נפח נמוך = מניפולציה, לא אמין
-- נפח עולה עם מחיר עולה = מגמה בריאה
-- נפח יורד עם מחיר עולה = מגמה נחלשת, שקול יציאה
-
-Market Structure (חשוב לזיהוי מגמה):
-- Higher Highs + Higher Lows (HH/HL) = מגמת עלייה מאושרת → עדיף LONG
-- Lower Highs + Lower Lows (LH/LL) = מגמת ירידה מאושרת → עדיף SHORT
-- Break of Structure (BOS): שבירת שיא/שפל קודם = שינוי מגמה — כניסה חזקה
-- Fair Value Gap (FVG): פער בין נרות ללא מסחר = מגנט למחיר, רמת כניסה מצוינת
-- Liquidity Sweep: פריצת שיא/שפל ואז היפוך מיידי = מלכודת, היפוך חזק
-
-═══════════════════════════════════
-שלב 3 — ניתוח Swing Trading (שעה ומעלה)
-═══════════════════════════════════
-- מגמה: MA50/MA200 אם מוצגים + HH/HL vs LH/LL
-- תמיכה/התנגדות: רמות ברורות בגרף + Fair Value Gaps
-- דפוסי היפוך: Morning Star, Evening Star, Head & Shoulders, Double Top/Bottom
-- Fibonacci: רמות 38.2%, 50%, 61.8%
-- RSI/MACD: אם מוצגים — Divergence = סימן חזק
-- Trend Pullback: נסיגה לממוצע נע → כניסה
-- Breakout: פריצת התנגדות עם נפח + BOS
-
-═══════════════════════════════════
-שלב 4 — חישוב רמת ביטחון מפורטת
-═══════════════════════════════════
-חשב ציון לכל גורם (0-2 נקודות כל אחד):
-- דפוס נרות ברור: 0/1/2
-- VWAP מאשר: 0/1/2
-- נפח מאשר: 0/1/2
-- כיוון מגמה תומך: 0/1/2
-- R/R >= 2:1: 0/1/2
-- Opening Range מאשר: 0/1/2
-- EMA/MA מאשרים: 0/1/2
-- אין התנגדות קרובה: 0/1/2
-סה"כ: X/16 → המר ל-X/10
-
-═══════════════════════════════════
-שלב 5 — Entry Timing מדויק
-═══════════════════════════════════
-בחר את סוג הכניסה המדויק:
-- Breakout Entry: "כנס על פריצת $X עם נר ירוק סוגר מעל הרמה" — אמין יותר, מחיר גבוה יותר
-- Pullback Entry: "כנס על חזרה ל-$X (VWAP/EMA/תמיכה)" — מחיר טוב יותר, R/R גבוה יותר
-- Momentum Entry: "כנס מיד על נר גדול עם נפח" — מהיר, מסוכן יותר
-- Confirmation Entry: "המתן לסגירת נר מעל $X לפני כניסה" — הכי בטוח
-- Volume Trigger: "כנס רק אם נפח הנר > ממוצע 10 נרות"
-
-═══════════════════════════════════
-שלב 6 — SL/TP מדויקים + Risk Management
-═══════════════════════════════════
-סדר חישוב חובה — קודם TP אחר כך SL:
-1. זהה את ה-TP הריאלי הקרוב ביותר (התנגדות, שיא קודם, FVG, Order Block)
-2. חשב את המרחק: TP - Entry = פוטנציאל רווח
-3. קבע SL שלא יעלה על פוטנציאל הרווח (SL < TP - Entry)
-4. אם אין מקום ל-SL הגיוני → NEUTRAL, אל תיצור עסקה!
-
-Day Trade:
-- TP1: שיא קודם / רמת התנגדות / FVG / R/R 1:1.5 מינימום
-- SL: מתחת לשפל הנר האחרון / מתחת ל-VWAP — חייב להיות קטן מ-TP
-- TP2: יעד שני — R/R 2:1+
-- אחרי הגעה ל-TP1: זוז SL לנקודת הכניסה (Breakeven Stop)
-
-Swing Trade:
-- TP1: התנגדות הקרובה / Fibonacci / Order Block
-- SL: מתחת לתמיכה / מתחת ל-MA50 — חייב להיות קטן מ-TP
-- TP2: Fibonacci extension / התנגדות הבאה
-- אחרי הגעה ל-TP1: זוז SL לכניסה (Breakeven Stop)
-
-בדיקת R/R לפני הגשה — חובה:
-- חשב: (TP1 - Entry) / (Entry - SL) = R/R
-- אם R/R < 1.0 → שנה את ה-SL או ה-TP, ואם אי אפשר → NEUTRAL
-- אם R/R בין 1.0-1.5 → ציין בwarnings שה-R/R נמוך
-- אם R/R >= 1.5 → עסקה טובה, המשך
-
-כלל זהב — Partial Exit:
-- תמיד צא 50% ב-TP1 ותן לשאר לרוץ ל-TP2
-- זה מבטיח רווח גם אם המחיר לא מגיע ל-TP2
-
-═══════════════════════════════════
-כלל ברזל — R/R מינימלי
-═══════════════════════════════════
-אם R/R מתחת ל-1.0 (כלומר SL גדול מ-TP) — זו לא עסקה!
-במקרה זה:
-1. קבע signal = "NEUTRAL"
-2. כתוב ב-reasoning: "R/R של X לא מצדיק כניסה — הסיכון גדול מהרווח"
-3. אל תציע entry/tp/sl
-זה כלל מוחלט — אין יוצאים מן הכלל!
-
-═══════════════════════════════════
-ענה בפורמט JSON בלבד — ללא טקסט לפני או אחרי:
-═══════════════════════════════════
+ענה JSON בלבד:
 {
-  "ticker": "שם המניה שזוהה מהגרף (למשל AAPL) או null אם לא נראה",
-  "trade_type": "DAY_TRADE" או "SWING_TRADE",
-  "timeframe": "הזמן שזוהה (1m/5m/15m/1h/4h/Daily)",
-  "current_price": המחיר הנוכחי הנראה בגרף,
-  "signal": "LONG" או "SHORT" או "NEUTRAL" — חשוב: אם R/R מתחת ל-1.0 (כלומר הסיכון גדול מהרווח) — חובה להחזיר NEUTRAL עם הסבר ב-reasoning,
-  "confidence": מספר 1-10 (חשב לפי total/12*10, עגל),
+  "ticker": "טיקר או null",
+  "trade_type": "DAY_TRADE או SWING_TRADE",
+  "timeframe": "1m/5m/15m/1h/4h/Daily",
+  "current_price": מחיר,
+  "signal": "LONG או SHORT או NEUTRAL",
+  "confidence": 1-10,
   "confidence_breakdown": {
-    "pattern": 0=אין דפוס / 1=דפוס חלש (Doji,Inside Bar) / 2=דפוס חזק (Engulfing,Hammer,Flag,Cup&Handle) — משקל 2,
-    "volume": 0=נפח נמוך מהממוצע / 1=נפח ממוצע / 2=נפח גבוה פי 1.5+ עם תנועה — משקל 2,
-    "market_structure": 0=אין מבנה ברור / 1=מבנה חלש / 2=HH/HL ברור או BOS או FVG — משקל 2,
-    "strategy": 0=אין אסטרטגיה ברורה / 1=אסטרטגיה חלשה / 2=אסטרטגיה ברורה (Bull Flag, 3 Bar Play וכו') — משקל 2,
-    "trend": 0=מגמה נגד העסקה / 1=מגמה ניטרלית / 2=מגמה לכיוון העסקה — משקל 1,
-    "vwap": 0=VWAP נגד / 1=VWAP ניטרלי / 2=VWAP מאשר — משקל 1,
-    "ema_ma": 0=EMA/MA נגד / 1=EMA/MA ניטרלי / 2=EMA/MA מאשר — משקל 1,
-    "no_resistance": 0=התנגדות חזקה קרובה / 1=התנגדות בינונית / 2=אין התנגדות קרובה — משקל 1,
-    "total": סכום כל השדות (0-12), confidence = total/12*10
+    "pattern": 0-2,
+    "volume": 0-2,
+    "market_structure": 0-2,
+    "strategy": 0-2,
+    "trend": 0-1,
+    "vwap": 0-1,
+    "ema_ma": 0-1,
+    "no_resistance": 0-1,
+    "total": 0-12
   },
-  "entry": מחיר כניסה מדויק,
-  "entry_timing": "תיאור מדויק מתי להיכנס (למשל: על פריצת $X / על סגירה מעל VWAP / על pullback ל-EMA9)",
-  "tp": מחיר TP,
-  "tp2": מחיר TP שני אם רלוונטי או null,
+  "entry": מחיר,
+  "entry_timing": "תיאור מתי להיכנס",
+  "tp": מחיר TP1,
+  "tp2": מחיר TP2 או null,
   "sl": מחיר SL,
-  "tp_pct": אחוז רווח עד TP1,
-  "tp2_pct": אחוז רווח עד TP2 או null,
-  "sl_pct": אחוז הפסד,
-  "rr_ratio": יחס R/R עד TP1,
-  "rr_ratio_tp2": יחס R/R עד TP2 או null,
-  "strategy": "שם האסטרטגיה המדויקת",
-  "entry_type": "Breakout Entry / Pullback Entry / Momentum Entry / Confirmation Entry / Volume Trigger",
-  "partial_exit": "הוראה מדויקת: למשל צא 50% ב-TP1 ב-$X, הזז SL לכניסה, תן לשאר לרוץ ל-TP2",
-  "breakeven_stop": "מתי לזוז SL לכניסה — למשל: אחרי הגעה ל-$X",
-  "market_structure": "HH/HL עולה / LH/LL יורד / BOS / FVG / Liquidity Sweep",
-  "volume_analysis_detail": "Climax/Dry Up/Normal + מה זה אומר לעסקה",
-  "patterns": ["דפוס1", "דפוס2"],
-  "trend": "תיאור המגמה",
-  "market_context": "הקשר כללי — שוק חזק/חלש, מגמה ראשית",
-  "support": מחיר תמיכה עיקרי,
-  "resistance": מחיר התנגדות עיקרי,
-  "vwap": מחיר VWAP אם נראה או null,
-  "vwap_position": "above" או "below" או null,
-  "opening_range_high": שיא OR או null,
-  "opening_range_low": שפל OR או null,
-  "ema9": מחיר EMA9 אם נראה או null,
-  "ema20": מחיר EMA20 אם נראה או null,
-  "volume_analysis": "ניתוח נפח — גבוה/נמוך/ממוצע ומה זה אומר",
-  "holding": "זמן החזקה מוצע",
-  "key_levels": ["רמה חשובה 1", "רמה חשובה 2", "רמה חשובה 3"],
-  "reasoning": "הסבר מקצועי מפורט בעברית: מה אתה רואה, למה זו הכניסה, מה הקטליסט, מה הסיכון",
-  "warnings": ["אזהרה ספציפית אם יש"]
+  "tp_pct": אחוז,
+  "sl_pct": אחוז,
+  "rr_ratio": יחס,
+  "strategy": "שם האסטרטגיה",
+  "entry_type": "Breakout/Pullback/Momentum/Confirmation",
+  "patterns": ["דפוס1"],
+  "trend": "תיאור",
+  "market_structure": "HH/HL או LH/LL או BOS או FVG או CHoCH",
+  "volume_analysis": "ניתוח נפח",
+  "market_context": "הקשר כללי",
+  "support": מחיר,
+  "resistance": מחיר,
+  "vwap": מחיר או null,
+  "vwap_position": "above/below/null",
+  "ema9": מחיר או null,
+  "ema20": מחיר או null,
+  "opening_range_high": מחיר או null,
+  "opening_range_low": מחיר או null,
+  "partial_exit": "הוראת יציאה חלקית",
+  "breakeven_stop": "מתי להזיז SL לכניסה",
+  "key_levels": ["רמה1","רמה2"],
+  "holding": "זמן החזקה",
+  "reasoning": "הסבר מפורט בעברית",
+  "warnings": ["אזהרה אם יש"]
 }"""
         full_prompt = context_text + "\n\n" + prompt_body
         
         url = "https://api.anthropic.com/v1/messages"
         payload = {
             "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 3000,
+            "max_tokens": 2000,
             "messages": [{
                 "role": "user",
                 "content": [
