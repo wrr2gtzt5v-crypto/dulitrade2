@@ -1481,6 +1481,23 @@ VWAP הוא כלי אחד מתוך רבים — משקלו 1/12 בלבד.
 - Falling Three Methods: נר אדום גדול + 3 נרות ירוקים קטנים בתוכו + נר אדום חזק = המשך ירידה
 - Deliberation Pattern: 3 נרות ירוקים עולים שהולכים וקטנים = מגמת עלייה מתשת, היפוך קרוב
 
+Breaker Blocks + Liquidity Pools — Smart Money Advanced:
+Breaker Block — Order Block שהפך לרמה הפוכה:
+- Bullish Breaker: Order Block דובי שנשבר כלפי מעלה → הופך לתמיכה חזקה
+- Bearish Breaker: Order Block שורי שנשבר כלפי מטה → הופך להתנגדות חזקה
+- כניסה על Breaker = כניסה חזקה כי Smart Money שינה כיוון
+- Breaker + FVG = צירוף חזק מאוד לכניסה
+
+Liquidity Pools — ציד SL של Smart Money:
+- Buy Side Liquidity (BSL): SL מצטברים מעל שיאים קודמים → Smart Money ינסה לגעת בהם
+- Sell Side Liquidity (SSL): SL מצטברים מתחת לשפלים קודמים → Smart Money ינסה לגעת בהם
+- Equal Highs: 2+ שיאים זהים = BSL חזק, Smart Money ישבור מעלה ואז יהפוך
+- Equal Lows: 2+ שפלים זהים = SSL חזק, Smart Money ישבור מטה ואז יהפוך
+- Liquidity Sweep: פריצת שיא/שפל + היפוך מיידי = Smart Money סיים ציד, כנס בכיוון ההפוך
+- Stop Hunt: ירידה מהירה מתחת לשפל + חזרה מיידית = Long squeeze, כניסה LONG
+- זהה: מחיר עולה לשיאים קודמים (BSL) → נר דחייה → כניסה SHORT
+- זהה: מחיר יורד לשפלים קודמים (SSL) → נר דחייה → כניסה LONG
+
 Power of 3 (AMD) + Change of Character (CHoCH):
 Power of 3 — מבנה יומי של Smart Money:
 - Accumulation: בוקר — Smart Money צובר פוזיציות בשקט, תנועה איטית + נפח נמוך
