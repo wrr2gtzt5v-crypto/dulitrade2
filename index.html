@@ -4774,18 +4774,27 @@ async function runScanner(auto=false){
         if(scannerTimeframe === "today" && vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
 
         // ── ניקוד תנועה יומית — מניות שזזות עכשיו עולות לראש ──
-        // ככל שהמניה זזת יותר היום עם נפח — ציון גבוה יותר
         let todayMomentum = 0;
+
+        // Gap מאתמול — פתיחה רחוק מסגירה
+        const gapPct = scanQuote.o > 0 && scanQuote.pc > 0
+          ? Math.abs((scanQuote.o - scanQuote.pc) / scanQuote.pc * 100)
+          : 0;
+        const hasGap = gapPct >= 2;
+
+        // ניקוד משולב: תנועה + נפח + Gap
         if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
         else if(Math.abs(pct) >= 3 && vrFromQuote >= 1.5) todayMomentum = 4; // תנועה חזקה + נפח
+        else if(hasGap && vrFromQuote >= 1.5) todayMomentum = 4;             // Gap + נפח
         else if(Math.abs(pct) >= 2 && vrFromQuote >= 1.5) todayMomentum = 3; // תנועה בינונית + נפח
-        else if(vrFromQuote >= 3.0) todayMomentum = 3; // נפח פי 3+ (גם ללא תנועה גדולה)
-        else if(Math.abs(pct) >= 3) todayMomentum = 2; // תנועה חזקה בלי נפח
-        else if(vrFromQuote >= 2.0) todayMomentum = 2; // נפח פי 2+
-        else if(Math.abs(pct) >= 1.5) todayMomentum = 1; // תנועה קטנה
-        else todayMomentum = 0; // ניטרלי
+        else if(vrFromQuote >= 3.0) todayMomentum = 3;                       // נפח פי 3+
+        else if(hasGap) todayMomentum = 3;                                   // Gap בלבד
+        else if(Math.abs(pct) >= 3) todayMomentum = 2;                       // תנועה חזקה בלי נפח
+        else if(vrFromQuote >= 2.0) todayMomentum = 2;                       // נפח פי 2+
+        else if(Math.abs(pct) >= 1.5) todayMomentum = 1;                     // תנועה קטנה
+        else todayMomentum = 0;
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum });
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap });
       } catch(e){}
     }));
   }
@@ -4958,6 +4967,7 @@ async function runScanner(auto=false){
           sym, price: scanQuote.c, pct: scores.pct,
           detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
           todayMomentum: (pass1.find(x=>x.sym===sym)||{}).todayMomentum||0,
+          hasGap: (pass1.find(x=>x.sym===sym)||{}).hasGap||false,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
@@ -5036,6 +5046,17 @@ async function runScanner(auto=false){
   scannerRunning = false;
 }
 
+function openTradingView(sym, tf){
+  // Timeframe mapping
+  const intervalMap = {
+    today:    "5",   // 5 דקות ל-Day Trade
+    tomorrow: "15",  // 15 דקות ל-Short Swing
+    week:     "D",   // יומי ל-Swing
+  };
+  const interval = intervalMap[tf] || "D";
+  return `https://il.tradingview.com/chart/?symbol=NASDAQ%3A${sym}&interval=${interval}`;
+}
+
 function renderScanResults(results){
   const grid = document.getElementById("scanGrid");
   // בדוק ועדכן עסקאות ישנות
@@ -5058,18 +5079,24 @@ function renderScanResults(results){
   grid.innerHTML = `<div style="font-size:10px;color:var(--text3);font-family:monospace;padding:4px 8px;margin-bottom:4px">
     ℹ️ לחץ על כרטיס לניתוח מלא — הסורק מציג נתונים חלקיים
   </div>` + results.slice(0,12).map(r=>`
-    <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}" onclick="q('${r.sym}')">
-      <div class="scan-left">
+    <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}">
+      <div class="scan-left" onclick="q('${r.sym}')" style="cursor:pointer">
         <div class="scan-sym">${r.sym}</div>
         <div class="scan-price">$${r.price.toFixed(2)}</div>
         <div class="scan-price" style="color:${chDir(r.pct)}">${r.pct>=0?"+":""}${r.pct}%</div>
         <div style="font-size:11px;color:var(--amber);letter-spacing:-1px">${stars(r.dealStrength||0)}</div>
+        <a href="${openTradingView(r.sym, scannerTimeframe)}" target="_blank"
+          onclick="event.stopPropagation()"
+          style="margin-top:4px;display:block;background:var(--cbtn);color:#fff;border-radius:4px;padding:3px 6px;font-size:9px;font-family:monospace;text-decoration:none;text-align:center">
+          📊 TV
+        </a>
       </div>
       <div class="scan-mid">
         <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
         <div class="scan-tags">
           ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
           ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק היום</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה יומית</span>':""}
+          ${r.hasGap?'<span class="scan-tag hot">📈 Gap היום</span>':""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
