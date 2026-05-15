@@ -2763,7 +2763,7 @@ function openChartAnalyzer(){
 
       <!-- תמונה 1 -->
       <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px">
-        📈 תמונה 1 — גרף ראשי (יומי/שעתי) <span style="color:var(--red)">*חובה</span>
+        📈 תמונה 1 — גרף ראשי (15 דקות / שעתי / יומי)
       </div>
       <div id="caDropZone"
         style="border:2px dashed var(--border2);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
@@ -2772,7 +2772,7 @@ function openChartAnalyzer(){
         ondragleave="this.style.borderColor='var(--border2)'"
         ondrop="handleChartDrop(event)">
         <div style="font-size:1.5rem;margin-bottom:4px">📈</div>
-        <div style="font-size:12px;color:var(--text2)">גרור גרף יומי/שעתי לכאן</div>
+        <div style="font-size:12px;color:var(--text2)">גרור גרף 15 דקות / שעתי / יומי</div>
         <div style="font-size:10px;color:var(--text3);margin-top:3px">או לחץ לבחירה</div>
       </div>
       <input id="caFileInput" type="file" accept="image/*" style="display:none" onchange="handleChartFile(event)">
@@ -2870,7 +2870,14 @@ function loadChartFile2(file){
 }
 
 async function analyzeChartImage(){
-  if(!_chartImageB64){ alert("יש להעלות תמונה קודם"); return; }
+  // בדוק שיש לפחות תמונה אחת
+  if(!_chartImageB64 && !_chartImage2B64){ alert("יש להעלות לפחות תמונה אחת"); return; }
+  // אם יש רק תמונה 2 — העבר אותה לתמונה 1
+  if(!_chartImageB64 && _chartImage2B64){
+    _chartImageB64 = _chartImage2B64;
+    _chartMediaType = _chartMediaType2;
+    _chartImage2B64 = "";
+  }
 
   const btn = document.getElementById("caAnalyzeBtn");
   const result = document.getElementById("caResult");
