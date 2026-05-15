@@ -1715,7 +1715,54 @@ function calcIndicators(candles, quote, fhInd){
     }
   }
 
-  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl,adx,diPlus,diMinus,poc,divergence};
+  // ── Dark Pool Detection ─────────────────────────────────
+  // נפח גבוה + מחיר לא זז = מוסדיים קונים/מוכרים בשקט
+  let darkPool = null;
+  if(v.length >= 5 && c.length >= 5){
+    const recentVols = v.slice(-5);
+    const avgVol5    = recentVols.reduce((a,b)=>a+b,0) / 5;
+    const avgVol20   = v.length >= 20 ? v.slice(-20).reduce((a,b)=>a+b,0)/20 : avgVol5;
+    const lastVol    = v[N-1] || 0;
+    const volRatio   = avgVol20 > 0 ? lastVol / avgVol20 : 1;
+
+    // תנועת מחיר ב-3 ימים אחרונים
+    const priceMove3 = c.length >= 3
+      ? Math.abs((c[N-1] - c[N-3]) / c[N-3] * 100)
+      : 0;
+
+    // Dark Pool: נפח פי 2+ אבל מחיר זז פחות מ-1%
+    if(volRatio >= 2.0 && priceMove3 < 1.0){
+      darkPool = {
+        detected: true,
+        volRatio: +volRatio.toFixed(1),
+        priceMove: +priceMove3.toFixed(2),
+        signal: "🐋 Dark Pool — נפח חריג ללא תנועה, מוסדיים צוברים",
+        bullish: null // לא ידוע — יכול להיות קנייה או מכירה
+      };
+    }
+    // נפח גבוה מאוד + מחיר עולה = מוסדיים קונים בגלוי
+    else if(volRatio >= 2.5 && pctQ > 1.5){
+      darkPool = {
+        detected: true,
+        volRatio: +volRatio.toFixed(1),
+        priceMove: +priceMove3.toFixed(2),
+        signal: "🚀 נפח מוסדי — קנייה גדולה עם תנועה",
+        bullish: true
+      };
+    }
+    // נפח גבוה + מחיר יורד = מוסדיים מוכרים
+    else if(volRatio >= 2.0 && pctQ < -1.5){
+      darkPool = {
+        detected: true,
+        volRatio: +volRatio.toFixed(1),
+        priceMove: +priceMove3.toFixed(2),
+        signal: "⚠️ מכירה מוסדית — נפח גבוה עם ירידה",
+        bullish: false
+      };
+    }
+  }
+
+  return{rsi,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr,bStd,stochRsi,williamsR,cci,vr,vLbl,adx,diPlus,diMinus,poc,divergence,darkPool};
 }
 
 // ── CALC TARGETS — חישוב חכם SL/TP לפי כל הפרמטרים ──────
@@ -2619,7 +2666,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
-    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,pc:quote?.pc||0,topCatalyst:topCatalyst||null,topCatalystScore:topCatalystScore||0,catalystScore:catalystScore||0,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,pc:quote?.pc||0,topCatalyst:topCatalyst||null,topCatalystScore:topCatalystScore||0,catalystScore:catalystScore||0,darkPool:ind.darkPool||null,
     confluence: confluenceScore,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
@@ -3865,6 +3912,15 @@ function render(sym, quote, candles, profile, scores, patterns, competitors, mac
         </button>
       </div>
 
+      ${d.darkPool?`
+      <div style="background:${d.darkPool.bullish===true?"var(--gdim)":d.darkPool.bullish===false?"var(--rdim)":"var(--bdim)"};border:1px solid ${d.darkPool.bullish===true?"var(--green)":d.darkPool.bullish===false?"var(--red)":"var(--blue)"};border-radius:8px;padding:10px 14px;margin-bottom:1rem">
+        <div style="font-size:11px;font-family:monospace;color:${d.darkPool.bullish===true?"var(--green)":d.darkPool.bullish===false?"var(--red)":"var(--blue)"};margin-bottom:4px">
+          ${d.darkPool.signal}
+        </div>
+        <div style="font-size:12px;color:var(--text2)">
+          נפח: פי ${d.darkPool.volRatio} מהממוצע · תנועת מחיר: ${d.darkPool.priceMove}%
+        </div>
+      </div>`:""}
       <div class="stitle">אינדיקטורים מתקדמים</div>
       <div class="targets" style="grid-template-columns:repeat(4,1fr)">
         <div class="tbox"><div class="tlbl" onclick="showTip('MA50')">${T("MA50","MA50")}</div><div class="tval en" style="font-size:12px">$${d.ma50}</div></div>
@@ -5394,6 +5450,7 @@ async function runScanner(auto=false){
           relStrengthVsSpy: (pass1.find(x=>x.sym===sym)||{}).relStrengthVsSpy||0,
           hasTodayNews: (pass1.find(x=>x.sym===sym)||{}).hasTodayNews||false,
           topCatalystScore: scores.topCatalystScore||0,
+          darkPool: scores.darkPool||null,
           sectorChange: (pass1.find(x=>x.sym===sym)||{}).sectorChange||0,
           sectorStrong: (pass1.find(x=>x.sym===sym)||{}).sectorStrong||false,
           sectorWeak:   (pass1.find(x=>x.sym===sym)||{}).sectorWeak||false,
@@ -5541,6 +5598,7 @@ function renderScanResults(results){
           ${r.relStrengthVsSpy>=2?`<span class="scan-tag hot">💪 RS +${r.relStrengthVsSpy}% vs SPY</span>`:""}
           ${r.hasTodayNews?'<span class="scan-tag mom">📰 חדשות היום</span>':""}
           ${r.topCatalystScore>=8?'<span class="scan-tag hot">🚀 Earnings Beat</span>':r.topCatalystScore>=6?'<span class="scan-tag hot">📈 Analyst Upgrade</span>':r.topCatalystScore<=-8?'<span class="scan-tag" style="border-color:var(--red);color:var(--red)">❌ Earnings Miss</span>':""}
+          ${r.darkPool?'<span class="scan-tag hot">🐋 Dark Pool</span>':""}
           ${r.sectorStrong?`<span class="scan-tag mom">🏭 סקטור חזק ${r.sectorChange>0?"+":""}${r.sectorChange}%</span>`:""}
           ${r.sectorWeak?`<span class="scan-tag" style="border-color:var(--red);color:var(--red)">⚠️ סקטור חלש ${r.sectorChange}%</span>`:""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
