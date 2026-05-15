@@ -2484,8 +2484,50 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   const posNews=allNews.filter(n=>n.sentiment==="positive").length;
   const negNews=allNews.filter(n=>n.sentiment==="negative").length;
   const totalNews=allNews.length;
-  const newsBalance=posNews-negNews;
-  const newsScoreNorm=Math.max(0,Math.min(100,Math.round(50+(newsBalance/(Math.max(totalNews,1)))*50)));
+
+  // ── News Catalyst Score — דרג לפי חשיבות ──────────────
+  function getNewsCatalystScore(newsItem){
+    const title = (newsItem.title||newsItem.headline||"").toLowerCase();
+    // Earnings Surprise = 10
+    if(/earnings|beat|eps|revenue|profit|quarter|guidance/.test(title) &&
+       /beat|exceed|surprise|above|strong|record/.test(title)) return 10;
+    // Insider Buy = 8
+    if(/insider|director|ceo|cfo|officer/.test(title) &&
+       /buy|bought|purchase|acqui/.test(title)) return 8;
+    // Analyst Upgrade = 6
+    if(/upgrade|raised|outperform|buy rating|price target|overweight/.test(title)) return 6;
+    // Analyst Downgrade = -6
+    if(/downgrade|cut|underperform|sell rating|lowered|underweight/.test(title)) return -6;
+    // Earnings Miss = -8
+    if(/earnings|eps|revenue/.test(title) &&
+       /miss|below|disappoint|weak|loss/.test(title)) return -8;
+    // Lawsuit/Regulation = -5
+    if(/lawsuit|sec|investigation|fine|penalty|recall/.test(title)) return -5;
+    // General positive = 3
+    if(/surge|jump|rally|rise|gain|strong|record|deal|partner/.test(title)) return 3;
+    // General negative = -3
+    if(/drop|fall|decline|weak|concern|warn|risk|layoff/.test(title)) return -3;
+    return 0;
+  }
+
+  // חשב Catalyst Score מצטבר
+  let catalystScore = 0;
+  let topCatalyst = null;
+  let topCatalystScore = 0;
+  allNews.forEach(n => {
+    const score = getNewsCatalystScore(n);
+    catalystScore += score;
+    if(Math.abs(score) > Math.abs(topCatalystScore)){
+      topCatalystScore = score;
+      topCatalyst = { title: n.title||n.headline||"", score, source: n.source||"" };
+    }
+  });
+  catalystScore = Math.max(-20, Math.min(20, catalystScore)); // cap בין -20 ל-20
+
+  const newsBalance = posNews - negNews;
+  // שלב את newsBalance עם catalystScore לציון סופי
+  const combinedNewsScore = (newsBalance * 0.4) + (catalystScore * 0.6);
+  const newsScoreNorm = Math.max(0, Math.min(100, Math.round(50 + combinedNewsScore * 2)));
 
   // ── MACRO SCORE ────────────────────────────────────────
   let macroScore=50;
@@ -2577,7 +2619,7 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
     entry,tp,sl,tpPct,slPct,rrRatio:+safeN(rrRatio,1).toFixed(1),holding,strategy,
     rsi,stochRsi,williamsR,cci,macdVal,macdTxt,ma50,ma200,bbU,bbL,atr:+trueAtr.toFixed(2),vr,vLbl,
     techFactors,fundFactors,allNews,posNews,negNews,totalNews,
-    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,pc:quote?.pc||0,
+    goldenCross,deathCross,crossRecent,relStrength,support,resistance,adx:adx,diPlus:diPlus,diMinus:diMinus,poc:ind.poc||0,divergence:ind.divergence||null,pc:quote?.pc||0,topCatalyst:topCatalyst||null,topCatalystScore:topCatalystScore||0,catalystScore:catalystScore||0,
     confluence: confluenceScore,
     trend:price>ma50&&ma50>ma200?"מגמת עלייה חזקה":price<ma50&&ma50<ma200?"מגמת ירידה חזקה":price>ma50?"מגמת עלייה":price<ma50?"מגמת ירידה":"ניטרלי",
   };
@@ -5351,6 +5393,7 @@ async function runScanner(auto=false){
           pmGapPct: preMarketGaps[sym]?.gapPct||0,
           relStrengthVsSpy: (pass1.find(x=>x.sym===sym)||{}).relStrengthVsSpy||0,
           hasTodayNews: (pass1.find(x=>x.sym===sym)||{}).hasTodayNews||false,
+          topCatalystScore: scores.topCatalystScore||0,
           sectorChange: (pass1.find(x=>x.sym===sym)||{}).sectorChange||0,
           sectorStrong: (pass1.find(x=>x.sym===sym)||{}).sectorStrong||false,
           sectorWeak:   (pass1.find(x=>x.sym===sym)||{}).sectorWeak||false,
@@ -5497,6 +5540,7 @@ function renderScanResults(results){
           ${r.hasPmGap?`<span class="scan-tag hot">🌅 PM Gap ${r.pmGapPct>0?"+":""}${r.pmGapPct}%</span>`:""}
           ${r.relStrengthVsSpy>=2?`<span class="scan-tag hot">💪 RS +${r.relStrengthVsSpy}% vs SPY</span>`:""}
           ${r.hasTodayNews?'<span class="scan-tag mom">📰 חדשות היום</span>':""}
+          ${r.topCatalystScore>=8?'<span class="scan-tag hot">🚀 Earnings Beat</span>':r.topCatalystScore>=6?'<span class="scan-tag hot">📈 Analyst Upgrade</span>':r.topCatalystScore<=-8?'<span class="scan-tag" style="border-color:var(--red);color:var(--red)">❌ Earnings Miss</span>':""}
           ${r.sectorStrong?`<span class="scan-tag mom">🏭 סקטור חזק ${r.sectorChange>0?"+":""}${r.sectorChange}%</span>`:""}
           ${r.sectorWeak?`<span class="scan-tag" style="border-color:var(--red);color:var(--red)">⚠️ סקטור חלש ${r.sectorChange}%</span>`:""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
