@@ -2059,10 +2059,15 @@ function calcTargets(p){
   else                                   holdDays = 10;
   if(isStrong) holdDays *= 1.5;
 
+  // ── הגבל holdDays לפי Timeframe שנבחר ──────────────────
+  const _scanTf = typeof scannerTimeframe !== 'undefined' ? scannerTimeframe : 'month';
+  const _tfConfig = typeof TF_CONFIG !== 'undefined' ? TF_CONFIG[_scanTf] : null;
+  if(_tfConfig && _tfConfig.maxHoldDays){
+    holdDays = Math.min(holdDays, _tfConfig.maxHoldDays);
+  }
+
   // ── שלב 3 — Earnings: TP לא יעבור את תאריך הדוח ─────────
-  // רק אם Timeframe קצר/בינוני — בארוך לא חותכים, רק מזהירים
-  const _scanTf = typeof scannerTimeframe !== 'undefined' ? scannerTimeframe : 'medium';
-  if(hasEarnings && _scanTf !== 'long') holdDays = Math.min(holdDays, 3);
+  if(hasEarnings && _scanTf !== 'month') holdDays = Math.min(holdDays, 3);
 
   // עוגן TP: 0.5% לפני ההתנגדות (לקנייה) / 0.5% לפני התמיכה (למכירה)
   const tpAnchorPct = isBuy
@@ -2101,7 +2106,8 @@ function calcTargets(p){
     : +(price * (1 - finalTpPct)).toFixed(2);
 
   // ── 5. זמן החזקה בשפה ────────────────────────────────
-  const holding = holdDays <= 5  ? "3-7 ימים"
+  const holding = holdDays <= 1  ? "היום בלבד ⚡"
+               : holdDays <= 5  ? "3-7 ימים"
                : holdDays <= 8  ? "שבוע"
                : holdDays <= 14 ? "1-2 שבועות"
                : holdDays <= 21 ? "2-3 שבועות"
@@ -4746,8 +4752,13 @@ function detectStrategies(candles, quote, ind, tf){
   // מפה TF חדשים לישנים
   const tfMap = {today:"today", week:"tomorrow", month:"week"};
   const mappedTf = tfMap[tf] || tf;
-  // סנן לפי timeframe
-  const filtered = matched.filter(s => s.tf.includes(mappedTf) || s.tf.includes(tf));
+
+  // אסטרטגיות מותרות לפי TF
+  const dayTradeStrats = ["Gap & Go ⚡","Breakout 🚀","Momentum 📈","Mean Reversion 🔄"];
+  const filtered = matched.filter(s => {
+    if(tf === "today") return dayTradeStrats.some(d => s.name.includes(d.split(" ")[0]));
+    return s.tf.includes(mappedTf) || s.tf.includes(tf);
+  });
   return {
     matched: filtered,
     score: filtered.reduce((s,x)=>s+x.score, 0),
@@ -4867,13 +4878,14 @@ async function runScanner(auto=false){
     today: {
       label: "⚡ Day Trade — היום",
       minVR: 1.5,
-      minPct: 1.5,      // חובה תנועה יומית
+      minPct: 1.0,
       minConf: 3,
       maxRisk: 60,
       minRR: 1.5,
       candleEp: "candle",
-      candleLookback: 5, // 5 נרות אחרונים = שבוע
-      strategies: ["Bull Flag 🚩","Breakout 🚀","VWAP Reclaim ↩️","Gap & Go ⚡","Momentum 📈","Mean Reversion 🔄"],
+      candleLookback: 5,
+      maxHoldDays: 1,   // מקסימום יום אחד
+      strategies: ["Gap & Go ⚡","Breakout 🚀","Momentum 📈","Mean Reversion 🔄"],
     },
     week: {
       label: "📅 Swing — כמה ימים",
