@@ -4816,6 +4816,36 @@ async function runScanner(auto=false){
   const ms = getMarketStatus();
 
   // ══════════════════════════════════════════════════════════
+  // שלב Pre — Pre-Market Gap Detection
+  // בודק מניות עם Gap גדול לפני פתיחה
+  // ══════════════════════════════════════════════════════════
+  const preMarketGaps = {}; // sym → {gapPct, pmVolume}
+  const ms0 = getMarketStatus();
+  if(ms0.status === "pre" || ms0.status === "closed"){
+    status.textContent = "בודק Pre-Market Gaps...";
+    // בדוק 30 מניות הכי נסחרות
+    const PM_LIST = ["AAPL","NVDA","TSLA","META","AMZN","MSFT","GOOGL","AMD","PLTR","COIN",
+                     "SOFI","HOOD","MSTR","IONQ","SOUN","ARM","SMCI","NFLX","UBER","SHOP",
+                     "INTC","MU","QCOM","AVGO","CRM","NOW","PANW","CRWD","DKNG","ROKU"];
+    await Promise.allSettled(PM_LIST.map(async sym => {
+      try {
+        const q = await api(sym, "quote");
+        if(!q.c || !q.pc || q.pc === 0) return;
+        // Gap = פתיחה vs סגירה אתמול
+        const openPrice = q.o || q.c;
+        const gapPct = +((openPrice - q.pc) / q.pc * 100).toFixed(2);
+        if(Math.abs(gapPct) >= 1.5){
+          preMarketGaps[sym] = { gapPct, pmActive: q.pmActive || false, pmPrice: q.pmPrice };
+        }
+      } catch(e){}
+    }));
+    const gapCount = Object.keys(preMarketGaps).length;
+    if(gapCount > 0){
+      status.textContent = `נמצאו ${gapCount} מניות עם Gap Pre-Market`;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
   // שלב 0 — Market Breadth — בריאות השוק
   // סורק 20 מניות מ-S&P500 ובודק כמה מעל MA50
   // ══════════════════════════════════════════════════════════
@@ -4902,6 +4932,11 @@ async function runScanner(auto=false){
           ? Math.abs((scanQuote.o - scanQuote.pc) / scanQuote.pc * 100)
           : 0;
         const hasGap = gapPct >= 2;
+
+        // Pre-Market Gap בונוס — מניה עם Gap Pre-Market מקבלת עדיפות
+        const pmGapData = preMarketGaps[sym];
+        const hasPmGap = pmGapData && Math.abs(pmGapData.gapPct) >= 2;
+        if(hasPmGap) todayMomentum = Math.max(todayMomentum, 4);
 
         // ניקוד משולב: תנועה + נפח + Gap
         if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
@@ -5089,6 +5124,8 @@ async function runScanner(auto=false){
           detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
           todayMomentum: (pass1.find(x=>x.sym===sym)||{}).todayMomentum||0,
           hasGap: (pass1.find(x=>x.sym===sym)||{}).hasGap||false,
+          hasPmGap: !!(preMarketGaps[sym]),
+          pmGapPct: preMarketGaps[sym]?.gapPct||0,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
@@ -5229,6 +5266,7 @@ function renderScanResults(results){
           ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
           ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק היום</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה יומית</span>':""}
           ${r.hasGap?'<span class="scan-tag hot">📈 Gap היום</span>':""}
+          ${r.hasPmGap?`<span class="scan-tag hot">🌅 PM Gap ${r.pmGapPct>0?"+":""}${r.pmGapPct}%</span>`:""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
