@@ -2801,6 +2801,25 @@ function openChartAnalyzer(){
         <div style="font-size:10px;color:var(--amber);font-family:monospace;margin-top:3px">✅ גרף כניסה נטען</div>
       </div>
 
+      <!-- בחירת סוג עסקה -->
+      <div id="caTradeTypeSelect" style="display:none;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:6px">
+          📌 מה סוג העסקה שאתה מחפש?
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button onclick="setTradeType('day')" id="ttDay"
+            style="padding:10px;border-radius:8px;border:2px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s">
+            ⚡ Day Trade<br>
+            <span style="font-size:10px;font-weight:400;color:var(--text3)">שעות — נרות 1-15 דקות</span>
+          </button>
+          <button onclick="setTradeType('swing')" id="ttSwing"
+            style="padding:10px;border-radius:8px;border:2px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s">
+            📈 Swing Trade<br>
+            <span style="font-size:10px;font-weight:400;color:var(--text3)">ימים/שבועות — נרות שעתיים/יומי</span>
+          </button>
+        </div>
+      </div>
+
       <button id="caAnalyzeBtn" onclick="analyzeChartImage()"
         style="display:none;width:100%;background:var(--cbtn);border:none;color:#fff;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:1rem">
         🔍 נתח עם Claude AI
@@ -2812,10 +2831,32 @@ function openChartAnalyzer(){
 }
 
 let _chartImageB64 = "";
+let _chartTradeType = "day"; // day / swing
 let _chartMediaType = "image/jpeg";
 let _chartTicker = null;
 let _chartImage2B64 = "";
 let _chartMediaType2 = "image/jpeg";
+
+function setTradeType(type){
+  _chartTradeType = type;
+  const dayBtn   = document.getElementById("ttDay");
+  const swingBtn = document.getElementById("ttSwing");
+  if(type === "day"){
+    dayBtn.style.borderColor   = "var(--blue)";
+    dayBtn.style.background    = "var(--bdim)";
+    dayBtn.style.color         = "var(--blue)";
+    swingBtn.style.borderColor = "var(--border)";
+    swingBtn.style.background  = "var(--bg3)";
+    swingBtn.style.color       = "var(--text2)";
+  } else {
+    swingBtn.style.borderColor = "var(--green)";
+    swingBtn.style.background  = "var(--gdim)";
+    swingBtn.style.color       = "var(--green)";
+    dayBtn.style.borderColor   = "var(--border)";
+    dayBtn.style.background    = "var(--bg3)";
+    dayBtn.style.color         = "var(--text2)";
+  }
+}
 
 function handleChartDrop(e){
   e.preventDefault();
@@ -2851,6 +2892,11 @@ function loadChartFile(file){
     if(preview) preview.style.display = "block";
     if(btn) btn.style.display = "block";
     document.getElementById("caDropZone").style.display = "none";
+    // הצג בחירת סוג עסקה
+    const ttSelect = document.getElementById("caTradeTypeSelect");
+    if(ttSelect) ttSelect.style.display = "block";
+    // ברירת מחדל — Day Trade מסומן
+    setTradeType("day");
   };
   reader.readAsDataURL(file);
 }
@@ -2925,6 +2971,7 @@ async function analyzeChartImage(){
         maxDrawdown: maxDrawdownActive,
         image2: _chartImage2B64 || null,
         mediaType2: _chartMediaType2,
+        tradeType: _chartTradeType || "day",
       })
     });
     btn.textContent = "⏳ שלב 2: מנתח גרף...";
@@ -3212,6 +3259,9 @@ function resetChartAnalyzer(){
   document.getElementById("caResult").style.display = "none";
   document.getElementById("caFileInput").value = "";
   document.getElementById("caFileInput2").value = "";
+  const ttSelect = document.getElementById("caTradeTypeSelect");
+  if(ttSelect) ttSelect.style.display = "none";
+  _chartTradeType = "day";
 }
 
 // ── BID/ASK HTML ─────────────────────────────────────────
