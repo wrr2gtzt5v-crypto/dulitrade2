@@ -4827,6 +4827,39 @@ async function runScanner(auto=false){
     spyChangePct = spyQ.dp || 0;
   } catch(e){}
 
+  // שלוף ביצועי סקטורים היום
+  const sectorETFs = {
+    "Tech": "XLK", "Finance": "XLF", "Energy": "XLE",
+    "Health": "XLV", "Industrial": "XLI", "Consumer": "XLY",
+    "Communication": "XLC", "Materials": "XLB", "Utilities": "XLU"
+  };
+  const sectorChanges = {}; // sector → changePct
+  await Promise.allSettled(Object.entries(sectorETFs).map(async ([sector, etf]) => {
+    try {
+      const q = await api(etf, "quote");
+      if(q.dp !== undefined) sectorChanges[sector] = q.dp || 0;
+    } catch(e){}
+  }));
+
+  // מיפוי מניות לסקטורים
+  const stockSectorMap = {
+    "AAPL":"Tech","MSFT":"Tech","NVDA":"Tech","AMD":"Tech","INTC":"Tech","QCOM":"Tech",
+    "AVGO":"Tech","CRM":"Tech","NOW":"Tech","ADBE":"Tech","INTU":"Tech","PANW":"Tech",
+    "CRWD":"Tech","PLTR":"Tech","SHOP":"Tech","ARM":"Tech","SMCI":"Tech","MU":"Tech",
+    "JPM":"Finance","BAC":"Finance","GS":"Finance","MS":"Finance","V":"Finance",
+    "MA":"Finance","AXP":"Finance","COF":"Finance","SOFI":"Finance","COIN":"Finance",
+    "XOM":"Energy","CVX":"Energy","COP":"Energy","SLB":"Energy","OXY":"Energy",
+    "UNH":"Health","JNJ":"Health","LLY":"Health","ABBV":"Health","MRK":"Health",
+    "PFE":"Health","GILD":"Health","ISRG":"Health","DXCM":"Health",
+    "CAT":"Industrial","DE":"Industrial","BA":"Industrial","HON":"Industrial",
+    "GE":"Industrial","RTX":"Industrial","UPS":"Industrial","FDX":"Industrial",
+    "TSLA":"Consumer","AMZN":"Consumer","HD":"Consumer","NKE":"Consumer",
+    "MCD":"Consumer","SBUX":"Consumer","UBER":"Consumer","DKNG":"Consumer",
+    "META":"Communication","GOOGL":"Communication","NFLX":"Communication",
+    "DIS":"Communication","CMCSA":"Communication","SNAP":"Communication",
+    "TEVA":"Health","CHKP":"Tech","MNDY":"Tech","WIX":"Tech",
+  };
+
   // בדוק חדשות היום ל-20 מניות הכי חשובות
   const NEWS_CHECK = ["AAPL","NVDA","TSLA","META","AMZN","MSFT","GOOGL","AMD","PLTR","COIN",
                       "SOFI","NFLX","JPM","GS","V","INTC","MU","QCOM","AVGO","CRM"];
@@ -4979,6 +5012,14 @@ async function runScanner(auto=false){
         // חדשות היום — בונוס
         const hasTodayNews = !!todayNewsMap[sym];
 
+        // Sector Momentum — בונוס אם הסקטור חזק היום
+        const stockSector = stockSectorMap[sym] || null;
+        const sectorChange = stockSector ? (sectorChanges[stockSector] || 0) : 0;
+        const sectorStrong = sectorChange >= 1.0;  // סקטור עולה 1%+ = חזק
+        const sectorWeak   = sectorChange <= -1.0; // סקטור יורד 1%+ = חלש
+        if(sectorStrong && pct > 0) todayMomentum = Math.min(5, todayMomentum + 1);
+        if(sectorWeak   && pct < 0) todayMomentum = Math.min(5, todayMomentum + 1);
+
         // ניקוד משולב: תנועה + נפח + Gap
         if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
         else if(Math.abs(pct) >= 3 && vrFromQuote >= 1.5) todayMomentum = 4; // תנועה חזקה + נפח
@@ -4991,7 +5032,7 @@ async function runScanner(auto=false){
         else if(Math.abs(pct) >= 1.5) todayMomentum = 1;                     // תנועה קטנה
         else todayMomentum = 0;
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews });
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews, sectorChange: +sectorChange.toFixed(2), sectorStrong, sectorWeak, stockSector });
       } catch(e){}
     }));
   }
@@ -5169,6 +5210,9 @@ async function runScanner(auto=false){
           pmGapPct: preMarketGaps[sym]?.gapPct||0,
           relStrengthVsSpy: (pass1.find(x=>x.sym===sym)||{}).relStrengthVsSpy||0,
           hasTodayNews: (pass1.find(x=>x.sym===sym)||{}).hasTodayNews||false,
+          sectorChange: (pass1.find(x=>x.sym===sym)||{}).sectorChange||0,
+          sectorStrong: (pass1.find(x=>x.sym===sym)||{}).sectorStrong||false,
+          sectorWeak:   (pass1.find(x=>x.sym===sym)||{}).sectorWeak||false,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
@@ -5312,6 +5356,8 @@ function renderScanResults(results){
           ${r.hasPmGap?`<span class="scan-tag hot">🌅 PM Gap ${r.pmGapPct>0?"+":""}${r.pmGapPct}%</span>`:""}
           ${r.relStrengthVsSpy>=2?`<span class="scan-tag hot">💪 RS +${r.relStrengthVsSpy}% vs SPY</span>`:""}
           ${r.hasTodayNews?'<span class="scan-tag mom">📰 חדשות היום</span>':""}
+          ${r.sectorStrong?`<span class="scan-tag mom">🏭 סקטור חזק ${r.sectorChange>0?"+":""}${r.sectorChange}%</span>`:""}
+          ${r.sectorWeak?`<span class="scan-tag" style="border-color:var(--red);color:var(--red)">⚠️ סקטור חלש ${r.sectorChange}%</span>`:""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
