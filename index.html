@@ -2865,6 +2865,95 @@ function buildCandleStory(d, candles, patterns, earnings, insider, sector, preMa
 }
 
 
+// ── TRADE RESULT RECORDING ───────────────────────────────
+function recordTradeResult(sym, strategy, signal, confidence, rrRatio, result){
+  const key = "dt_trade_results";
+  const results = JSON.parse(localStorage.getItem(key) || "[]");
+  results.push({
+    sym, strategy, signal, confidence, rrRatio, result,
+    date: new Date().toISOString(),
+    hour: new Date().getHours(),
+  });
+  localStorage.setItem(key, JSON.stringify(results.slice(-200))); // שמור 200 אחרונות
+
+  // הצג אישור
+  const el = document.createElement("div");
+  el.style.cssText = `position:fixed;top:70px;left:50%;transform:translateX(-50%);
+    background:var(--bg2);border:2px solid ${result==="win"?"var(--green)":"var(--red)"};
+    border-radius:10px;padding:12px 20px;font-family:monospace;font-size:13px;
+    color:${result==="win"?"var(--green)":"var(--red)"};z-index:9999;text-align:center`;
+  el.textContent = result==="win" ? `✅ ${sym} נרשם כהצלחה!` : `❌ ${sym} נרשם ככישלון`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+
+  // עדכן ניתוח אם יש מספיק נתונים
+  analyzeWinRatePatterns();
+}
+
+function analyzeWinRatePatterns(){
+  const key = "dt_trade_results";
+  const results = JSON.parse(localStorage.getItem(key) || "[]");
+  if(results.length < 10) return; // צריך לפחות 10 עסקאות
+
+  // ניתוח לפי אסטרטגיה
+  const byStrategy = {};
+  results.forEach(r => {
+    if(!byStrategy[r.strategy]) byStrategy[r.strategy] = {wins:0, total:0};
+    byStrategy[r.strategy].total++;
+    if(r.result==="win") byStrategy[r.strategy].wins++;
+  });
+
+  // ניתוח לפי Confidence
+  const byConf = {low:{wins:0,total:0}, mid:{wins:0,total:0}, high:{wins:0,total:0}};
+  results.forEach(r => {
+    const bucket = r.confidence >= 8 ? "high" : r.confidence >= 6 ? "mid" : "low";
+    byConf[bucket].total++;
+    if(r.result==="win") byConf[bucket].wins++;
+  });
+
+  // ניתוח לפי שעה
+  const byHour = {};
+  results.forEach(r => {
+    const h = r.hour;
+    if(!byHour[h]) byHour[h] = {wins:0, total:0};
+    byHour[h].total++;
+    if(r.result==="win") byHour[h].wins++;
+  });
+
+  // שמור ניתוח
+  const analysis = { byStrategy, byConf, byHour, total: results.length,
+    wins: results.filter(r=>r.result==="win").length };
+  localStorage.setItem("dt_wr_analysis", JSON.stringify(analysis));
+}
+
+function getWinRateInsights(){
+  const analysis = JSON.parse(localStorage.getItem("dt_wr_analysis") || "null");
+  if(!analysis || analysis.total < 10) return null;
+
+  const insights = [];
+  const winRate = +(analysis.wins / analysis.total * 100).toFixed(1);
+  insights.push(`סה"כ: ${analysis.wins}/${analysis.total} (${winRate}%)`);
+
+  // אסטרטגיה הכי טובה
+  let bestStrat = null, bestRate = 0;
+  Object.entries(analysis.byStrategy).forEach(([s, d]) => {
+    if(d.total >= 3){
+      const rate = d.wins/d.total;
+      if(rate > bestRate){ bestRate = rate; bestStrat = s; }
+    }
+  });
+  if(bestStrat) insights.push(`אסטרטגיה הטובה ביותר: ${bestStrat} (${(bestRate*100).toFixed(0)}%)`);
+
+  // Confidence מינימלי מומלץ
+  const highConf = analysis.byConf.high;
+  if(highConf.total >= 3){
+    const highRate = +(highConf.wins/highConf.total*100).toFixed(0);
+    insights.push(`Confidence 8+: ${highRate}% הצלחה`);
+  }
+
+  return insights;
+}
+
 // ── WIN RATE MANUAL ADD ──────────────────────────────────
 function showAddToWinRate(sym, price, tp, sl, strategy, holding){
   // חשב holdDays מ-holding string
@@ -3418,12 +3507,22 @@ async function analyzeChartImage(){
           <div style="font-size:13px;color:var(--text2);line-height:1.7">${a.reasoning||"—"}</div>
         </div>
 
-        <!-- כפתור Win Rate — רק אתה מחליט -->
+        <!-- כפתור Win Rate + תוצאה -->
         ${a.signal!=="NEUTRAL"?`
         <button onclick="showAddToWinRate('${_chartTicker||a.ticker||'?'}', ${a.entry||0}, ${a.tp||0}, ${a.sl||0}, '${(a.strategy||'').replace(/'/g,'')}', '${a.holding||''}')"
           style="width:100%;background:var(--cbtn);border:none;color:#fff;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">
           📊 הוסף עסקה ל-Win Rate Tracking
-        </button>`:""}
+        </button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <button onclick="recordTradeResult('${_chartTicker||a.ticker||'?'}','${(a.strategy||'').replace(/'/g,'')}','${a.signal||''}',${a.confidence||5},${a.rr_ratio||1},'win')"
+            style="background:var(--gdim);border:2px solid var(--green);color:var(--green);padding:9px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">
+            ✅ הצליח
+          </button>
+          <button onclick="recordTradeResult('${_chartTicker||a.ticker||'?'}','${(a.strategy||'').replace(/'/g,'')}','${a.signal||''}',${a.confidence||5},${a.rr_ratio||1},'loss')"
+            style="background:var(--rdim);border:2px solid var(--red);color:var(--red);padding:9px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">
+            ❌ נכשל
+          </button>
+        </div>`:""}
 
         <button onclick="resetChartAnalyzer()"
           style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:6px;font-size:12px;cursor:pointer">
@@ -4694,10 +4793,14 @@ function renderWinRateHtml(){
     </div>`;
   }).join("") : "";
 
+  // הצג Insights אם יש מספיק נתונים
+  const insights = getWinRateInsights();
+
   if(!stats && !openTrades.length) return `
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;">
       <div style="font-size:11px;font-family:monospace;color:var(--text3);margin-bottom:6px">📊 Win Rate Tracking — מעקב ביצועים</div>
-      <div style="font-size:12px;color:var(--text3)">הסורק יתחיל לעקוב אחרי עסקאות אוטומטית. לאחר ${trades.length>0?'בדיקת תוצאות':'מספר ימים'} יוצג Win Rate.</div>
+      <div style="font-size:12px;color:var(--text3)">לחץ ✅/❌ אחרי כל ניתוח — אחרי 10 עסקאות תראה תובנות.</div>
+      ${insights ? `<div style="margin-top:8px;padding:8px;background:var(--bg2);border-radius:6px">${insights.map(i=>`<div style="font-size:11px;color:var(--blue);font-family:monospace">💡 ${i}</div>`).join("")}</div>` : ""}
     </div>`;
 
   return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;">
