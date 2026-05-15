@@ -2761,23 +2761,47 @@ function openChartAnalyzer(){
         </div>
       </div>
 
-      <div id="caDropZone" 
-        style="border:2px dashed var(--border2);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;margin-bottom:1rem;transition:border-color .2s"
+      <!-- תמונה 1 -->
+      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px">
+        📈 תמונה 1 — גרף ראשי (יומי/שעתי) <span style="color:var(--red)">*חובה</span>
+      </div>
+      <div id="caDropZone"
+        style="border:2px dashed var(--border2);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
         onclick="document.getElementById('caFileInput').click()"
         ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
         ondragleave="this.style.borderColor='var(--border2)'"
         ondrop="handleChartDrop(event)">
-        <div style="font-size:2rem;margin-bottom:8px">📊</div>
-        <div style="font-size:13px;color:var(--text2)">גרר תמונת גרף לכאן</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">או לחץ לבחירה מהגלריה</div>
+        <div style="font-size:1.5rem;margin-bottom:4px">📈</div>
+        <div style="font-size:12px;color:var(--text2)">גרור גרף יומי/שעתי לכאן</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">או לחץ לבחירה</div>
       </div>
       <input id="caFileInput" type="file" accept="image/*" style="display:none" onchange="handleChartFile(event)">
-
-      <div id="caPreview" style="display:none;margin-bottom:1rem">
-        <img id="caImg" style="width:100%;border-radius:8px;border:1px solid var(--border)">
+      <div id="caPreview" style="display:none;margin-bottom:8px">
+        <img id="caImg" style="width:100%;border-radius:8px;border:1px solid var(--green)">
+        <div style="font-size:10px;color:var(--green);font-family:monospace;margin-top:3px">✅ גרף ראשי נטען</div>
       </div>
 
-      <button id="caAnalyzeBtn" onclick="analyzeChartImage()" 
+      <!-- תמונה 2 -->
+      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px;margin-top:8px">
+        🕯 תמונה 2 — גרף כניסה (5/15 דקות) <span style="color:var(--amber)">אופציונלי — מגדיל דיוק</span>
+      </div>
+      <div id="caDropZone2"
+        style="border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
+        onclick="document.getElementById('caFileInput2').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--amber)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="handleChartDrop2(event)">
+        <div style="font-size:1.5rem;margin-bottom:4px">🕯</div>
+        <div style="font-size:12px;color:var(--text2)">גרור גרף 5/15 דקות לכאן</div>
+        <div style="font-size:10px;color:var(--amber);margin-top:3px">Multi-Timeframe = ניתוח מדויק יותר</div>
+      </div>
+      <input id="caFileInput2" type="file" accept="image/*" style="display:none" onchange="handleChartFile2(event)">
+      <div id="caPreview2" style="display:none;margin-bottom:8px">
+        <img id="caImg2" style="width:100%;border-radius:8px;border:1px solid var(--amber)">
+        <div style="font-size:10px;color:var(--amber);font-family:monospace;margin-top:3px">✅ גרף כניסה נטען</div>
+      </div>
+
+      <button id="caAnalyzeBtn" onclick="analyzeChartImage()"
         style="display:none;width:100%;background:var(--cbtn);border:none;color:#fff;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:1rem">
         🔍 נתח עם Claude AI
       </button>
@@ -2789,7 +2813,9 @@ function openChartAnalyzer(){
 
 let _chartImageB64 = "";
 let _chartMediaType = "image/jpeg";
-let _chartTicker = null; // טיקר שזוהה מניתוח קודם
+let _chartTicker = null;
+let _chartImage2B64 = "";
+let _chartMediaType2 = "image/jpeg";
 
 function handleChartDrop(e){
   e.preventDefault();
@@ -2797,10 +2823,19 @@ function handleChartDrop(e){
   const file = e.dataTransfer.files[0];
   if(file) loadChartFile(file);
 }
-
 function handleChartFile(e){
   const file = e.target.files[0];
   if(file) loadChartFile(file);
+}
+function handleChartDrop2(e){
+  e.preventDefault();
+  document.getElementById("caDropZone2").style.borderColor = "var(--border)";
+  const file = e.dataTransfer.files[0];
+  if(file) loadChartFile2(file);
+}
+function handleChartFile2(e){
+  const file = e.target.files[0];
+  if(file) loadChartFile2(file);
 }
 
 function loadChartFile(file){
@@ -2808,8 +2843,7 @@ function loadChartFile(file){
   const reader = new FileReader();
   reader.onload = (e) => {
     const dataUrl = e.target.result;
-    _chartImageB64 = dataUrl.split(",")[1]; // base64 בלבד
-    // הצג preview
+    _chartImageB64 = dataUrl.split(",")[1];
     const img = document.getElementById("caImg");
     const preview = document.getElementById("caPreview");
     const btn = document.getElementById("caAnalyzeBtn");
@@ -2817,6 +2851,20 @@ function loadChartFile(file){
     if(preview) preview.style.display = "block";
     if(btn) btn.style.display = "block";
     document.getElementById("caDropZone").style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+function loadChartFile2(file){
+  _chartMediaType2 = file.type || "image/jpeg";
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    _chartImage2B64 = dataUrl.split(",")[1];
+    const img = document.getElementById("caImg2");
+    const preview = document.getElementById("caPreview2");
+    if(img) img.src = dataUrl;
+    if(preview) preview.style.display = "block";
+    document.getElementById("caDropZone2").style.display = "none";
   };
   reader.readAsDataURL(file);
 }
@@ -2867,7 +2915,9 @@ async function analyzeChartImage(){
         image: _chartImageB64,
         mediaType: _chartMediaType,
         ticker: _chartTicker || null,
-        maxDrawdown: maxDrawdownActive
+        maxDrawdown: maxDrawdownActive,
+        image2: _chartImage2B64 || null,
+        mediaType2: _chartMediaType2,
       })
     });
     btn.textContent = "⏳ שלב 2: מנתח גרף...";
@@ -3145,12 +3195,16 @@ async function analyzeChartImage(){
 
 function resetChartAnalyzer(){
   _chartImageB64 = "";
+  _chartImage2B64 = "";
   _chartTicker = null;
   document.getElementById("caDropZone").style.display = "block";
   document.getElementById("caPreview").style.display = "none";
+  document.getElementById("caDropZone2").style.display = "block";
+  document.getElementById("caPreview2").style.display = "none";
   document.getElementById("caAnalyzeBtn").style.display = "none";
   document.getElementById("caResult").style.display = "none";
   document.getElementById("caFileInput").value = "";
+  document.getElementById("caFileInput2").value = "";
 }
 
 // ── BID/ASK HTML ─────────────────────────────────────────
