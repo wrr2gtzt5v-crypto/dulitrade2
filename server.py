@@ -1126,7 +1126,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
         return None
 
 
-def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, image2_base64=None, media_type2="image/jpeg"):
+def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, image2_base64=None, media_type2="image/jpeg", trade_type="day"):
     """ניתוח גרף מתמונה עם Claude Vision"""
     anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
     if not anthropic_key:
@@ -1246,6 +1246,32 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
         
         # בנה טקסט הפרומפט המלא כstring נפרד
         # הוסף הוראה ל-Multi-Timeframe אם יש 2 תמונות
+        # הוראת סוג עסקה
+        if trade_type == "day":
+            trade_instruction = """
+═══════════════════════════════════
+סוג עסקה: DAY TRADE
+═══════════════════════════════════
+המשתמש מחפש עסקה לאותו יום בלבד.
+- התמקד בנרות הקצרים (1-15 דקות)
+- מחפש: Breakout, VWAP Reclaim, Gap & Go, Bull Flag, Mean Reversion
+- SL קרוב: 0.3-1% מהמחיר
+- TP קרוב: R/R 1.5-2.5
+- זמן החזקה: דקות עד שעות — לא יותר מיום
+"""
+        else:
+            trade_instruction = """
+═══════════════════════════════════
+סוג עסקה: SWING TRADE
+═══════════════════════════════════
+המשתמש מחפש עסקה לימים עד שבועות.
+- התמקד במגמה הכללית ובנרות שעתיים/יומיים
+- מחפש: Trend Pullback, Support Bounce, RS Leader, Breakout מרמה חשובה
+- SL רחוק יותר: 2-5% מהמחיר
+- TP רחוק: R/R 2-3
+- זמן החזקה: ימים עד שבועות
+"""
+
         mtf_instruction = ""
         if image2_base64:
             mtf_instruction = """
@@ -1260,7 +1286,7 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
 ═══════════════════════════════════
 """
 
-        prompt_body = mtf_instruction + """אתה מנתח טכני מקצועי. נתח את הגרף ותן המלצת מסחר.
+        prompt_body = trade_instruction + mtf_instruction + """אתה מנתח טכני מקצועי. נתח את הגרף ותן המלצת מסחר.
 
 זהה:
 1. טיקר + Timeframe + מחיר נוכחי + סוג (DAY_TRADE/SWING_TRADE)
@@ -1537,6 +1563,7 @@ class Handler(BaseHTTPRequestHandler):
                 ticker = body.get("ticker", None)
                 image2_b64 = body.get("image2", None)
                 media_type2 = body.get("mediaType2", "image/jpeg")
+                trade_type  = body.get("tradeType", "day")
 
                 if not image_b64:
                     self._json({"error": "חסרה תמונה"}, 400)
@@ -1547,7 +1574,7 @@ class Handler(BaseHTTPRequestHandler):
                     ticker = identify_ticker_from_chart(image_b64, media_type)
 
                 # שלב 2 — ניתוח מלא עם context + חדשות
-                result = analyze_chart_image(image_b64, media_type, ticker, image2_b64, media_type2)
+                result = analyze_chart_image(image_b64, media_type, ticker, image2_b64, media_type2, trade_type)
 
                 # הוסף את הטיקר שזוהה לתגובה
                 if ticker and result.get("success"):
