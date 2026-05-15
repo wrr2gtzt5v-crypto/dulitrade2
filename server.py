@@ -1126,7 +1126,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
         return None
 
 
-def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
+def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, image2_base64=None, media_type2="image/jpeg"):
     """ניתוח גרף מתמונה עם Claude Vision"""
     anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
     if not anthropic_key:
@@ -1245,7 +1245,22 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None):
         context_text = "\n".join(ctx_lines)
         
         # בנה טקסט הפרומפט המלא כstring נפרד
-        prompt_body = """אתה מנתח טכני מקצועי. נתח את הגרף ותן המלצת מסחר.
+        # הוסף הוראה ל-Multi-Timeframe אם יש 2 תמונות
+        mtf_instruction = ""
+        if image2_base64:
+            mtf_instruction = """
+═══════════════════════════════════
+קיבלת 2 תמונות — Multi-Timeframe:
+תמונה 1 = גרף ראשי (כיוון כללי)
+תמונה 2 = גרף כניסה (כניסה מדויקת)
+
+כלל חובה: אם תמונה 1 מראה מגמה יורדת — אל תמליץ LONG בתמונה 2.
+אם תמונה 1 מראה מגמה עולה — אל תמליץ SHORT בתמונה 2.
+הכיוון של תמונה 1 שולט תמיד.
+═══════════════════════════════════
+"""
+
+        prompt_body = mtf_instruction + """אתה מנתח טכני מקצועי. נתח את הגרף ותן המלצת מסחר.
 
 זהה:
 1. טיקר + Timeframe + מחיר נוכחי + סוג (DAY_TRADE/SWING_TRADE)
@@ -1357,25 +1372,45 @@ What Could Go Wrong:
         full_prompt = context_text + "\n\n" + prompt_body
         
         url = "https://api.anthropic.com/v1/messages"
+        # בנה content — תמונה אחת או שתיים
+        content_parts = []
+        if image2_base64:
+            content_parts.append({
+                "type": "text",
+                "text": "תמונה 1 — גרף ראשי (יומי/שעתי — כיוון כללי):"
+            })
+        content_parts.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": image_base64,
+            }
+        })
+        if image2_base64:
+            content_parts.append({
+                "type": "text",
+                "text": "תמונה 2 — גרף כניסה (5 דקות/15 דקות — כניסה מדויקת):"
+            })
+            content_parts.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type2,
+                    "data": image2_base64,
+                }
+            })
+        content_parts.append({
+            "type": "text",
+            "text": full_prompt
+        })
+
         payload = {
             "model": "claude-sonnet-4-20250514",
             "max_tokens": 3000,
             "messages": [{
                 "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": image_base64,
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": full_prompt
-                    }
-                ]
+                "content": content_parts
             }]
         }
         req = Request(url, 
@@ -1500,6 +1535,8 @@ class Handler(BaseHTTPRequestHandler):
                 image_b64 = body.get("image", "")
                 media_type = body.get("mediaType", "image/jpeg")
                 ticker = body.get("ticker", None)
+                image2_b64 = body.get("image2", None)
+                media_type2 = body.get("mediaType2", "image/jpeg")
 
                 if not image_b64:
                     self._json({"error": "חסרה תמונה"}, 400)
@@ -1510,7 +1547,7 @@ class Handler(BaseHTTPRequestHandler):
                     ticker = identify_ticker_from_chart(image_b64, media_type)
 
                 # שלב 2 — ניתוח מלא עם context + חדשות
-                result = analyze_chart_image(image_b64, media_type, ticker)
+                result = analyze_chart_image(image_b64, media_type, ticker, image2_b64, media_type2)
 
                 # הוסף את הטיקר שזוהה לתגובה
                 if ticker and result.get("success"):
