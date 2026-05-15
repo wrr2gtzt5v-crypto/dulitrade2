@@ -573,6 +573,22 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
       <button class="asave" onclick="saveAlert()">שמור ✓</button>
     </div>
     <div class="atags" id="atags"></div>
+
+    <!-- Price Alert -->
+    <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
+      <div class="alert-title">🎯 Price Alert — התראה על מחיר ספציפי</div>
+      <div class="arow">
+        <input id="paSymbol" type="text" placeholder="סימבול: NVDA" dir="ltr" style="width:100px;text-transform:uppercase"/>
+        <select id="paDirection">
+          <option value="above">מעל מחיר ↑</option>
+          <option value="below">מתחת מחיר ↓</option>
+        </select>
+        <input id="paPrice" type="number" placeholder="מחיר: 235.50" dir="ltr" step="0.01"/>
+        <button class="asave" onclick="savePriceAlert()">הוסף 🎯</button>
+      </div>
+      <div class="atags" id="paTags"></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">⏰ בודק כל דקה בשעות המסחר · התראה ב-WhatsApp/מייל</div>
+    </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span>💼 גודל תיק:</span>
       <input id="portfolioInput" type="number" placeholder="לדוגמה: 50000" dir="ltr"
@@ -769,7 +785,90 @@ function selAC(s){document.getElementById("inp").value=s;document.getElementById
 function onKey(e){if(e.key==="Enter"){document.getElementById("ac").style.display="none";go();}if(e.key==="Escape")document.getElementById("ac").style.display="none";}
 document.addEventListener("click",e=>{if(!document.getElementById("sboxWrap").contains(e.target))document.getElementById("ac").style.display="none";});
 
-// ── ALERTS ────────────────────────────────────────────────
+// ── PRICE ALERTS ──────────────────────────────────────────
+let priceAlerts = JSON.parse(localStorage.getItem("dt_price_alerts") || "[]");
+renderPriceAlerts();
+
+function savePriceAlert(){
+  const sym   = document.getElementById("paSymbol").value.trim().toUpperCase();
+  const dir   = document.getElementById("paDirection").value;
+  const price = +document.getElementById("paPrice").value;
+  if(!sym || !price || price <= 0){ alert("הכנס סימבול ומחיר"); return; }
+  // בדוק שלא קיים כבר
+  if(priceAlerts.find(a => a.sym===sym && a.dir===dir && a.price===price)){
+    alert("התראה זו כבר קיימת"); return;
+  }
+  priceAlerts.push({ sym, dir, price, id: Date.now(), triggered: false });
+  localStorage.setItem("dt_price_alerts", JSON.stringify(priceAlerts));
+  renderPriceAlerts();
+  document.getElementById("paSymbol").value = "";
+  document.getElementById("paPrice").value  = "";
+}
+
+function removePriceAlert(id){
+  priceAlerts = priceAlerts.filter(a => a.id !== id);
+  localStorage.setItem("dt_price_alerts", JSON.stringify(priceAlerts));
+  renderPriceAlerts();
+}
+
+function renderPriceAlerts(){
+  const el = document.getElementById("paTags");
+  if(!el) return;
+  el.innerHTML = priceAlerts.map(a => `
+    <div class="atag" style="border-color:${a.triggered?"var(--green)":"var(--border)"}">
+      <span style="color:${a.triggered?"var(--green)":"var(--text2)"}">
+        ${a.triggered?"✅ ":"🎯 "}${a.sym} ${a.dir==="above"?"מעל":"מתחת"} $${a.price}
+      </span>
+      <span class="x" onclick="removePriceAlert(${a.id})">✕</span>
+    </div>`).join("");
+}
+
+async function checkPriceAlerts(){
+  if(!priceAlerts.length) return;
+  const ms = getMarketStatus();
+  if(ms.status !== "open" && ms.status !== "pre") return; // רק בשעות מסחר
+
+  // קבץ לפי סימבול
+  const symbols = [...new Set(priceAlerts.filter(a=>!a.triggered).map(a=>a.sym))];
+  if(!symbols.length) return;
+
+  await Promise.allSettled(symbols.map(async sym => {
+    try {
+      const q = await api(sym, "quote");
+      if(!q.c) return;
+      const price = q.c;
+
+      priceAlerts.forEach(a => {
+        if(a.sym !== sym || a.triggered) return;
+        const hit = (a.dir === "above" && price >= a.price) ||
+                    (a.dir === "below" && price <= a.price);
+        if(!hit) return;
+
+        // הפעל התראה
+        a.triggered = true;
+        const msg = `🎯 DULITRADE Alert: ${sym} ${a.dir==="above"?"עלה מעל":"ירד מתחת"} $${a.price} (מחיר: $${price.toFixed(2)})`;
+
+        // WhatsApp
+        alerts.forEach(al => {
+          if(al.p) window.open(`https://wa.me/${al.p}?text=${encodeURIComponent(msg)}`, "_blank");
+          if(al.e) fetch("https://formsubmit.co/ajax/"+al.e, {
+            method:"POST",
+            headers:{"Content-Type":"application/json","Accept":"application/json"},
+            body: JSON.stringify({_subject:`DULITRADE Price Alert: ${sym}`, הודעה: msg, _template:"table"})
+          }).catch(()=>{});
+        });
+
+        // הצג notification באתר
+        showPriceAlert(sym, msg, a.dir==="above"?"var(--green)":"var(--red)", price, a.price);
+      });
+
+      localStorage.setItem("dt_price_alerts", JSON.stringify(priceAlerts));
+      renderPriceAlerts();
+    } catch(e){}
+  }));
+}
+
+// ── ALERTS ──────────────────────────────────────────────
 let alerts=JSON.parse(localStorage.getItem("ts_alerts")||"[]");
 renderAlerts();
 function saveAlert(){
@@ -4809,6 +4908,36 @@ async function runScanner(auto=false){
 
   btn.disabled = true;
   btn.textContent = "⏳ סורק...";
+
+  // ── בדיקת שעת מסחר ──────────────────────────────────────
+  const msScan = getMarketStatus();
+  let timeQualityWarning = "";
+  if(msScan.status === "closed"){
+    timeQualityWarning = "⚠️ שוק סגור — תוצאות מבוססות על נתוני סגירה אחרונים";
+  } else if(msScan.status === "pre"){
+    timeQualityWarning = "📊 Pre-Market — נתונים חלקיים, המתן לפתיחה ב-16:30";
+  } else if(msScan.status === "after"){
+    timeQualityWarning = "⚠️ After-Hours — נפח נמוך, תוצאות פחות אמינות";
+  } else {
+    // בדוק שעה ספציפית
+    const now = new Date();
+    const etOffset = isDST(now) ? -4 : -5;
+    const etHour = (now.getUTCHours() + etOffset + 24) % 24;
+    const etMin  = now.getUTCMinutes();
+    const etTime = etHour + etMin/60;
+    if(etTime >= 9.5 && etTime < 10.0){
+      timeQualityWarning = "⚡ פתיחה — תנועות חדות, המתן 30 דקות לייצוב";
+    } else if(etTime >= 11.5 && etTime < 14.0){
+      timeQualityWarning = "🟡 צהריים ET — נפח נמוך, תוצאות פחות אמינות";
+    } else if(etTime >= 14.0 && etTime < 15.5){
+      timeQualityWarning = "⚠️ שעת מסחר חלשה ET";
+    } else if(etTime >= 15.5){
+      timeQualityWarning = "⚡ סגירה ET — תנועות חדות, הזדמנויות אבל סיכון גבוה";
+    }
+  }
+  if(timeQualityWarning){
+    grid.innerHTML = `<div style="background:var(--adim);border:1px solid var(--amber);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px;color:var(--amber);font-family:monospace">${timeQualityWarning}</div>`;
+  }
   progress.style.display = "block";
   fill.style.width = "0%";
   grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>${tfCfg.label} — סורק ${SCAN_LIST.length} מניות...</div>`;
@@ -5667,7 +5796,12 @@ setInterval(()=>{
   loadIndices();
   loadMacro();
   fetch("/api/stock?symbol=SPY&endpoint=quote").catch(()=>{});
-}, 5 * 60 * 1000); // כל 5 דקות
+}, 5 * 60 * 1000);
+
+// בדוק Price Alerts כל דקה
+setInterval(checkPriceAlerts, 60 * 1000);
+// בדיקה ראשונה אחרי 5 שניות
+setTimeout(checkPriceAlerts, 5000);
 
 // הצג הודעה כשהנתונים ישנים מ-20 דקות
 let lastFetch = Date.now();
