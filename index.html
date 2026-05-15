@@ -500,7 +500,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
   <!-- SCANNER -->
   <div class="scanner-section">
     <div class="scanner-head">
-      <h3 id="scanTitle">🔍 סורק עסקאות — <span id="scanTFLabel">שבוע+</span></h3>
+      <h3 id="scanTitle">🔍 סורק עסקאות — <span id="scanTFLabel">חודש+</span></h3>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="scanner-status" id="scanStatus">לא סרוק עדיין</span>
         <div style="display:flex;gap:4px">
@@ -508,13 +508,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
             style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2)">
             ⚡ היום
           </button>
-          <button onclick="setScanTF('tomorrow')" id="tfTomorrow"
-            style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2)">
-            📅 מחר
-          </button>
           <button onclick="setScanTF('week')" id="tfWeek"
+            style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2)">
+            📅 כמה ימים
+          </button>
+          <button onclick="setScanTF('month')" id="tfMonth"
             style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--cbtn);background:var(--cbtn);color:#fff">
-            📈 שבוע+
+            📈 חודש+
           </button>
         </div>
         <button class="tbtn" onclick="runScanner()" id="scanBtn" style="font-size:11px;background:var(--cbtn);color:#fff;border:none;padding:5px 14px;font-weight:700;">▶ סרוק עכשיו</button>
@@ -4533,8 +4533,11 @@ function detectStrategies(candles, quote, ind, tf){
     totalScore += 3;
   }
 
+  // מפה TF חדשים לישנים
+  const tfMap = {today:"today", week:"tomorrow", month:"week"};
+  const mappedTf = tfMap[tf] || tf;
   // סנן לפי timeframe
-  const filtered = matched.filter(s => s.tf.includes(tf));
+  const filtered = matched.filter(s => s.tf.includes(mappedTf) || s.tf.includes(tf));
   return {
     matched: filtered,
     score: filtered.reduce((s,x)=>s+x.score, 0),
@@ -4576,14 +4579,14 @@ const SCAN_LIST = [
 ];
 
 let scannerRunning = false;
-let scannerTimeframe = "week"; // ברירת מחדל
+let scannerTimeframe = "month"; // ברירת מחדל
 
 function setScanTF(tf){
   scannerTimeframe = tf;
-  const labels = {today:"⚡ היום", tomorrow:"📅 מחר", week:"📈 שבוע+"};
+  const labels = {today:"⚡ היום", week:"📅 כמה ימים", month:"📈 חודש+"};
   const el = document.getElementById("scanTFLabel");
   if(el) el.textContent = labels[tf] || tf;
-  ["today","tomorrow","week"].forEach(t => {
+  ["today","week","month"].forEach(t => {
     const btn = document.getElementById("tf"+t.charAt(0).toUpperCase()+t.slice(1));
     if(!btn) return;
     if(t === tf){
@@ -4654,31 +4657,34 @@ async function runScanner(auto=false){
     today: {
       label: "⚡ Day Trade — היום",
       minVR: 1.5,
-      minPct: 0,
+      minPct: 1.5,      // חובה תנועה יומית
       minConf: 3,
       maxRisk: 60,
       minRR: 1.5,
-      candleEp: "candle", // נרות יומיים — שעתיים לא זמינים ב-Polygon חינמי
+      candleEp: "candle",
+      candleLookback: 5, // 5 נרות אחרונים = שבוע
       strategies: ["Bull Flag 🚩","Breakout 🚀","VWAP Reclaim ↩️","Gap & Go ⚡","Momentum 📈","Mean Reversion 🔄"],
     },
-    tomorrow: {
-      label: "📅 Short Swing — מחר",
+    week: {
+      label: "📅 Swing — כמה ימים",
       minVR: 1.2,
       minPct: 0,
       minConf: 3,
       maxRisk: 60,
-      minRR: 1.5,
+      minRR: 1.8,
       candleEp: "candle",
-      strategies: ["Trend Pullback 🔄📊","Support Bounce 🎯","Bull Flag 🚩","Breakout 🚀","Gap & Go ⚡","Momentum 📈"],
+      candleLookback: 10, // 10 נרות = שבועיים
+      strategies: ["Trend Pullback 🔄📊","Support Bounce 🎯","Bull Flag 🚩","Breakout 🚀","Momentum 📈"],
     },
-    week: {
-      label: "📈 Swing Trade — שבוע+",
+    month: {
+      label: "📈 Swing — חודש+",
       minVR: 1.0,
       minPct: 0,
       minConf: 3,
       maxRisk: 60,
-      minRR: 1.5,
+      minRR: 2.0,
       candleEp: "candle",
+      candleLookback: 50, // 50 נרות = חודשיים
       strategies: ["Trend Pullback 🔄📊","RS Leader 🏆","Support Bounce 🎯","Breakout 🚀","Earnings Momentum 💰","Fibonacci 📐"],
     }
   };
@@ -4772,8 +4778,10 @@ async function runScanner(auto=false){
 
         // פילטר לפי TF
         if(pct < -8 && !volumeSurge) return;
-        // "היום" — חייב Volume Surge או תנועה
+        // "היום" — חייב Volume Surge + תנועה יומית משמעותית
         if(scannerTimeframe === "today" && vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
+        // "היום" — חייב תנועה מינימלית
+        if(scannerTimeframe === "today" && Math.abs(pct) < tfCfg.minPct) return;
 
         // ── ניקוד תנועה יומית — מניות שזזות עכשיו עולות לראש ──
         let todayMomentum = 0;
@@ -5049,13 +5057,13 @@ async function runScanner(auto=false){
 }
 
 function openTradingView(sym, tf){
-  // Timeframe mapping
   const intervalMap = {
-    today:    "5",   // 5 דקות ל-Day Trade
-    tomorrow: "15",  // 15 דקות ל-Short Swing
-    week:     "D",   // יומי ל-Swing
+    today: "5",    // 5 דקות ל-Day Trade
+    week:  "60",   // שעתי לכמה ימים
+    month: "D",    // יומי לחודש+
   };
   const interval = intervalMap[tf] || "D";
+  // נסה NASDAQ קודם, אם לא — NYSE
   return `https://il.tradingview.com/chart/?symbol=NASDAQ%3A${sym}&interval=${interval}`;
 }
 
