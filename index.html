@@ -4816,6 +4816,36 @@ async function runScanner(auto=false){
   const ms = getMarketStatus();
 
   // ══════════════════════════════════════════════════════════
+  // שלב -1 — שלוף SPY + חדשות היום לכל המניות
+  // ══════════════════════════════════════════════════════════
+  status.textContent = "טוען נתוני שוק...";
+  let spyChangePct = 0;
+  let todayNewsMap = {}; // sym → true אם יש חדשה היום
+
+  try {
+    const spyQ = await api("SPY", "quote");
+    spyChangePct = spyQ.dp || 0;
+  } catch(e){}
+
+  // בדוק חדשות היום ל-20 מניות הכי חשובות
+  const NEWS_CHECK = ["AAPL","NVDA","TSLA","META","AMZN","MSFT","GOOGL","AMD","PLTR","COIN",
+                      "SOFI","NFLX","JPM","GS","V","INTC","MU","QCOM","AVGO","CRM"];
+  const todayStr = new Date().toISOString().split("T")[0];
+  await Promise.allSettled(NEWS_CHECK.map(async sym => {
+    try {
+      const news = await api(sym, "news");
+      if(!Array.isArray(news)) return;
+      // בדוק אם יש חדשה מהיום
+      const hasToday = news.some(n => {
+        if(!n.datetime) return false;
+        const d = new Date(n.datetime * 1000).toISOString().split("T")[0];
+        return d === todayStr;
+      });
+      if(hasToday) todayNewsMap[sym] = true;
+    } catch(e){}
+  }));
+
+  // ══════════════════════════════════════════════════════════
   // שלב Pre — Pre-Market Gap Detection
   // בודק מניות עם Gap גדול לפני פתיחה
   // ══════════════════════════════════════════════════════════
@@ -4933,10 +4963,21 @@ async function runScanner(auto=false){
           : 0;
         const hasGap = gapPct >= 2;
 
-        // Pre-Market Gap בונוס — מניה עם Gap Pre-Market מקבלת עדיפות
+        // Pre-Market Gap בונוס
         const pmGapData = preMarketGaps[sym];
         const hasPmGap = pmGapData && Math.abs(pmGapData.gapPct) >= 2;
         if(hasPmGap) todayMomentum = Math.max(todayMomentum, 4);
+
+        // Relative Strength vs SPY — מניה חזקה מהשוק מקבלת בונוס
+        const relStrengthVsSpy = spyChangePct !== 0
+          ? pct - spyChangePct  // אם מניה עולה 3% וSPY עולה 0.5% = RS של +2.5%
+          : pct;
+        if(relStrengthVsSpy >= 3)      todayMomentum = Math.max(todayMomentum, 5); // חזק מאוד מהשוק
+        else if(relStrengthVsSpy >= 2) todayMomentum = Math.max(todayMomentum, 4);
+        else if(relStrengthVsSpy >= 1) todayMomentum = Math.max(todayMomentum, todayMomentum + 1);
+
+        // חדשות היום — בונוס
+        const hasTodayNews = !!todayNewsMap[sym];
 
         // ניקוד משולב: תנועה + נפח + Gap
         if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
@@ -4950,7 +4991,7 @@ async function runScanner(auto=false){
         else if(Math.abs(pct) >= 1.5) todayMomentum = 1;                     // תנועה קטנה
         else todayMomentum = 0;
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap });
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews });
       } catch(e){}
     }));
   }
@@ -5126,6 +5167,8 @@ async function runScanner(auto=false){
           hasGap: (pass1.find(x=>x.sym===sym)||{}).hasGap||false,
           hasPmGap: !!(preMarketGaps[sym]),
           pmGapPct: preMarketGaps[sym]?.gapPct||0,
+          relStrengthVsSpy: (pass1.find(x=>x.sym===sym)||{}).relStrengthVsSpy||0,
+          hasTodayNews: (pass1.find(x=>x.sym===sym)||{}).hasTodayNews||false,
           sig: scores.sig, sigLabel: scores.sigLabel,
           score: scores.totalScore, risk: scores.risk,
           rrRatio: scores.rrRatio, conf: confScore,
@@ -5267,6 +5310,8 @@ function renderScanResults(results){
           ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק היום</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה יומית</span>':""}
           ${r.hasGap?'<span class="scan-tag hot">📈 Gap היום</span>':""}
           ${r.hasPmGap?`<span class="scan-tag hot">🌅 PM Gap ${r.pmGapPct>0?"+":""}${r.pmGapPct}%</span>`:""}
+          ${r.relStrengthVsSpy>=2?`<span class="scan-tag hot">💪 RS +${r.relStrengthVsSpy}% vs SPY</span>`:""}
+          ${r.hasTodayNews?'<span class="scan-tag mom">📰 חדשות היום</span>':""}
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
