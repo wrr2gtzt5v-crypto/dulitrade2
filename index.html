@@ -5058,13 +5058,24 @@ async function runScanner(auto=false){
 
 function openTradingView(sym, tf){
   const intervalMap = {
-    today: "5",    // 5 דקות ל-Day Trade
-    week:  "60",   // שעתי לכמה ימים
-    month: "D",    // יומי לחודש+
+    today: "5",
+    week:  "60",
+    month: "D",
   };
   const interval = intervalMap[tf] || "D";
-  // נסה NASDAQ קודם, אם לא — NYSE
-  return `https://il.tradingview.com/chart/?symbol=NASDAQ%3A${sym}&interval=${interval}`;
+  // מניות NYSE ידועות
+  const nyseSyms = new Set([
+    "LOW","HD","WMT","TGT","COST","NKE","MCD","SBUX","JPM","BAC","WFC","GS","MS","C",
+    "BLK","AXP","V","MA","COF","USB","PNC","TFC","UNH","JNJ","LLY","ABBV","MRK","PFE",
+    "GILD","BMY","TMO","ISRG","HUM","CVS","ZTS","XOM","CVX","COP","SLB","EOG","FCX",
+    "LIN","APD","NEM","DVN","OXY","MPC","VLO","HAL","CF","CAT","DE","BA","HON","GE",
+    "RTX","LMT","NOC","UPS","FDX","EMR","ETN","PH","ROK","GNRC","DIS","CMCSA","T",
+    "VZ","UPS","FDX","SPY","GLD","DIA","TLT","IWM","XLK","XLF","XLE","XLV","XLI","XLC",
+    "PG","KO","PEP","PM","MO","CL","GIS","K","CPB","HSY","SYY","YUM","CMG",
+    "WBA","CVS","MCK","ABC","CAH","BDX","BSX","SYK","EW","HOLX"
+  ]);
+  const exchange = nyseSyms.has(sym) ? "NYSE" : "NASDAQ";
+  return `https://il.tradingview.com/chart/?symbol=${exchange}%3A${sym}&interval=${interval}`;
 }
 
 function renderScanResults(results){
