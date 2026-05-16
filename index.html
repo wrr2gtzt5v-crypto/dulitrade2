@@ -5331,19 +5331,31 @@ async function runScanner(auto=false){
         const volumeSurge = vrFromQuote >= 3.0 || (Math.abs(pct) >= 3 && vrFromQuote >= 1.5);
         const highVolume  = vrFromQuote >= 1.5 || Math.abs(pct) >= 2;
 
-        // פילטר לפי TF
+        // פילטר לפי TF + מצב שוק
+        const _msNow = getMarketStatus();
+        const _marketOpen = _msNow.status === "open";
+
         if(scannerTimeframe === "today"){
           // Day Trade — חייב תנועה ונפח היום
           if(pct < -8 && !volumeSurge) return;
           if(vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
           if(Math.abs(pct) < tfCfg.minPct) return;
         } else {
-          // Swing / חודש+ — מחיר בלבד, לא דורש תנועה היום
-          // מספיק שיש מחיר תקין — הנרות ההיסטוריים יחליטו
-          if(price <= 1) return; // רק penny stock filter
+          // Swing / חודש+ — פילטר בסיסי תמיד
+          if(price <= 1) return;
+          if(_marketOpen){
+            // שוק פתוח — תנועה היום נותנת בונוס (לא חובה)
+            // ירידה חדה מאוד בלי סיבה — דלג
+            if(pct < -8 && !volumeSurge) return;
+          }
+          // שוק סגור — לא מסנן לפי תנועה יומית כלל
         }
 
-        // ── ניקוד תנועה יומית — מניות שזזות עכשיו עולות לראש ──
+        // ── ניקוד תנועה יומית — רק כשהשוק פתוח ──────────────
+        // Day Trade: תמיד רלוונטי
+        // Swing/חודש+: בונוס כשהשוק פתוח, 0 כשסגור
+        const _msCheck = getMarketStatus();
+        const _useToday = scannerTimeframe === "today" || _msCheck.status === "open";
         let todayMomentum = 0;
 
         // Gap מאתמול — פתיחה רחוק מסגירה
@@ -5376,8 +5388,11 @@ async function runScanner(auto=false){
         if(sectorStrong && pct > 0) todayMomentum = Math.min(5, todayMomentum + 1);
         if(sectorWeak   && pct < 0) todayMomentum = Math.min(5, todayMomentum + 1);
 
-        // ניקוד משולב: תנועה + נפח + Gap
-        if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
+        // ניקוד משולב: תנועה + נפח + Gap (רק כשרלוונטי)
+        if(!_useToday){
+          // שוק סגור + Swing — אין ניקוד תנועה יומית
+          todayMomentum = 0;
+        } else if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
         else if(Math.abs(pct) >= 3 && vrFromQuote >= 1.5) todayMomentum = 4; // תנועה חזקה + נפח
         else if(hasGap && vrFromQuote >= 1.5) todayMomentum = 4;             // Gap + נפח
         else if(Math.abs(pct) >= 2 && vrFromQuote >= 1.5) todayMomentum = 3; // תנועה בינונית + נפח
