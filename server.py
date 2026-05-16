@@ -1616,7 +1616,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # WebSocket Key endpoint
         if parsed.path == "/api/wskey":
-            self._send_json({"key": FINNHUB_KEY})
+            self._json({"key": FINNHUB_KEY})
             return
 
         if parsed.path == "/api/stock":
