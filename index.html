@@ -5126,11 +5126,19 @@ async function runScanner(auto=false){
   const msScan = getMarketStatus();
   let timeQualityWarning = "";
   if(msScan.status === "closed"){
-    timeQualityWarning = "⚠️ שוק סגור — תוצאות מבוססות על נתוני סגירה אחרונים";
+    if(scannerTimeframe === "today"){
+      timeQualityWarning = "⚠️ שוק סגור — Day Trade לא זמין. עבור ל'כמה ימים' או 'חודש+'";
+    } else {
+      timeQualityWarning = "✅ שוק סגור — סריקת Swing על נתונים היסטוריים";
+    }
   } else if(msScan.status === "pre"){
-    timeQualityWarning = "📊 Pre-Market — נתונים חלקיים, המתן לפתיחה ב-16:30";
+    if(scannerTimeframe === "today"){
+      timeQualityWarning = "📊 Pre-Market — המתן לפתיחה ב-16:30 ל-Day Trade";
+    } else {
+      timeQualityWarning = "✅ Pre-Market — סריקת Swing זמינה";
+    }
   } else if(msScan.status === "after"){
-    timeQualityWarning = "⚠️ After-Hours — נפח נמוך, תוצאות פחות אמינות";
+    timeQualityWarning = "⚠️ After-Hours — נפח נמוך, תוצאות Day Trade פחות אמינות";
   } else {
     // בדוק שעה ספציפית
     const now = new Date();
@@ -5226,7 +5234,8 @@ async function runScanner(auto=false){
   // ══════════════════════════════════════════════════════════
   const preMarketGaps = {}; // sym → {gapPct, pmVolume}
   const ms0 = getMarketStatus();
-  if(ms0.status === "pre" || ms0.status === "closed"){
+  // Pre-Market Gap רלוונטי רק ל-Day Trade
+  if(scannerTimeframe === "today" && (ms0.status === "pre" || ms0.status === "closed")){
     status.textContent = "בודק Pre-Market Gaps...";
     // בדוק 30 מניות הכי נסחרות
     const PM_LIST = ["AAPL","NVDA","TSLA","META","AMZN","MSFT","GOOGL","AMD","PLTR","COIN",
@@ -5248,7 +5257,7 @@ async function runScanner(auto=false){
     if(gapCount > 0){
       status.textContent = `נמצאו ${gapCount} מניות עם Gap Pre-Market`;
     }
-  }
+  } // end today-only pre-market check
 
   // ══════════════════════════════════════════════════════════
   // שלב 0 — Market Breadth — בריאות השוק
@@ -5323,11 +5332,16 @@ async function runScanner(auto=false){
         const highVolume  = vrFromQuote >= 1.5 || Math.abs(pct) >= 2;
 
         // פילטר לפי TF
-        if(pct < -8 && !volumeSurge) return;
-        // "היום" — חייב Volume Surge + תנועה יומית משמעותית
-        if(scannerTimeframe === "today" && vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
-        // "היום" — חייב תנועה מינימלית
-        if(scannerTimeframe === "today" && Math.abs(pct) < tfCfg.minPct) return;
+        if(scannerTimeframe === "today"){
+          // Day Trade — חייב תנועה ונפח היום
+          if(pct < -8 && !volumeSurge) return;
+          if(vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
+          if(Math.abs(pct) < tfCfg.minPct) return;
+        } else {
+          // Swing / חודש+ — מחיר בלבד, לא דורש תנועה היום
+          // מספיק שיש מחיר תקין — הנרות ההיסטוריים יחליטו
+          if(price <= 1) return; // רק penny stock filter
+        }
 
         // ── ניקוד תנועה יומית — מניות שזזות עכשיו עולות לראש ──
         let todayMomentum = 0;
