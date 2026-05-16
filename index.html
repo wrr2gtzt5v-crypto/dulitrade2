@@ -3066,7 +3066,14 @@ function openChartAnalyzer(){
 
       <!-- תמונה 2 -->
       <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px;margin-top:8px">
-        🕯 תמונה 2 — גרף כניסה (5/15 דקות) <span style="color:var(--amber)">אופציונלי — מגדיל דיוק</span>
+        🕯 תמונה 2 — גרף כניסה (אופציונלי — מגדיל דיוק)</div>
+
+        <!-- הנחיית גרף דינמית -->
+        <div id="chartGuide" style="background:var(--bg3);border:1px solid var(--blue);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;font-family:monospace;display:none">
+          <div style="color:var(--blue);font-weight:700;margin-bottom:6px">📋 איזה גרף להעלות:</div>
+          <div id="chartGuideText" style="color:var(--text2);line-height:2"></div>
+        </div>
+        <div style="display:none"><!--dummy
       </div>
       <div id="caDropZone2"
         style="border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
@@ -3138,6 +3145,24 @@ function setTradeType(type){
     dayBtn.style.borderColor   = "var(--border)";
     dayBtn.style.background    = "var(--bg3)";
     dayBtn.style.color         = "var(--text2)";
+  }
+
+  // הצג הנחיית גרף
+  const guide = document.getElementById("chartGuide");
+  const guideText = document.getElementById("chartGuideText");
+  if(guide && guideText){
+    guide.style.display = "block";
+    if(type === "day"){
+      guideText.innerHTML = `
+        📸 <strong>תמונה 1:</strong> גרף <strong style="color:var(--blue)">5 דקות</strong> — ETH מופעל<br>
+        📸 <strong>תמונה 2:</strong> גרף <strong style="color:var(--blue)">1 דקה</strong> — לכניסה מדויקת (אופציונלי)<br>
+        ✅ אינדיקטורים: <strong>VWAP + נפח</strong>`;
+    } else {
+      guideText.innerHTML = `
+        📸 <strong>תמונה 1:</strong> גרף <strong style="color:var(--green)">יומי (D)</strong> — ETH מופעל<br>
+        📸 <strong>תמונה 2:</strong> גרף <strong style="color:var(--green)">שעתי (1H)</strong> — לכניסה מדויקת (אופציונלי)<br>
+        ✅ אינדיקטורים: <strong>VWAP + נפח</strong>`;
+    }
   }
 }
 
