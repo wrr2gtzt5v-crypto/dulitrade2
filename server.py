@@ -67,7 +67,7 @@ def get_quote(symbol):
         if pm_price and pm_price > 0:
             pm_pct = round((pm_price - c) / c * 100, 2) if c > 0 else 0
             # בדוק שעת ET
-            now_utc = datetime.datetime.utcnow()
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
             is_dst = 3 <= now_utc.month <= 11
             et_time = (now_utc.hour - (4 if is_dst else 5)) % 24 + now_utc.minute/60
             pm_active = 4 <= et_time < 9.5
@@ -974,7 +974,7 @@ def get_market_context_for_chart(ticker=None, **kwargs):
         # ── Time of Day Filter ───────────────────────────────
         try:
             import datetime
-            now_utc = datetime.datetime.utcnow()
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
             is_dst  = 3 <= now_utc.month <= 11
             et_hour = (now_utc.hour - (4 if is_dst else 5)) % 24
             et_min  = now_utc.minute
