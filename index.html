@@ -2091,27 +2091,29 @@ function calcTargets(p){
 
   // זמן החזקה לפי אסטרטגיה
   let holdDays;
-  if(strategy.includes("Gap & Go"))       holdDays = 3;
+  if(strategy.includes("Gap & Go"))       holdDays = 1;  // Day Trade
+  else if(strategy.includes("Mean Rev"))  holdDays = 1;  // Day Trade
   else if(strategy.includes("Trend Pullback")) holdDays = 12;
   else if(strategy.includes("Earnings"))  holdDays = 14;
   else if(strategy.includes("Support"))   holdDays = 8;
-  else if(strategy.includes("Fibonacci"))holdDays = 10;
-  else if(strategy.includes("RS Leader"))holdDays = 20;
-  else if(strategy.includes("Breakout")) holdDays = 7;
-  else if(strategy.includes("Momentum")) holdDays = 12;
-  else if(strategy.includes("Trend"))    holdDays = 18;
-  else if(strategy.includes("Swing"))    holdDays = 10;
-  else if(strategy.includes("Mean Rev")) holdDays = 5;
-  else if(strategy.includes("Short"))    holdDays = 7;
-  else                                   holdDays = 10;
-  if(isStrong) holdDays *= 1.5;
-
+  else if(strategy.includes("Fibonacci")) holdDays = 10;
+  else if(strategy.includes("RS Leader")) holdDays = 20;
+  else if(strategy.includes("Breakout"))  holdDays = 7;
+  else if(strategy.includes("Momentum"))  holdDays = 5;
+  else if(strategy.includes("Trend"))     holdDays = 18;
+  else if(strategy.includes("Swing"))     holdDays = 10;
+  else if(strategy.includes("Short"))     holdDays = 7;
+  else                                    holdDays = 10;
   // ── הגבל holdDays לפי Timeframe שנבחר ──────────────────
   const _scanTf = typeof scannerTimeframe !== 'undefined' ? scannerTimeframe : 'month';
   const _tfConfig = typeof TF_CONFIG !== 'undefined' ? TF_CONFIG[_scanTf] : null;
+
+  // חתוך לפני isStrong כדי שלא יגדיל מעל המקסימום
   if(_tfConfig && _tfConfig.maxHoldDays){
     holdDays = Math.min(holdDays, _tfConfig.maxHoldDays);
   }
+
+  if(isStrong && (!_tfConfig || !_tfConfig.maxHoldDays)) holdDays *= 1.5;
 
   // ── שלב 3 — Earnings: TP לא יעבור את תאריך הדוח ─────────
   if(hasEarnings && _scanTf !== 'month') holdDays = Math.min(holdDays, 3);
