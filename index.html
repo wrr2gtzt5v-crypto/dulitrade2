@@ -3044,55 +3044,8 @@ function openChartAnalyzer(){
         </div>
       </div>
 
-      <!-- תמונה 1 -->
-      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px">
-        📈 תמונה 1 — גרף ראשי (15 דקות / שעתי / יומי)
-      </div>
-      <div id="caDropZone"
-        style="border:2px dashed var(--border2);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
-        onclick="document.getElementById('caFileInput').click()"
-        ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
-        ondragleave="this.style.borderColor='var(--border2)'"
-        ondrop="handleChartDrop(event)">
-        <div style="font-size:1.5rem;margin-bottom:4px">📈</div>
-        <div style="font-size:12px;color:var(--text2)">גרור גרף 15 דקות / שעתי / יומי</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px">או לחץ לבחירה</div>
-      </div>
-      <input id="caFileInput" type="file" accept="image/*" style="display:none" onchange="handleChartFile(event)">
-      <div id="caPreview" style="display:none;margin-bottom:8px">
-        <img id="caImg" style="width:100%;border-radius:8px;border:1px solid var(--green)">
-        <div style="font-size:10px;color:var(--green);font-family:monospace;margin-top:3px">✅ גרף ראשי נטען</div>
-      </div>
-
-      <!-- תמונה 2 -->
-      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px;margin-top:8px">
-        🕯 תמונה 2 — גרף כניסה (אופציונלי — מגדיל דיוק)</div>
-
-        <!-- הנחיית גרף דינמית -->
-        <div id="chartGuide" style="background:var(--bg3);border:1px solid var(--blue);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;font-family:monospace;display:none">
-          <div style="color:var(--blue);font-weight:700;margin-bottom:6px">📋 איזה גרף להעלות:</div>
-          <div id="chartGuideText" style="color:var(--text2);line-height:2"></div>
-        </div>
-        <div style="display:none"><!--dummy
-      </div>
-      <div id="caDropZone2"
-        style="border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
-        onclick="document.getElementById('caFileInput2').click()"
-        ondragover="event.preventDefault();this.style.borderColor='var(--amber)'"
-        ondragleave="this.style.borderColor='var(--border)'"
-        ondrop="handleChartDrop2(event)">
-        <div style="font-size:1.5rem;margin-bottom:4px">🕯</div>
-        <div style="font-size:12px;color:var(--text2)">גרור גרף 5/15 דקות לכאן</div>
-        <div style="font-size:10px;color:var(--amber);margin-top:3px">Multi-Timeframe = ניתוח מדויק יותר</div>
-      </div>
-      <input id="caFileInput2" type="file" accept="image/*" style="display:none" onchange="handleChartFile2(event)">
-      <div id="caPreview2" style="display:none;margin-bottom:8px">
-        <img id="caImg2" style="width:100%;border-radius:8px;border:1px solid var(--amber)">
-        <div style="font-size:10px;color:var(--amber);font-family:monospace;margin-top:3px">✅ גרף כניסה נטען</div>
-      </div>
-
-      <!-- בחירת סוג עסקה -->
-      <div id="caTradeTypeSelect" style="display:none;margin-bottom:10px">
+      <!-- בחירת סוג עסקה — קודם כל -->
+      <div id="caTradeTypeSelect" style="margin-bottom:12px">
         <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:6px">
           📌 מה סוג העסקה שאתה מחפש?
         </div>
@@ -3108,6 +3061,52 @@ function openChartAnalyzer(){
             <span style="font-size:10px;font-weight:400;color:var(--text3)">ימים/שבועות — נרות שעתיים/יומי</span>
           </button>
         </div>
+      </div>
+
+      <!-- הנחיית גרף דינמית -->
+      <div id="chartGuide" style="background:var(--bg3);border:1px solid var(--blue);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:11px;font-family:monospace;display:none">
+        <div style="color:var(--blue);font-weight:700;margin-bottom:6px">📋 איזה גרף להעלות:</div>
+        <div id="chartGuideText" style="color:var(--text2);line-height:2"></div>
+      </div>
+
+      <!-- תמונה 1 -->
+      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px">
+        📈 תמונה 1 — גרף ראשי
+      </div>
+      <div id="caDropZone"
+        style="border:2px dashed var(--border2);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
+        onclick="document.getElementById('caFileInput').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+        ondragleave="this.style.borderColor='var(--border2)'"
+        ondrop="handleChartDrop(event)">
+        <div style="font-size:1.5rem;margin-bottom:4px">📈</div>
+        <div style="font-size:12px;color:var(--text2)">גרור גרף לכאן</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">או לחץ לבחירה</div>
+      </div>
+      <input id="caFileInput" type="file" accept="image/*" style="display:none" onchange="handleChartFile(event)">
+      <div id="caPreview" style="display:none;margin-bottom:8px">
+        <img id="caImg" style="width:100%;border-radius:8px;border:1px solid var(--green)">
+        <div style="font-size:10px;color:var(--green);font-family:monospace;margin-top:3px">✅ גרף ראשי נטען</div>
+      </div>
+
+      <!-- תמונה 2 -->
+      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px;margin-top:8px">
+        🕯 תמונה 2 — גרף כניסה <span style="color:var(--amber)">(אופציונלי — מגדיל דיוק)</span>
+      </div>
+      <div id="caDropZone2"
+        style="border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
+        onclick="document.getElementById('caFileInput2').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--amber)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="handleChartDrop2(event)">
+        <div style="font-size:1.5rem;margin-bottom:4px">🕯</div>
+        <div style="font-size:12px;color:var(--text2)">גרור גרף שני לכאן</div>
+        <div style="font-size:10px;color:var(--amber);margin-top:3px">Multi-Timeframe = ניתוח מדויק יותר</div>
+      </div>
+      <input id="caFileInput2" type="file" accept="image/*" style="display:none" onchange="handleChartFile2(event)">
+      <div id="caPreview2" style="display:none;margin-bottom:8px">
+        <img id="caImg2" style="width:100%;border-radius:8px;border:1px solid var(--amber)">
+        <div style="font-size:10px;color:var(--amber);font-family:monospace;margin-top:3px">✅ גרף כניסה נטען</div>
       </div>
 
       <button id="caAnalyzeBtn" onclick="analyzeChartImage()"
@@ -3147,7 +3146,7 @@ function setTradeType(type){
     dayBtn.style.color         = "var(--text2)";
   }
 
-  // הצג הנחיית גרף
+  // הצג הנחיית גרף תמיד
   const guide = document.getElementById("chartGuide");
   const guideText = document.getElementById("chartGuideText");
   if(guide && guideText){
@@ -3200,11 +3199,6 @@ function loadChartFile(file){
     if(preview) preview.style.display = "block";
     if(btn) btn.style.display = "block";
     document.getElementById("caDropZone").style.display = "none";
-    // הצג בחירת סוג עסקה
-    const ttSelect = document.getElementById("caTradeTypeSelect");
-    if(ttSelect) ttSelect.style.display = "block";
-    // ברירת מחדל — Day Trade מסומן
-    setTradeType("day");
   };
   reader.readAsDataURL(file);
 }
@@ -3577,9 +3571,8 @@ function resetChartAnalyzer(){
   document.getElementById("caResult").style.display = "none";
   document.getElementById("caFileInput").value = "";
   document.getElementById("caFileInput2").value = "";
-  const ttSelect = document.getElementById("caTradeTypeSelect");
-  if(ttSelect) ttSelect.style.display = "none";
   _chartTradeType = "day";
+  setTradeType("day"); // reset selection
 }
 
 // ── BID/ASK HTML ─────────────────────────────────────────
