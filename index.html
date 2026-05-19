@@ -3312,7 +3312,7 @@ async function analyzeChartImage(){
     ];
     const confBreakdownHtml = confItems.map(item => {
       const val = cb[item.k] ?? 0;
-      const bars = "█".repeat(val) + "░".repeat(2-val);
+      const bars = "█".repeat(Math.min(val,2)) + "░".repeat(Math.max(0,2-val));
       const col = val===2?"var(--green)":val===1?"var(--amber)":"var(--text3)";
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:11px;color:var(--text2)">${item.lbl}</span>
