@@ -500,9 +500,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
   <!-- SCANNER -->
   <div class="scanner-section">
     <div class="scanner-head">
-      <h3 id="scanTitle">
-        <span id="scanTFIcon">🔍</span> <span id="scanTFTitle">סורק עסקאות</span> — <span id="scanTFLabel">חודש+</span>
-      </h3>
+      <h3 id="scanTitle">🔍 סורק עסקאות — <span id="scanTFLabel">חודש+</span></h3>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="scanner-status" id="scanStatus">לא סרוק עדיין</span>
         <div style="display:flex;gap:4px">
@@ -921,17 +919,19 @@ async function api(sym, ep, sector=""){
     : `/api/stock?symbol=${sym}&endpoint=${ep}`;
 
   try {
-    const r = await fetch(url);
+    // timeout של 8 שניות — מונע תקיעה
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
     const data = await r.json();
-    // לא שומר cache אם יש שגיאה בתשובה
     if(data && !data.error) {
       _apiCache[key] = { data, ts: now };
     }
     return data;
   } catch(e) {
-    // אם יש cache ישן — השתמש בו כ-fallback
     if(_apiCache[key]) return _apiCache[key].data;
-    return {}; // החזר object ריק במקום לזרוק שגיאה
+    return {};
   }
 }
 
@@ -3018,23 +3018,6 @@ function confirmAddToWinRate(sym, sig, entry, tp, sl, holdDays, strategy){
 }
 
 // ── CHART ANALYZER — Claude Vision ──────────────────────
-function openChartAnalyzerWithSym(sym){
-  // פותח מנתח התמונות עם הסימבול כבר מוגדר
-  _chartTicker = sym;
-  openChartAnalyzer();
-  // הצג הודעה שהסימבול נטען
-  setTimeout(() => {
-    const modal = document.getElementById("chartAnalyzerModal");
-    if(!modal) return;
-    // הוסף badge עם הסימבול
-    const badge = document.createElement("div");
-    badge.style.cssText = "background:var(--bdim);border:1px solid var(--blue);border-radius:6px;padding:6px 12px;font-size:12px;font-family:monospace;color:var(--blue);margin-bottom:10px;text-align:center";
-    badge.innerHTML = `✅ מניה נבחרה: <strong>${sym}</strong> — העלה גרף מ-TradingView`;
-    const firstChild = modal.querySelector("div > div");
-    if(firstChild) firstChild.insertBefore(badge, firstChild.children[1]);
-  }, 100);
-}
-
 function openChartAnalyzer(){
   const modal = document.createElement("div");
   modal.id = "chartAnalyzerModal";
@@ -5008,39 +4991,45 @@ function detectStrategies(candles, quote, ind, tf){
 
 // ── SCANNER ENGINE ────────────────────────────────────────
 const SCAN_LIST = [
-  // ── Day Trade Tier 1 — הכי סחירות, Gap & Go אמיתי ──
-  "NVDA","TSLA","AMD","META","AAPL","AMZN","MSFT","GOOGL","NFLX",
-  "COIN","PLTR","MSTR","SMCI","ARM","SOFI","HOOD","RIVN","NIO",
-  "IONQ","SOUN","MARA","RIOT","CLSK","HIMS","RKLB","WOLF",
-  // ── Tier 2 — נסחרות טוב ביום ──
-  "AVGO","CRM","ORCL","UBER","SNAP","PINS","RBLX","DKNG","ROKU",
-  "SHOP","APP","DKNG","LYFT","ABNB","DASH","U","TTWO","EA",
-  "INTC","MU","QCOM","AMAT","LRCX","MRVL","ON",
-  // ── Financials & ETFs נסחרים ──
-  "JPM","BAC","GS","MS","V","MA","PYPL","SQ","AFRM",
-  "SPY","QQQ","IWM","SQQQ","TQQQ","SPXU","SPXL",
-  // ── ישראלי + Hot Sectors ──
+  // Mega Cap Tech
+  "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AVGO","ORCL","IBM",
+  // Large Cap Tech
+  "AMD","INTC","QCOM","TXN","MU","AMAT","LRCX","ADI","CRM","NOW",
+  "ADBE","INTU","PANW","CRWD","FTNT","SNPS","CDNS","PLTR","SHOP","MELI",
+  // Consumer & Retail
+  "WMT","COST","TGT","HD","LOW","NKE","SBUX","MCD","YUM","AMGN",
+  // Financials
+  "JPM","BAC","WFC","GS","MS","C","BLK","SCHW","AXP","V","MA","PYPL",
+  "COF","USB","PNC","TFC","ALLY","SQ","HOOD","SOFI","AFRM",
+  // Healthcare
+  "UNH","JNJ","LLY","ABBV","MRK","PFE","GILD","REGN","VRTX","BMY","TMO","ISRG",
+  "DXCM","MRNA","BIIB","HUM","CVS","ZTS",
+  // Communication & Media
+  "NFLX","DIS","CMCSA","T","VZ","TMUS","SNAP","PINS","UBER","LYFT",
+  "SPOT","RBLX","TTWO","EA","MTCH",
+  // Energy & Materials
+  "XOM","CVX","COP","SLB","EOG","FCX","LIN","APD","NEM","DVN",
+  "OXY","MPC","VLO","HAL","CF",
+  // Industrials
+  "CAT","DE","BA","HON","GE","RTX","LMT","NOC","UPS","FDX",
+  "EMR","ETN","PH","ROK","GNRC",
+  // AI / High Growth / Hot
+  "COIN","DKNG","ROKU","APP","SMCI","ARM","MSTR","IONQ","LUNR","SOUN",
+  "AI","BBAI","RXRX","ARKG","ARKK",
+  // Israel / Other
   "TEVA","CHKP","MNDY","WIX","NICE","CYBR",
-  "XLK","XLF","XLE","XLV",
-  // ── High Beta / Meme potential ──
-  "GME","AMC","BBBY","CLOV","WISH","OPEN","SPCE",
+  // ETFs (סקטורים)
+  "SPY","QQQ","IWM","XLK","XLF","XLE","XLV","XLI","XLC"
 ];
-
 
 let scannerRunning = false;
 let scannerTimeframe = "month"; // ברירת מחדל
 
 function setScanTF(tf){
   scannerTimeframe = tf;
-  const labels = {today:"היום", week:"כמה ימים", month:"חודש+"};
-  const icons  = {today:"⚡", week:"📅", month:"📈"};
-  const titles = {today:"סורק מניות חמות", week:"סורק Swing", month:"סורק חודש+"};
+  const labels = {today:"⚡ היום", week:"📅 כמה ימים", month:"📈 חודש+"};
   const el = document.getElementById("scanTFLabel");
   if(el) el.textContent = labels[tf] || tf;
-  const iconEl = document.getElementById("scanTFIcon");
-  if(iconEl) iconEl.textContent = icons[tf] || "🔍";
-  const titleEl = document.getElementById("scanTFTitle");
-  if(titleEl) titleEl.textContent = titles[tf] || "סורק עסקאות";
   ["today","week","month"].forEach(t => {
     const btn = document.getElementById("tf"+t.charAt(0).toUpperCase()+t.slice(1));
     if(!btn) return;
@@ -5111,18 +5100,15 @@ async function runScanner(auto=false){
   const TF_CONFIG = {
     today: {
       label: "⚡ Day Trade — היום",
-      minVR: 2.0,       // נפח פי 2+ — חובה
-      minPct: 0,        // לא מסנן לפי % — Gap קטן גם טוב
-      minConf: 2,       // Confluence נמוך — לא בודק פונדמנטלי
-      maxRisk: 70,      // מאפשר סיכון גבוה יותר
-      minRR: 1.3,       // R/R נמוך יותר — Day Trade קצר
+      minVR: 1.5,
+      minPct: 1.0,
+      minConf: 3,
+      maxRisk: 60,
+      minRR: 1.5,
       candleEp: "candle",
       candleLookback: 5,
-      maxHoldDays: 1,
-      skipFundamental: true,  // דלג על פונדמנטלי לחלוטין
-      skipNews: true,         // דלג על חדשות
-      gapFirst: true,         // Gap & Go קודם
-      strategies: ["Gap & Go ⚡","Breakout 🚀","Momentum 📈","Mean Reversion 🔄","Bull Flag 🚩","VWAP Reclaim ↩️"],
+      maxHoldDays: 1,   // מקסימום יום אחד
+      strategies: ["Gap & Go ⚡","Breakout 🚀","Momentum 📈","Mean Reversion 🔄"],
     },
     week: {
       label: "📅 Swing — כמה ימים",
@@ -5132,11 +5118,7 @@ async function runScanner(auto=false){
       maxRisk: 60,
       minRR: 1.8,
       candleEp: "candle",
-      candleLookback: 10,
-      maxHoldDays: 7,
-      skipFundamental: false,
-      skipNews: false,
-      gapFirst: false,
+      candleLookback: 10, // 10 נרות = שבועיים
       strategies: ["Trend Pullback 🔄📊","Support Bounce 🎯","Bull Flag 🚩","Breakout 🚀","Momentum 📈"],
     },
     month: {
@@ -5147,15 +5129,10 @@ async function runScanner(auto=false){
       maxRisk: 60,
       minRR: 2.0,
       candleEp: "candle",
-      candleLookback: 50,
-      maxHoldDays: 999,
-      skipFundamental: false,
-      skipNews: false,
-      gapFirst: false,
+      candleLookback: 50, // 50 נרות = חודשיים
       strategies: ["Trend Pullback 🔄📊","RS Leader 🏆","Support Bounce 🎯","Breakout 🚀","Earnings Momentum 💰","Fibonacci 📐"],
     }
   };
-
   const tfCfg = TF_CONFIG[scannerTimeframe] || TF_CONFIG.week;
 
   const btn = document.getElementById("scanBtn");
@@ -5338,480 +5315,380 @@ async function runScanner(auto=false){
 
   // ══════════════════════════════════════════════════════════
   // שלב 1 — מסנן כמותי מהיר (quote בלבד)
-  // Day Trade: מחפש Gap + נפח בלבד — מהיר ופשוט
+  // בודק: נפח, תנועה, מחיר vs MA — ללא API יקרים
   // ══════════════════════════════════════════════════════════
   const pass1 = [];
-  const BATCH1 = 10;
+  const BATCH1 = 8; // מהיר — רק quote
 
   for(let i = 0; i < SCAN_LIST.length; i += BATCH1){
     const batch = SCAN_LIST.slice(i, i+BATCH1);
-    fill.style.width = Math.round((i/SCAN_LIST.length)*40) + "%"; // 0-40%
-    status.textContent = `שלב 1/2 — סורק ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
+    fill.style.width = Math.round((i/SCAN_LIST.length)*30) + "%"; // 0-30%
+    status.textContent = `שלב 1/3 — ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
 
-    await sleep(150);
+    await sleep(200);
     await Promise.allSettled(batch.map(async sym => {
       try {
         const quote = await api(sym, "quote");
         if(!quote.c || quote.c === 0) return;
 
-        const pct       = +(quote.dp || 0);
-        const vrFromQ   = +(quote.vr || 1);
-        const price     = +(quote.c || 0);
-        const prevClose = +(quote.pc || price);
-        const openPrice = +(quote.o || price);
+        // השתמש ב-quote כמו שהוא — לא מחליפים מחיר
+        // כך pct ו-dp נשארים נכונים גם כשהשוק סגור
+        const scanQuote = quote;
 
-        // ── פילטר בסיסי ──────────────────────────────────────
-        if(price < 2) return;  // לא penny stocks
+        const pct = +(scanQuote.dp || 0);
+        const vr  = +(scanQuote.vr || 1);
+        const price = +(scanQuote.c || 0);
 
-        // ── Gap מהפתיחה ─────────────────────────────────────
-        const gapPct    = prevClose > 0 ? +((openPrice - prevClose) / prevClose * 100).toFixed(2) : 0;
-        const gapUp     = gapPct >= 1.5;
-        const gapDown   = gapPct <= -1.5;
-        const bigGap    = Math.abs(gapPct) >= 3;
-        const hasGap    = gapUp || gapDown;
+        // ── שלב 1: פילטר בסיסי בלבד ──────────────────────────
+        if(price <= 1) return; // לא penny stock
 
-        // ── Pre-Market Gap ────────────────────────────────────
-        const pmGapData = preMarketGaps[sym];
-        const hasPmGap  = pmGapData && Math.abs(pmGapData.gapPct) >= 2;
-        const pmGapPct  = pmGapData?.gapPct || 0;
+        // ── Pre-Market Gap filter ──────────────────────────
+        // אם Pre-Market פעיל ויש Gap Down > 4% — דלג (לא מעניין לקנייה)
+        const pmPctRaw = quote.pmPct || 0;
+        const pmActiveRaw = quote.pmActive || false;
+        if(pmActiveRaw && pmPctRaw < -4) return; // Gap Down חד — לא כדאי
 
-        // ── נפח ──────────────────────────────────────────────
-        const volumeSurge  = vrFromQ >= 3.0;
-        const volumeHigh   = vrFromQ >= 2.0;
-        const volumeOk     = vrFromQ >= 1.5;
+        // Volume Surge proxy (vr אמיתי יחושב בשלב 2 עם candles)
+        const vrFromQuote = scanQuote.vr || 1;
+        const volumeSurge = vrFromQuote >= 3.0 || (Math.abs(pct) >= 3 && vrFromQuote >= 1.5);
+        const highVolume  = vrFromQuote >= 1.5 || Math.abs(pct) >= 2;
 
-        // ── Relative Strength vs SPY ──────────────────────────
-        const relVsSpy = spyChangePct !== 0 ? pct - spyChangePct : pct;
+        // פילטר לפי TF + מצב שוק
+        const _msNow = getMarketStatus();
+        const _marketOpen = _msNow.status === "open";
 
-        // ── Day Trade: פסול מהיר — דלג על כל מה שלא מעניין ──
         if(scannerTimeframe === "today"){
-          // חייב לפחות אחד מ: Gap, נפח גבוה, תנועה חדה
-          const interesting = hasGap || hasPmGap || volumeSurge ||
-                              (volumeHigh && Math.abs(pct) >= 1.5) ||
-                              (Math.abs(pct) >= 3) ||
-                              Math.abs(relVsSpy) >= 2;
-          if(!interesting) return;
+          // Day Trade — חייב תנועה ונפח היום
+          if(pct < -8 && !volumeSurge) return;
+          if(vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
+          if(Math.abs(pct) < tfCfg.minPct) return;
         } else {
-          // Swing/Month — פילטר בסיסי
-          if(price < 1) return;
-          if(pct < -8 && vrFromQ < 2.0) return;
+          // Swing / חודש+ — פילטר בסיסי תמיד
+          if(price <= 1) return;
+          if(_marketOpen){
+            // שוק פתוח — תנועה היום נותנת בונוס (לא חובה)
+            // ירידה חדה מאוד בלי סיבה — דלג
+            if(pct < -8 && !volumeSurge) return;
+          }
+          // שוק סגור — לא מסנן לפי תנועה יומית כלל
         }
 
-        // ── ניקוד todayMomentum (0-5) ─────────────────────────
+        // ── ניקוד תנועה יומית — רק כשהשוק פתוח ──────────────
+        // Day Trade: תמיד רלוונטי
+        // Swing/חודש+: בונוס כשהשוק פתוח, 0 כשסגור
+        const _msCheck = getMarketStatus();
+        const _useToday = scannerTimeframe === "today" || _msCheck.status === "open";
         let todayMomentum = 0;
 
-        if(hasPmGap && Math.abs(pmGapPct) >= 4)      todayMomentum = 5;  // PM Gap גדול
-        else if(bigGap && volumeSurge)                todayMomentum = 5;  // Gap + נפח פי 3
-        else if(bigGap && volumeHigh)                 todayMomentum = 4;  // Gap + נפח פי 2
-        else if(hasPmGap || (hasGap && volumeOk))     todayMomentum = 4;  // Gap + נפח
-        else if(volumeSurge && Math.abs(pct) >= 2)    todayMomentum = 4;  // נפח + תנועה
-        else if(hasGap)                               todayMomentum = 3;  // Gap בלבד
-        else if(volumeSurge)                          todayMomentum = 3;  // נפח פי 3
-        else if(relVsSpy >= 3)                        todayMomentum = 3;  // חזק מ-SPY
-        else if(volumeHigh && Math.abs(pct) >= 1.5)   todayMomentum = 2;
-        else if(Math.abs(pct) >= 3)                   todayMomentum = 2;
-        else                                          todayMomentum = 1;
+        // Gap מאתמול — פתיחה רחוק מסגירה
+        const gapPct = scanQuote.o > 0 && scanQuote.pc > 0
+          ? Math.abs((scanQuote.o - scanQuote.pc) / scanQuote.pc * 100)
+          : 0;
+        const hasGap = gapPct >= 2;
 
-        // בונוס: חדשות + סקטור
+        // Pre-Market Gap בונוס
+        const pmGapData = preMarketGaps[sym];
+        const hasPmGap = pmGapData && Math.abs(pmGapData.gapPct) >= 2;
+        if(hasPmGap) todayMomentum = Math.max(todayMomentum, 4);
+
+        // Relative Strength vs SPY — מניה חזקה מהשוק מקבלת בונוס
+        const relStrengthVsSpy = spyChangePct !== 0
+          ? pct - spyChangePct  // אם מניה עולה 3% וSPY עולה 0.5% = RS של +2.5%
+          : pct;
+        if(relStrengthVsSpy >= 3)      todayMomentum = Math.max(todayMomentum, 5); // חזק מאוד מהשוק
+        else if(relStrengthVsSpy >= 2) todayMomentum = Math.max(todayMomentum, 4);
+        else if(relStrengthVsSpy >= 1) todayMomentum = Math.max(todayMomentum, todayMomentum + 1);
+
+        // חדשות היום — בונוס
         const hasTodayNews = !!todayNewsMap[sym];
-        if(hasTodayNews && todayMomentum < 5) todayMomentum = Math.min(5, todayMomentum + 1);
 
-        const stockSector  = stockSectorMap[sym] || null;
+        // Sector Momentum — בונוס אם הסקטור חזק היום
+        const stockSector = stockSectorMap[sym] || null;
         const sectorChange = stockSector ? (sectorChanges[stockSector] || 0) : 0;
-        const sectorStrong = sectorChange >= 1.0;
-        const sectorWeak   = sectorChange <= -1.0;
+        const sectorStrong = sectorChange >= 1.0;  // סקטור עולה 1%+ = חזק
+        const sectorWeak   = sectorChange <= -1.0; // סקטור יורד 1%+ = חלש
+        if(sectorStrong && pct > 0) todayMomentum = Math.min(5, todayMomentum + 1);
+        if(sectorWeak   && pct < 0) todayMomentum = Math.min(5, todayMomentum + 1);
 
-        pass1.push({
-          sym, scanQuote: quote,
-          volumeSurge, highVolume: volumeHigh,
-          todayMomentum,
-          hasGap, gapPct, bigGap,
-          hasPmGap, pmGapPct,
-          relStrengthVsSpy: +relVsSpy.toFixed(1),
-          hasTodayNews,
-          sectorChange: +sectorChange.toFixed(2),
-          sectorStrong, sectorWeak, stockSector
+        // ניקוד משולב: תנועה + נפח + Gap (רק כשרלוונטי)
+        if(!_useToday){
+          // שוק סגור + Swing — אין ניקוד תנועה יומית
+          todayMomentum = 0;
+        } else if(Math.abs(pct) >= 5 && vrFromQuote >= 2.0) todayMomentum = 5; // תנועה חזקה מאוד + נפח
+        else if(Math.abs(pct) >= 3 && vrFromQuote >= 1.5) todayMomentum = 4; // תנועה חזקה + נפח
+        else if(hasGap && vrFromQuote >= 1.5) todayMomentum = 4;             // Gap + נפח
+        else if(Math.abs(pct) >= 2 && vrFromQuote >= 1.5) todayMomentum = 3; // תנועה בינונית + נפח
+        else if(vrFromQuote >= 3.0) todayMomentum = 3;                       // נפח פי 3+
+        else if(hasGap) todayMomentum = 3;                                   // Gap בלבד
+        else if(Math.abs(pct) >= 3) todayMomentum = 2;                       // תנועה חזקה בלי נפח
+        else if(vrFromQuote >= 2.0) todayMomentum = 2;                       // נפח פי 2+
+        else if(Math.abs(pct) >= 1.5) todayMomentum = 1;                     // תנועה קטנה
+        else todayMomentum = 0;
+
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews, sectorChange: +sectorChange.toFixed(2), sectorStrong, sectorWeak, stockSector });
+      } catch(e){}
+    }));
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // שלב 2 — מסנן טכני (candle + profile + earnings + insider)
+  // בודק: RSI, MACD, נרות, ציון טכני >= 48
+  // ══════════════════════════════════════════════════════════
+  // מיין pass1 — Volume Surge קודם
+  // מיון לפי todayMomentum — מניות שזזות היום קודם
+  pass1.sort((a,b) => {
+    // קודם todayMomentum (תנועה יומית)
+    if(b.todayMomentum !== a.todayMomentum) return b.todayMomentum - a.todayMomentum;
+    // אחר כך Volume Surge
+    const vDiff = (b.volumeSurge?2:b.highVolume?1:0) - (a.volumeSurge?2:a.highVolume?1:0);
+    if(vDiff !== 0) return vDiff;
+    // סדר SCAN_LIST (דטרמיניסטי)
+    return SCAN_LIST.indexOf(a.sym) - SCAN_LIST.indexOf(b.sym);
+  });
+
+  const candidates = [];
+  const _dbg2 = {noQuote:0,ma:0,hold:0,sig:0}; // phase2 debug
+  fill.style.width = "30%";
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/3 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
+
+  // Day Trade: batch גדול יותר כי timeout מגן מפני תקיעה
+  const BATCH2 = scannerTimeframe === "today" ? 12 : 8;
+  for(let i = 0; i < pass1.length; i += BATCH2){
+    const batch = pass1.slice(i, i+BATCH2);
+    fill.style.width = 30 + Math.round((i/Math.max(pass1.length,1))*35) + "%";
+    status.textContent = `שלב 2/3 — טכני ${i+1}-${Math.min(i+BATCH2,pass1.length)} מתוך ${pass1.length}...`;
+
+    await sleep(scannerTimeframe === "today" ? 100 : 250); // Day Trade מהיר יותר
+    await Promise.allSettled(batch.map(async ({sym, scanQuote, volumeSurge: volSurge}) => {
+      try {
+        // שלב 2: רק candle + profile — מהיר!
+        // earnings/insider/sector יטענו בשלב 3 על המועמדות בלבד
+        const [candles, profile] = await Promise.all([
+          api(sym, tfCfg.candleEp), api(sym,"profile")
+        ]);
+        const earnings = {};
+        const insider  = {};
+        const sector   = {};
+
+        if(!scanQuote?.c || scanQuote.c === 0){ _dbg2.noQuote++; return; }
+        const ind = calcIndicators(candles, scanQuote, {});
+        const patterns = detectPatterns(candles);
+
+        // ── עדכן volumeSurge לפי vr אמיתי מ-candles ──────────
+        const realVr = ind.vr || 1;
+        const realVolumeSurge = realVr >= 3.0;
+
+        // ── פילטר MA50 — רק ל-Swing, לא ל-Day Trade ──────────
+        const ma50_2 = ind.ma50 || 0;
+        const ma200_2 = ind.ma200 || 0;
+        const price_2 = scanQuote.c;
+        // Day Trade: לא מסנן לפי MA — Gap+נפח שולטים
+        if(scannerTimeframe !== "today"){
+          if(ma50_2 > 0 && ma200_2 > 0 && price_2 < ma50_2 * 0.92 && price_2 < ma200_2 * 0.92 && !volSurge){ _dbg2.ma++; return; }
+        }
+
+        const scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, earnings, insider, sector);
+        if(!scores || !scores.sig) return;
+
+        // ── בדוק אסטרטגיות אמיתיות ──────────────────────────
+        const strats = detectStrategies(candles, scanQuote, ind, scannerTimeframe);
+        // שמור את האסטרטגיות לתצוגה — לא פוסל אם אין (scoreAll יחליט)
+
+        // ── פילטר שלב 2 — טכני בלבד (ללא news) ─────────────
+        const isBuy  = scores.sig==="BUY"||scores.sig==="STRONG_BUY";
+        const isSell = scores.sig==="SELL"||scores.sig==="STRONG_SELL";
+        const isHold = scores.sig==="HOLD";
+        const techOk = scores.techScoreNorm >= 48;
+        if(isHold && !techOk) return;
+        if(!isBuy && !isSell && !isHold) return;
+
+        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: realVolumeSurge||volSurge||false, detectedStrats: strats });
+      } catch(e){}
+    }));
+  }
+
+
+  // ══════════════════════════════════════════════════════════
+  // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
+  // ══════════════════════════════════════════════════════════
+  console.log(`שלב 2 debug: noQuote=${_dbg2.noQuote} MA=${_dbg2.ma} Hold=${_dbg2.hold} Sig=${_dbg2.sig} candidates=${candidates.length}`);
+  status.textContent = `שלב 3/3 — ${candidates.length} מועמדות (סונן: MA:${_dbg2.ma} Hold:${_dbg2.hold})`;
+  const results = [];
+  const _dbg = {rr:0,conf:0,risk:0,score:0};
+  fill.style.width = "65%";
+
+  // Day Trade: דלג על שלב 3 (ללא news/earnings) — ישר למיון
+  if(scannerTimeframe === "today"){
+    // העבר candidates ישירות לresults עם תגיות בסיסיות
+    for(const cand of candidates){
+      const {sym, scanQuote, ind, patterns, scores, detectedStrats, volumeSurge: vs} = cand;
+      const p1 = pass1.find(x=>x.sym===sym)||{};
+      if(scores.rrRatio < tfCfg.minRR) continue;
+      if(scores.risk >= tfCfg.maxRisk) continue;
+
+      const gapPct = p1.gapPct||0;
+      const hasPmGap = p1.hasPmGap||false;
+      const tags = [];
+      if(Math.abs(gapPct)>=3||hasPmGap) tags.push({t:`⚡ Gap ${gapPct>=0?"+":""}${gapPct}%`,cls:"hot"});
+      else if(Math.abs(gapPct)>=1)      tags.push({t:`📈 Gap ${gapPct>=0?"+":""}${gapPct}%`,cls:"hot"});
+      if(p1.hasPmGap)                   tags.push({t:`🌅 PM Gap ${(p1.pmGapPct||0)>=0?"+":""}${p1.pmGapPct||0}%`,cls:"hot"});
+      if(vs||ind.vr>=3)                 tags.push({t:`🐋 נפח פי ${(ind.vr||1).toFixed(1)}`,cls:"hot"});
+      else if(ind.vr>=2)                tags.push({t:`📊 נפח פי ${(ind.vr||1).toFixed(1)}`,cls:"mom"});
+      if(Math.abs(scores.pct)>=3)       tags.push({t:`🔥 ${scores.pct>=0?"+":""}${scores.pct}% היום`,cls:"hot"});
+      if((p1.relStrengthVsSpy||0)>=2)   tags.push({t:`💪 RS +${p1.relStrengthVsSpy}% vs SPY`,cls:"mom"});
+      if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"▲▲ חזק",cls:"hot"});
+      if(scores.rrRatio>=2.5)           tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
+      if(ind.darkPool)                  tags.push({t:"🐋 Dark Pool",cls:"hot"});
+
+      let dealStrength = 0;
+      if(Math.abs(gapPct)>=3)           dealStrength+=2;
+      else if(Math.abs(gapPct)>=1.5)    dealStrength+=1;
+      if(p1.hasPmGap)                   dealStrength+=2;
+      if(vs||ind.vr>=3)                 dealStrength+=2;
+      else if(ind.vr>=2)                dealStrength+=1;
+      if(Math.abs(scores.pct)>=3)       dealStrength+=1;
+      if((p1.relStrengthVsSpy||0)>=2)   dealStrength+=1;
+
+      const topFactor = scores.techFactors?.find(f=>f.c==="positive");
+      results.push({
+        sym, price:scanQuote.c, pct:scores.pct,
+        gapPct, hasPmGap, pmGapPct:p1.pmGapPct||0,
+        bigGap:p1.bigGap||false,
+        todayMomentum:p1.todayMomentum||0, hasGap:p1.hasGap||false,
+        relStrengthVsSpy:p1.relStrengthVsSpy||0, hasTodayNews:p1.hasTodayNews||false,
+        topCatalystScore:0, darkPool:ind.darkPool||null,
+        sectorChange:p1.sectorChange||0, sectorStrong:p1.sectorStrong||false, sectorWeak:p1.sectorWeak||false,
+        sig:scores.sig, sigLabel:scores.sigLabel,
+        score:scores.totalScore, risk:scores.risk,
+        rrRatio:scores.rrRatio, conf:scores.confluence||3,
+        dealStrength, strategy:scores.strategy||"",
+        holding:"היום בלבד ⚡",
+        adx:ind.adx||0, divergence:ind.divergence||null, insiderNet:0,
+        hasCatalyst:vs||(Math.abs(gapPct)>=2),
+        catalystCount:(vs?1:0)+(Math.abs(gapPct)>=2?1:0),
+        rsi:ind.rsi, tags,
+        reason:topFactor?.t||scores.strategy||"",
+        name:sym, sector:"—",
+        volumeSurge:vs, vr:ind.vr||1, detectedStrats,
+      });
+    }
+    // קפוץ ישר למיון
+  } else {
+  // Swing — שלב 3 המלא
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 3/3 — חדשות ו-Confluence על ${candidates.length} מועמדות...</div>`;
+  const BATCH3 = 3;
+  for(let i = 0; i < candidates.length; i += BATCH3){
+    const batch = candidates.slice(i, i+BATCH3);
+    fill.style.width = 65 + Math.round((i/Math.max(candidates.length,1))*35) + "%"; // 65-100%
+    status.textContent = `שלב 3/3 — ${i+1}-${Math.min(i+BATCH3,candidates.length)} מתוך ${candidates.length}...`;
+
+    await sleep(600);
+    await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider, volumeSurge: volSurge3}) => {
+      try {
+        // שלב 3: טען earnings/insider/sector + news על המועמדות בלבד
+        const [newsArr, extNewsArr, earnings3, insider3, sector3] = await Promise.all([
+          api(sym,"news"), api(sym,"extnews"),
+          api(sym,"earnings").catch(()=>({})),
+          api(sym,"insider").catch(()=>({})),
+          profile.sector ? api(sym,"sector",profile.sector).catch(()=>({})) : Promise.resolve({})
+        ]);
+        // השתמש בנתונים המלאים
+        const _earnings = earnings3 || {};
+        const _insider  = insider3  || {};
+        const _sector   = sector3   || {};
+
+        // חישוב מחדש עם חדשות מלאות — עכשיו totalScore אמיתי
+        if(!scanQuote?.c || +scanQuote.c === 0) return;
+        // חשב ind מחדש מנרות בלבד — עקבי עם render
+        const indFull3 = calcIndicators(candles, scanQuote, {});
+        const scores = scoreAll(sym, scanQuote, candles, indFull3, patterns, newsArr, extNewsArr, profile, null, _earnings, _insider, _sector);
+        const confScore = scores.confluence || 0;
+
+        // ── פילטר שלב 3: עם נתונים מלאים ────────────────────
+        if(scores.totalScore < Math.max(dynamicMinScore - 3, 47)){ _dbg.score++; return; } // ציון
+
+        // פילטרים לפי TF config — עם debug counters
+        if(scores.rrRatio < tfCfg.minRR){ _dbg.rr++; return; }
+        if(confScore < tfCfg.minConf)   { _dbg.conf++; return; }
+        if(scores.risk >= tfCfg.maxRisk){ _dbg.risk++; return; }
+
+        // ── Catalyst Detection ───────────────────────────────
+        // Catalyst = סיבה אמיתית לתנועה (לא רק טכני)
+        let catalystCount = 0;
+        if(scores.posNews > 0)           catalystCount++;
+        if(ind.vr > 1.3)                 catalystCount++;
+        if(_earnings?.surprise > 2)      catalystCount++;
+        if(_insider?.net >= 1)           catalystCount++;
+        if(volSurge3)                    catalystCount++;
+        const hasCatalyst = catalystCount >= 2; // לפחות 2 סיבות
+
+        // ── ציון חוזק עסקה (0-7) — כמה כיוונים מסכימים ──────
+        let dealStrength = 0;
+        if(scores.totalScore > 60)    dealStrength++; // טכני חזק
+        if(scores.fundScoreNorm > 65) dealStrength++; // פונדמנטלי חזק
+        if(scores.posNews > 0)        dealStrength++; // חדשות חיוביות
+        if(ind.vr > 1.5)              dealStrength++; // נפח חריג
+        if(sector?.leading)           dealStrength++; // סקטור מוביל
+        if(hasCatalyst)               dealStrength++; // Catalyst מאושר — +1 נוסף
+
+        // dealStrength משמש למיון בלבד — לא פילטר קשה
+
+        // תגיות
+        const tags = [];
+        if(dealStrength >= 5) tags.push({t:"🔥 HOT",cls:"hot"});
+        else if(dealStrength >= 4) tags.push({t:"⭐ חזק",cls:"hot"});
+        if(scores.sig==="STRONG_BUY"||scores.sig==="STRONG_SELL") tags.push({t:"▲▲ חזק מאוד",cls:"hot"});
+        if(scores.rrRatio >= 2.5) tags.push({t:`⚡ R/R 1:${scores.rrRatio}`,cls:"rr"});
+        else if(scores.rrRatio < 2.0) tags.push({t:`⚠️ R/R נמוך`,cls:"rr"});
+        if(hasCatalyst) tags.push({t:"🎯 Catalyst",cls:"hot"});
+        if(volSurge3) tags.push({t:"🚀 נפח פי 3+",cls:"hot"});
+        else if(ind.vr > 1.5 && scores.pct > 0) tags.push({t:"🐋 נפח חריג",cls:"mom"});
+        if(scores.risk < 35) tags.push({t:"🛡 סיכון נמוך",cls:"safe"});
+        if(confScore >= 7) tags.push({t:`✓ Conf ${confScore}/10`,cls:"mom"});
+        if(scores.posNews > 0) tags.push({t:`📰 ${scores.posNews} חדשות+`,cls:"mom"});
+        if(sector?.leading) tags.push({t:"📊 סקטור מוביל",cls:"mom"});
+        if(insider?.net >= 2) tags.push({t:"👔 Insider קנה",cls:"mom"});
+        // Short Squeeze — בדוק אם יש נתון מהסריקה (לא זמין בסורק, נדלג)
+
+        const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
+        const reason = topFactor?.t || scores.trend;
+
+        results.push({
+          sym, price: scanQuote.c, pct: scores.pct,
+          detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
+          todayMomentum: (pass1.find(x=>x.sym===sym)||{}).todayMomentum||0,
+          hasGap: (pass1.find(x=>x.sym===sym)||{}).hasGap||false,
+          hasPmGap: !!(preMarketGaps[sym]),
+          pmGapPct: preMarketGaps[sym]?.gapPct||0,
+          relStrengthVsSpy: (pass1.find(x=>x.sym===sym)||{}).relStrengthVsSpy||0,
+          hasTodayNews: (pass1.find(x=>x.sym===sym)||{}).hasTodayNews||false,
+          topCatalystScore: scores.topCatalystScore||0,
+          darkPool: scores.darkPool||null,
+          sectorChange: (pass1.find(x=>x.sym===sym)||{}).sectorChange||0,
+          sectorStrong: (pass1.find(x=>x.sym===sym)||{}).sectorStrong||false,
+          sectorWeak:   (pass1.find(x=>x.sym===sym)||{}).sectorWeak||false,
+          sig: scores.sig, sigLabel: scores.sigLabel,
+          score: scores.totalScore, risk: scores.risk,
+          rrRatio: scores.rrRatio, conf: confScore,
+          dealStrength,
+          strategy: scores.strategy || "",
+          holding: scores.holding || "",
+          adx: ind.adx || 0,
+          divergence: ind.divergence || null,
+          insiderNet: insider?.net || 0,
+          hasCatalyst: hasCatalyst||false,
+          catalystCount: catalystCount||0,
+          rsi: ind.rsi, tags, reason,
+          name: profile.name || sym,
+          sector: profile.sector || "Other",
+          volumeSurge: volSurge3||false,
+          vr: ind.vr||1,
         });
       } catch(e){}
     }));
   }
 
-  // ══════════════════════════════════════════════════════════
-  // שלב 2 — ניתוח טכני (candle + profile)
-  // Day Trade: מהיר — רק candle, ללא earnings/insider
-  // ══════════════════════════════════════════════════════════
-  pass1.sort((a,b) => {
-    // Gap > נפח > מומנטום
-    const aScore = (a.bigGap?4:a.hasGap?3:0) + (a.volumeSurge?3:a.highVolume?2:0) + (a.todayMomentum||0);
-    const bScore = (b.bigGap?4:b.hasGap?3:0) + (b.volumeSurge?3:b.highVolume?2:0) + (b.todayMomentum||0);
-    return bScore - aScore;
-  });
-
-  const candidates = [];
-  const isDayTradeScan = scannerTimeframe === "today";
-  fill.style.width = "40%";
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 2/2 — ניתוח טכני על ${pass1.length} מועמדות...</div>`;
-
-  const BATCH2 = isDayTradeScan ? 10 : 8;
-  for(let i = 0; i < pass1.length; i += BATCH2){
-    const batch = pass1.slice(i, i+BATCH2);
-    fill.style.width = 40 + Math.round((i/Math.max(pass1.length,1))*55) + "%"; // 40-95%
-    status.textContent = `שלב 2/2 — ${i+1}-${Math.min(i+BATCH2,pass1.length)} מתוך ${pass1.length}...`;
-
-    await sleep(isDayTradeScan ? 150 : 250);
-    await Promise.allSettled(batch.map(async ({sym, scanQuote, volumeSurge: volSurge, hasGap, gapPct, bigGap, hasPmGap, pmGapPct, relStrengthVsSpy, todayMomentum}) => {
-      try {
-        // Day Trade — רק candle, ללא פונדמנטלי
-        const toFetch = isDayTradeScan
-          ? [api(sym, "candle"), Promise.resolve({})]
-          : [api(sym, "candle"), api(sym, "profile")];
-
-        const [candles, profile] = await Promise.all(toFetch);
-
-        if(!scanQuote?.c || scanQuote.c === 0) return;
-
-        const earnings = {};
-        const insider  = {};
-        const sector   = {};
-
-        const ind      = calcIndicators(candles, scanQuote, {});
-        const patterns = detectPatterns(candles);
-        const realVr   = ind.vr || 1;
-
-        // Day Trade: פילטר MA רק קיצוני
-        if(!isDayTradeScan){
-          const ma50  = ind.ma50 || 0;
-          const ma200 = ind.ma200 || 0;
-          const price = scanQuote.c;
-          if(ma50 > 0 && ma200 > 0 && price < ma50 * 0.92 && price < ma200 * 0.92 && !volSurge) return;
-        }
-
-        // ── Day Trade: ציון פשוט ──────────────────────────────
-        // מתעלם מפונדמנטלי וחדשות — מסתכל רק על תנועה ונפח
-        let scores;
-        if(isDayTradeScan){
-          // ציון מהיר לDay Trade — לא scoreAll המלא
-          const pct    = scanQuote.dp || 0;
-          const price  = scanQuote.c;
-          const rsi    = ind.rsi || 50;
-          const macdV  = ind.macdVal || 0;
-          const ma50   = ind.ma50 || price;
-          const ma200  = ind.ma200 || price;
-          const vr     = realVr;
-
-          // בנה ציון Day Trade (0-100)
-          let dtScore = 50; // base
-
-          // Gap
-          if(bigGap && hasGap)        dtScore += 20;
-          else if(hasGap)             dtScore += 12;
-          else if(hasPmGap)           dtScore += 15;
-
-          // נפח
-          if(vr >= 4.0)               dtScore += 15;
-          else if(vr >= 3.0)          dtScore += 10;
-          else if(vr >= 2.0)          dtScore += 6;
-
-          // תנועה
-          if(Math.abs(pct) >= 5)      dtScore += 10;
-          else if(Math.abs(pct) >= 3) dtScore += 6;
-          else if(Math.abs(pct) >= 2) dtScore += 3;
-
-          // RSI — לא בקניית יתר קיצונית
-          if(rsi > 80)                dtScore -= 10;
-          else if(rsi > 70)           dtScore -= 5;
-          else if(rsi < 30 && pct < 0) dtScore += 5; // Mean Reversion
-
-          // MACD
-          if(macdV > 0 && pct > 0)    dtScore += 5;
-
-          // מגמה
-          if(price > ma50 && pct > 0)  dtScore += 5;
-
-          // Relative Strength vs SPY
-          if(relStrengthVsSpy >= 3)    dtScore += 8;
-          else if(relStrengthVsSpy >= 1.5) dtScore += 4;
-
-          dtScore = Math.max(0, Math.min(100, dtScore));
-
-          // בנה signal לפי כיוון
-          let sig, sigLabel, pillCls;
-          if(gapPct >= 2 && pct > 0 && vr >= 1.5){
-            sig = "BUY"; sigLabel = "Gap Up ▲"; pillCls = "pbuy";
-          } else if(gapPct <= -2 && pct < 0 && vr >= 1.5){
-            sig = "SELL"; sigLabel = "Gap Down ▼"; pillCls = "psell";
-          } else if(pct >= 2 && vr >= 2.0){
-            sig = "BUY"; sigLabel = "Breakout ▲"; pillCls = "pbuy";
-          } else if(pct <= -2 && vr >= 2.0){
-            sig = "SELL"; sigLabel = "Breakdown ▼"; pillCls = "psell";
-          } else if(dtScore >= 65){
-            sig = pct >= 0 ? "BUY" : "SELL";
-            sigLabel = pct >= 0 ? "קנייה ▲" : "מכירה ▼";
-            pillCls  = pct >= 0 ? "pbuy" : "psell";
-          } else {
-            sig = "HOLD"; sigLabel = "המתן ◆"; pillCls = "phold";
-          }
-
-          // אסטרטגיה עיקרית לפי Gap
-          let strategy = "Momentum 📈";
-          if(Math.abs(gapPct) >= 3 || hasPmGap) strategy = "Gap & Go ⚡";
-          else if(vr >= 3.0 && pct > 0)         strategy = "Breakout 🚀";
-          else if(rsi < 30)                      strategy = "Mean Reversion 🔄";
-          else if(vr >= 2.0)                     strategy = "Volume Surge 🐋";
-
-          // חשב SL/TP פשוט לפי ATR
-          const atr  = ind.atr || price * 0.015;
-          const sl   = sig === "BUY"  ? +(price - atr * 1.2).toFixed(2) : +(price + atr * 1.2).toFixed(2);
-          const tp   = sig === "BUY"  ? +(price + atr * 2.0).toFixed(2) : +(price - atr * 2.0).toFixed(2);
-          const rrRatio = 1.7;
-
-          scores = {
-            sig, sigLabel, pillCls,
-            totalScore: dtScore,
-            techScoreNorm: dtScore,
-            fundScoreNorm: 50,
-            newsScoreNorm: 50,
-            macroScore:    50,
-            risk: rsi > 75 ? 65 : rsi < 25 ? 55 : 45,
-            pct, price, high: scanQuote.h || price, low: scanQuote.l || price,
-            entry: price, tp, sl,
-            tpPct: +((tp-price)/price*100).toFixed(1),
-            slPct: +((sl-price)/price*100).toFixed(1),
-            rrRatio,
-            holding: "היום בלבד ⚡",
-            strategy,
-            rsi: ind.rsi || 50,
-            stochRsi: ind.stochRsi || 50,
-            williamsR: ind.williamsR || -50,
-            cci: ind.cci || 0,
-            macdVal: ind.macdVal || 0,
-            macdTxt: (ind.macdVal||0) > 0 ? "חיובי ▲" : "שלילי ▼",
-            ma50: ind.ma50 || price,
-            ma200: ind.ma200 || price,
-            bbU: ind.bbU || price*1.02,
-            bbL: ind.bbL || price*0.98,
-            atr, vr: realVr, vLbl: realVr >= 3 ? "גבוה מאוד" : realVr >= 2 ? "גבוה" : "ממוצע",
-            techFactors: [],
-            fundFactors: [],
-            allNews: [], posNews: 0, negNews: 0, totalNews: 0,
-            goldenCross: false, deathCross: false, crossRecent: false,
-            relStrength: 50,
-            support: ind.poc || 0,
-            resistance: 0,
-            adx: ind.adx || 0,
-            diPlus: ind.diPlus || 0,
-            diMinus: ind.diMinus || 0,
-            poc: ind.poc || 0,
-            divergence: ind.divergence || null,
-            pc: scanQuote.pc || 0,
-            topCatalyst: null,
-            topCatalystScore: 0,
-            catalystScore: 0,
-            darkPool: ind.darkPool || null,
-            confluence: 3,
-            trend: price > (ind.ma50||price) ? "מגמת עלייה" : "מגמת ירידה",
-          };
-        } else {
-          // Swing — scoreAll המלא
-          scores = scoreAll(sym, scanQuote, candles, ind, patterns, [], [], profile, null, {}, {}, {});
-        }
-
-        if(!scores || !scores.sig) return;
-        if(scores.sig === "HOLD") return;
-
-        const strats = detectStrategies(candles, scanQuote, ind, scannerTimeframe);
-        candidates.push({ sym, scanQuote, candles, profile, ind, patterns, scores, sector, earnings, insider, volumeSurge: volSurge||false, detectedStrats: strats });
-      } catch(e){}
-    }));
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // שלב 3 — מיון ופילטר סופי
-  // Day Trade: מהיר — ללא news/earnings
-  // ══════════════════════════════════════════════════════════
-  const results = [];
-  fill.style.width = "95%";
-
-  if(isDayTradeScan){
-    // Day Trade — מיון ישיר מ-candidates, ללא API נוספים
-    for(const cand of candidates){
-      const {sym, scanQuote, candles, ind, patterns, scores, detectedStrats} = cand;
-      const p1data = pass1.find(x => x.sym === sym) || {};
-
-      const gapPctC  = p1data.gapPct || 0;
-      const hasPmGapC = p1data.hasPmGap || false;
-      const pmGapPctC = p1data.pmGapPct || 0;
-      const bigGapC  = p1data.bigGap || false;
-
-      // פילטר: ציון מינימלי
-      if(scores.totalScore < 55) continue;
-
-      // dealStrength
-      let dealStrength = 0;
-      if(bigGapC || Math.abs(gapPctC) >= 3)         dealStrength += 2;
-      else if(Math.abs(gapPctC) >= 1.5)             dealStrength += 1;
-      if(hasPmGapC && Math.abs(pmGapPctC) >= 3)     dealStrength += 2;
-      if(cand.volumeSurge)                           dealStrength += 2;
-      else if(ind.vr >= 2.0)                         dealStrength += 1;
-      if(Math.abs(scores.pct) >= 3)                  dealStrength += 1;
-      if((p1data.relStrengthVsSpy||0) >= 2)          dealStrength += 1;
-      if(ind.darkPool)                               dealStrength += 1;
-
-      // תגיות
-      const tags = [];
-      if(bigGapC || Math.abs(gapPctC) >= 3)         tags.push({t:`⚡ Gap ${gapPctC > 0 ? "+" : ""}${gapPctC}%`, cls:"hot"});
-      else if(Math.abs(gapPctC) >= 1.5)             tags.push({t:`📈 Gap ${gapPctC > 0 ? "+" : ""}${gapPctC}%`, cls:"hot"});
-      if(hasPmGapC)                                  tags.push({t:`🌅 PM +${Math.abs(pmGapPctC)}%`, cls:"hot"});
-      if(cand.volumeSurge)                           tags.push({t:`🐋 נפח פי ${ind.vr.toFixed(1)}`, cls:"hot"});
-      else if(ind.vr >= 2.0)                         tags.push({t:`📊 נפח פי ${ind.vr.toFixed(1)}`, cls:"mom"});
-      if(Math.abs(scores.pct) >= 3)                  tags.push({t:`🔥 ${scores.pct > 0 ? "+" : ""}${scores.pct}% היום`, cls:"hot"});
-      if((p1data.relStrengthVsSpy||0) >= 2)          tags.push({t:`💪 RS +${p1data.relStrengthVsSpy}% vs SPY`, cls:"mom"});
-      if(ind.darkPool)                               tags.push({t:`🐋 Dark Pool`, cls:"hot"});
-      if(scores.rsi < 30)                            tags.push({t:`📉 RSI ${scores.rsi} — Reversion`, cls:"mom"});
-
-      const topFactor = scores.techFactors?.find(f => f.c === "positive") || null;
-      const reason = topFactor?.t || scores.strategy || "";
-
-      results.push({
-        sym,
-        price: scanQuote.c,
-        pct: scores.pct,
-        gapPct: gapPctC,
-        hasPmGap: hasPmGapC,
-        pmGapPct: pmGapPctC,
-        bigGap: bigGapC,
-        todayMomentum: p1data.todayMomentum || 0,
-        hasGap: p1data.hasGap || false,
-        relStrengthVsSpy: p1data.relStrengthVsSpy || 0,
-        hasTodayNews: p1data.hasTodayNews || false,
-        topCatalystScore: 0,
-        darkPool: ind.darkPool || null,
-        sectorChange: p1data.sectorChange || 0,
-        sectorStrong: p1data.sectorStrong || false,
-        sectorWeak:   p1data.sectorWeak || false,
-        sig: scores.sig,
-        sigLabel: scores.sigLabel,
-        score: scores.totalScore,
-        risk: scores.risk,
-        rrRatio: scores.rrRatio,
-        conf: scores.confluence || 3,
-        dealStrength,
-        strategy: scores.strategy || "",
-        holding: scores.holding || "היום בלבד ⚡",
-        adx: ind.adx || 0,
-        divergence: ind.divergence || null,
-        insiderNet: 0,
-        hasCatalyst: cand.volumeSurge || bigGapC,
-        catalystCount: (cand.volumeSurge ? 1 : 0) + (bigGapC ? 1 : 0),
-        rsi: scores.rsi,
-        tags,
-        reason,
-        name: sym,
-        sector: "—",
-        volumeSurge: cand.volumeSurge,
-        vr: ind.vr || 1,
-        detectedStrats,
-      });
-    }
-  } else {
-    // Swing — שלב 3 המלא עם חדשות
-    const BATCH3 = 3;
-    const _dbg = {rr:0, conf:0, risk:0, score:0};
-    grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>שלב 3/3 — חדשות ו-Confluence על ${candidates.length} מועמדות...</div>`;
-
-    for(let i = 0; i < candidates.length; i += BATCH3){
-      const batch = candidates.slice(i, i+BATCH3);
-      fill.style.width = 65 + Math.round((i/Math.max(candidates.length,1))*30) + "%";
-      status.textContent = `שלב 3/3 — ${i+1}-${Math.min(i+BATCH3,candidates.length)} מתוך ${candidates.length}...`;
-      await sleep(600);
-
-      await Promise.allSettled(batch.map(async ({sym, scanQuote, candles, profile, ind, patterns, scores: s1, sector, earnings, insider, volumeSurge: volSurge3}) => {
-        try {
-          const [newsArr, extNewsArr, earnings3, insider3, sector3] = await Promise.all([
-            api(sym,"news"), api(sym,"extnews"),
-            api(sym,"earnings").catch(()=>({})),
-            api(sym,"insider").catch(()=>({})),
-            profile.sector ? api(sym,"sector",profile.sector).catch(()=>({})) : Promise.resolve({})
-          ]);
-          const _earnings = earnings3 || {};
-          const _insider  = insider3  || {};
-          const _sector   = sector3   || {};
-
-          if(!scanQuote?.c || +scanQuote.c === 0) return;
-          const indFull3 = calcIndicators(candles, scanQuote, {});
-          const scores   = scoreAll(sym, scanQuote, candles, indFull3, patterns, newsArr, extNewsArr, profile, null, _earnings, _insider, _sector);
-          const confScore = scores.confluence || 0;
-
-          if(scores.totalScore < Math.max(dynamicMinScore - 3, 47)){ _dbg.score++; return; }
-          if(scores.rrRatio < tfCfg.minRR)   { _dbg.rr++;   return; }
-          if(confScore < tfCfg.minConf)       { _dbg.conf++; return; }
-          if(scores.risk >= tfCfg.maxRisk)    { _dbg.risk++; return; }
-
-          let catalystCount = 0;
-          if(scores.posNews > 0)         catalystCount++;
-          if(ind.vr > 1.3)               catalystCount++;
-          if(_earnings?.surprise > 2)    catalystCount++;
-          if(_insider?.net >= 1)         catalystCount++;
-          if(volSurge3)                  catalystCount++;
-          const hasCatalyst = catalystCount >= 2;
-
-          let dealStrength = 0;
-          if(scores.totalScore > 60)     dealStrength++;
-          if(scores.fundScoreNorm > 65)  dealStrength++;
-          if(scores.posNews > 0)         dealStrength++;
-          if(ind.vr > 1.5)               dealStrength++;
-          if(_sector?.leading)           dealStrength++;
-          if(hasCatalyst)                dealStrength++;
-
-          const p1data = pass1.find(x => x.sym === sym) || {};
-          const tags = [];
-          if(dealStrength >= 5)          tags.push({t:"🔥 HOT", cls:"hot"});
-          if(scores.sig==="STRONG_BUY")  tags.push({t:"▲▲ חזק מאוד", cls:"hot"});
-          if(scores.rrRatio >= 2.5)      tags.push({t:`⚡ R/R 1:${scores.rrRatio}`, cls:"rr"});
-          if(hasCatalyst)                tags.push({t:"🎯 Catalyst", cls:"hot"});
-          if(volSurge3)                  tags.push({t:"🚀 נפח פי 3+", cls:"hot"});
-          if(scores.risk < 35)           tags.push({t:"🛡 סיכון נמוך", cls:"safe"});
-          if(_sector?.leading)           tags.push({t:"📊 סקטור מוביל", cls:"mom"});
-          if(_insider?.net >= 2)         tags.push({t:"👔 Insider קנה", cls:"mom"});
-
-          const topFactor = scores.techFactors.find(f=>f.c==="positive"||f.c==="negative");
-          const reason = topFactor?.t || scores.trend;
-
-          results.push({
-            sym, price: scanQuote.c, pct: scores.pct,
-            gapPct: p1data.gapPct || 0,
-            hasPmGap: p1data.hasPmGap || false,
-            pmGapPct: p1data.pmGapPct || 0,
-            bigGap: p1data.bigGap || false,
-            todayMomentum: p1data.todayMomentum || 0,
-            hasGap: p1data.hasGap || false,
-            relStrengthVsSpy: p1data.relStrengthVsSpy || 0,
-            hasTodayNews: p1data.hasTodayNews || false,
-            topCatalystScore: scores.topCatalystScore || 0,
-            darkPool: scores.darkPool || null,
-            sectorChange: p1data.sectorChange || 0,
-            sectorStrong: p1data.sectorStrong || false,
-            sectorWeak:   p1data.sectorWeak || false,
-            sig: scores.sig, sigLabel: scores.sigLabel,
-            score: scores.totalScore, risk: scores.risk,
-            rrRatio: scores.rrRatio, conf: confScore,
-            dealStrength, strategy: scores.strategy || "",
-            holding: scores.holding || "",
-            adx: ind.adx || 0, divergence: ind.divergence || null,
-            insiderNet: _insider?.net || 0,
-            hasCatalyst, catalystCount,
-            rsi: ind.rsi, tags, reason,
-            name: profile.name || sym,
-            sector: profile.sector || "Other",
-            volumeSurge: volSurge3||false,
-            vr: ind.vr||1,
-            detectedStrats: (candidates.find(x=>x.sym===sym)||{}).detectedStrats,
-          });
-        } catch(e){}
-      }));
-    }
-  }
-
+  } // end Swing phase 3
   // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
   results.sort((a,b)=>{
     // בונוסים נוספים לאיכות העסקה
@@ -5862,11 +5739,7 @@ async function runScanner(auto=false){
   fill.style.width = "100%";
   const now = new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
   const show = Math.min(results.length, 12);
-  if(scannerTimeframe === "today"){
-    status.textContent = `⚡ נמצאו ${results.length} מניות חמות · ${breadthLabel} · ${now}`;
-  } else {
-    status.textContent = `${breadthLabel} · מציג ${show} מתוך ${results.length} הזדמנויות · ${now}`;
-  }
+  status.textContent = `${breadthLabel} · מציג ${show} מתוך ${results.length} הזדמנויות · ${now}`;
   btn.disabled = false;
   btn.textContent = "↺ סרוק שוב";
   setTimeout(()=>progress.style.display="none", 1000);
@@ -5926,13 +5799,8 @@ function renderScanResults(results){
         <a href="${openTradingView(r.sym, scannerTimeframe)}" target="_blank"
           onclick="event.stopPropagation()"
           style="margin-top:4px;display:block;background:var(--cbtn);color:#fff;border-radius:4px;padding:3px 6px;font-size:9px;font-family:monospace;text-decoration:none;text-align:center">
-          📊 TradingView
+          📊 TV
         </a>
-        ${scannerTimeframe==='today'?`<button
-          onclick="event.stopPropagation();openChartAnalyzerWithSym('${r.sym}')"
-          style="margin-top:3px;display:block;width:100%;background:linear-gradient(135deg,#1a73e8,#7c3aed);border:none;color:#fff;border-radius:4px;padding:3px 6px;font-size:9px;font-family:monospace;cursor:pointer;text-align:center">
-          📸 נתח גרף
-        </button>`:''}
       </div>
       <div class="scan-mid">
         <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
@@ -5950,14 +5818,6 @@ function renderScanResults(results){
           ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
-        ${scannerTimeframe==='today'&&r.gapPct&&Math.abs(r.gapPct)>=1.5?`
-        <div style="font-size:11px;font-family:monospace;color:${r.gapPct>0?'var(--green)':'var(--red)'};margin-top:3px;font-weight:700">
-          ${r.gapPct>0?'⬆':'⬇'} Gap פתיחה: ${r.gapPct>0?'+':''}${r.gapPct}% vs אתמול
-        </div>`:''}
-        ${scannerTimeframe==='today'&&(r.vr||1)>=2?`
-        <div style="font-size:10px;font-family:monospace;color:var(--text3);margin-top:2px">
-          📊 נפח: פי ${(r.vr||1).toFixed(1)} מהממוצע
-        </div>`:''}
         <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center;">
           <span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 6px;border-radius:4px">${r.detectedStrats&&r.detectedStrats.best?r.detectedStrats.best.name:r.strategy||""}</span>
           ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace">⏱ ${r.holding}</span>`:""}
