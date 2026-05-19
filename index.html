@@ -5431,7 +5431,132 @@ async function runScanner(auto=false){
   }
 
   // ══════════════════════════════════════════════════════════
-  // שלב 2 — מסנן טכני (candle + profile + earnings + insider)
+// ── שלב 1.5 — ניתוח תנועה תוך-יומית (Day Trade בלבד) ──────────
+  // מחפש: מניות שיצרו תנועה גדולה ב-3 שעות האחרונות
+  // = אלו המניות שיש בהן מבנה טכני שאפשר לסחור בו
+  // ══════════════════════════════════════════════════════════
+  if(scannerTimeframe === "today" && pass1.length > 0){
+    status.textContent = "שלב 1.5 — מנתח תנועה תוך-יומית...";
+
+    const top30 = pass1.slice(0, 30);
+
+    await Promise.allSettled(top30.map(async (item) => {
+      try {
+        const hourly = await api(item.sym, "candle_hourly");
+        if(!hourly.c || hourly.c.length < 3) return;
+
+        const c = hourly.c, o = hourly.o||[], h = hourly.h||[], l = hourly.l||[], v = hourly.v||[];
+        const N = c.length;
+
+        // ── חשב תנועה של 3 שעות אחרונות ──────────────────────
+        const start3h  = c[Math.max(0, N-3)]; // מחיר לפני 3 שעות
+        const current  = c[N-1];
+        const high3h   = Math.max(...h.slice(Math.max(0,N-3)));
+        const low3h    = Math.min(...l.slice(Math.max(0,N-3)));
+        const move3h   = start3h > 0 ? +((current - start3h) / start3h * 100).toFixed(2) : 0;
+        const range3h  = start3h > 0 ? +((high3h - low3h) / start3h * 100).toFixed(2) : 0;
+
+        // ── חשב נפח ממוצע שעתי ────────────────────────────────
+        const avgHourVol = v.slice(-5).filter(x=>x>0).reduce((a,b)=>a+b,0) / Math.max(1, v.slice(-5).filter(x=>x>0).length);
+        const lastVolRatio = avgHourVol > 0 ? (v[N-1]||0) / avgHourVol : 1;
+
+        // ── זיהוי מבנה ────────────────────────────────────────
+        // Trending Down: ירידה עקבית — שורט פוטנציאלי
+        const trendDown = c[N-1] < c[N-2] && c[N-2] < c[N-3] && move3h < -1.5;
+        // Trending Up: עלייה עקבית — לונג פוטנציאלי
+        const trendUp   = c[N-1] > c[N-2] && c[N-2] > c[N-3] && move3h > 1.5;
+        // Bounce Setup: ירידה גדולה + נר אחרון ירוק (היפוך)
+        const bigDrop   = move3h < -2.0;
+        const lastGreen = c[N-1] > (o[N-1]||c[N-1]);
+        const bounceSetup = bigDrop && lastGreen && lastVolRatio >= 1.2;
+        // Breakdown Setup: עלייה גדולה + נר אחרון אדום (היפוך)
+        const bigRally  = move3h > 2.0;
+        const lastRed   = c[N-1] < (o[N-1]||c[N-1]);
+        const breakdownSetup = bigRally && lastRed && lastVolRatio >= 1.2;
+        // Pullback: עלייה גדולה + נסיגה קטנה + נפח גדל (כניסה בנסיגה)
+        const prevMove  = N>=4 ? +((c[N-2] - c[N-4]) / c[N-4] * 100).toFixed(2) : 0;
+        const pullback  = prevMove > 2.0 && move3h > 0 && move3h < prevMove * 0.5;
+
+        // ── ציון מבנה ─────────────────────────────────────────
+        let structureScore = 0;
+        let structureSignal = null;
+        let structureDesc = null;
+
+        if(bounceSetup){
+          structureScore = 4;
+          structureSignal = "🔄 Bounce Setup — ירידה + היפוך";
+          structureDesc = `ירד ${Math.abs(move3h)}% + נר ירוק + נפח`;
+        } else if(breakdownSetup){
+          structureScore = 4;
+          structureSignal = "🔄 Reversal Setup — עלייה + היפוך";
+          structureDesc = `עלה ${move3h}% + נר אדום + נפח`;
+        } else if(pullback){
+          structureScore = 3;
+          structureSignal = "🎯 Pullback — כניסה בנסיגה";
+          structureDesc = `עלה ${prevMove}% → נסיגה ${move3h}%`;
+        } else if(trendDown && range3h >= 2.0){
+          structureScore = 3;
+          structureSignal = "📉 Trend Down — מגמת ירידה";
+          structureDesc = `${move3h}% ב-3 שעות`;
+        } else if(trendUp && range3h >= 2.0){
+          structureScore = 3;
+          structureSignal = "📈 Trend Up — מגמת עלייה";
+          structureDesc = `+${move3h}% ב-3 שעות`;
+        } else if(range3h >= 2.0){
+          structureScore = 2;
+          structureSignal = "📊 תנועה גדולה — בדוק גרף";
+          structureDesc = `טווח ${range3h}% ב-3 שעות`;
+        } else if(range3h >= 1.0){
+          structureScore = 1;
+          structureSignal = "➡️ תנועה בינונית";
+          structureDesc = `טווח ${range3h}%`;
+        } else {
+          // תנועה קטנה — הפחת ציון
+          structureScore = -1;
+          structureSignal = "😴 Choppy — אין תנועה";
+          structureDesc = `טווח ${range3h}% בלבד`;
+        }
+
+        // עדכן todayMomentum
+        item.todayMomentum = Math.max(0, Math.min(5,
+          (item.todayMomentum||0) + structureScore
+        ));
+
+        // שמור נתוני מבנה
+        item.hourlyData = {
+          move3h, range3h, lastVolRatio: +lastVolRatio.toFixed(1),
+          bounceSetup, breakdownSetup, pullback, trendUp, trendDown,
+          signal: structureSignal,
+          desc:   structureDesc,
+          // Choppy — סמן כ"לא מעניין"
+          isChoppy: range3h < 1.0,
+        };
+
+      } catch(e){}
+    }));
+
+    // פסל מניות Choppy לחלוטין מה-pass1
+    const before = pass1.length;
+    pass1.splice(0, pass1.length,
+      ...pass1.filter(item => !item.hourlyData?.isChoppy)
+    );
+    const removed = before - pass1.length;
+
+    // מיין מחדש — Bounce/Pullback קודם, Choppy נפסל
+    pass1.sort((a,b) => {
+      const aScore = (a.bigGap?4:a.hasGap?3:0)
+                   + (a.volumeSurge?3:a.highVolume?2:0)
+                   + (a.todayMomentum||0);
+      const bScore = (b.bigGap?4:b.hasGap?3:0)
+                   + (b.volumeSurge?3:b.highVolume?2:0)
+                   + (b.todayMomentum||0);
+      return bScore - aScore;
+    });
+
+    status.textContent = `שלב 1.5 — נמצאו ${pass1.length} מניות עם מבנה (הוסרו ${removed} Choppy)`;
+  }
+
+    // שלב 2 — מסנן טכני (candle + profile + earnings + insider)
   // בודק: RSI, MACD, נרות, ציון טכני >= 48
   // ══════════════════════════════════════════════════════════
   // מיין pass1 — Volume Surge קודם
@@ -5558,9 +5683,10 @@ async function runScanner(auto=false){
         relStrengthVsSpy:p1.relStrengthVsSpy||0, hasTodayNews:p1.hasTodayNews||false,
         topCatalystScore:0, darkPool:ind.darkPool||null,
         hourlySignal:     p1.hourlyData?.signal || null,
-        hourlyLastPct:    p1.hourlyData?.lastPct || 0,
-        hourlyIsPullback: p1.hourlyData?.isPullback || false,
-        hourlyIsCont:     p1.hourlyData?.isContinuation || false,
+        hourlyDesc:       p1.hourlyData?.desc || null,
+        hourlyMove3h:     p1.hourlyData?.move3h || 0,
+        hourlyIsPullback: p1.hourlyData?.pullback || false,
+        hourlyIsCont:     p1.hourlyData?.bounceSetup || p1.hourlyData?.trendUp || false,
         sectorChange:p1.sectorChange||0, sectorStrong:p1.sectorStrong||false, sectorWeak:p1.sectorWeak||false,
         sig:scores.sig, sigLabel:scores.sigLabel,
         score:scores.totalScore, risk:scores.risk,
@@ -5696,8 +5822,18 @@ async function runScanner(auto=false){
   // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
   results.sort((a,b)=>{
     // Day Trade: בונוס לפי נר שעתי אחרון
-    const hourlyA = scannerTimeframe==="today" ? (a.hourlyIsCont?3:a.hourlyIsPullback?2:a.hourlySignal?.includes('⚠️')?-2:0) : 0;
-    const hourlyB = scannerTimeframe==="today" ? (b.hourlyIsCont?3:b.hourlyIsPullback?2:b.hourlySignal?.includes('⚠️')?-2:0) : 0;
+    const hourlyA = scannerTimeframe==="today" ? (
+      a.hourlyIsCont    ? 4 :
+      a.hourlyIsPullback? 3 :
+      a.hourlySignal?.includes('Trend') ? 2 :
+      a.hourlySignal?.includes('Choppy')? -3 : 0
+    ) : 0;
+    const hourlyB = scannerTimeframe==="today" ? (
+      b.hourlyIsCont    ? 4 :
+      b.hourlyIsPullback? 3 :
+      b.hourlySignal?.includes('Trend') ? 2 :
+      b.hourlySignal?.includes('Choppy')? -3 : 0
+    ) : 0;
     const aBonus = (a.volumeSurge ? 2 : 0) +
                    (a.hasCatalyst ? 2 : 0) +
                    ((a.adx||0) >= 25 ? 1 : 0) +
@@ -5827,9 +5963,14 @@ function renderScanResults(results){
         </div>
         <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
         ${scannerTimeframe==='today'&&r.hourlySignal?`
-        <div style="font-size:11px;font-family:monospace;margin-top:3px;font-weight:700;color:${r.hourlySignal.includes('🔥')||r.hourlySignal.includes('🎯')?'var(--green)':r.hourlySignal.includes('⚠️')?'var(--red)':'var(--text3)'}">
-          ${r.hourlySignal} · נר אחרון: ${r.hourlyLastPct>=0?'+':''}${r.hourlyLastPct}%
-        </div>`:''}
+        <div style="font-size:11px;font-family:monospace;margin-top:4px;font-weight:700;
+          padding:3px 7px;border-radius:4px;display:inline-block;
+          background:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Pullback')||r.hourlySignal.includes('Up')?'var(--gdim)':r.hourlySignal.includes('Choppy')||r.hourlySignal.includes('Reversal')?'var(--rdim)':'var(--bdim)'};
+          color:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Pullback')||r.hourlySignal.includes('Up')?'var(--green)':r.hourlySignal.includes('Choppy')?'var(--red)':'var(--blue)'}">
+          ${r.hourlySignal}
+        </div>
+        ${r.hourlyDesc?`<div style="font-size:10px;color:var(--text3);font-family:monospace;margin-top:2px">${r.hourlyDesc}</div>`:''}
+        `:''}
 
         <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center;">
           <span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 6px;border-radius:4px">${r.detectedStrats&&r.detectedStrats.best?r.detectedStrats.best.name:r.strategy||""}</span>
@@ -6164,95 +6305,4 @@ window.go = async function(){
 };
 </script>
 </body>
-</html>// ── שלב 1.5 — בדיקת נרות שעתיים (Day Trade בלבד) ────────────
-  // בודק: האם הנר האחרון (17:00-17:30) חזק מהקודמים?
-  // מעדכן todayMomentum לפי תנועה ב-17:00-17:30 בפועל
-  // ══════════════════════════════════════════════════════════
-  if(scannerTimeframe === "today" && pass1.length > 0){
-    status.textContent = "שלב 1.5 — בודק תנועה ב-17:00-17:30...";
-    
-    // קח רק את ה-Top 25 מ-pass1 לבדיקת נרות שעתיים
-    const top25 = pass1.slice(0, 25);
-    
-    await Promise.allSettled(top25.map(async (item) => {
-      try {
-        const hourly = await api(item.sym, "candle_hourly");
-        if(!hourly.c || hourly.c.length < 2) return;
-        
-        const c = hourly.c;
-        const v = hourly.v || [];
-        const h = hourly.h || [];
-        const l = hourly.l || [];
-        const o = hourly.o || [];
-        const N = c.length;
-        
-        // נר אחרון = 17:00-17:30 (הנוכחי)
-        const lastC   = c[N-1];
-        const lastO   = o[N-1] || lastC;
-        const lastH   = h[N-1] || lastC;
-        const lastL   = l[N-1] || lastC;
-        const lastV   = v[N-1] || 0;
-        const lastPct = lastO > 0 ? ((lastC - lastO) / lastO * 100) : 0;
-        
-        // נר לפני אחרון = 16:00-17:00
-        const prevC   = c[N-2];
-        const prevO   = o[N-2] || prevC;
-        const prevV   = v[N-2] || 0;
-        const prevPct = prevO > 0 ? ((prevC - prevO) / prevO * 100) : 0;
-        
-        // ממוצע נפח שעתי מ-3 הנרות האחרונים
-        const recentVols = v.slice(-3).filter(x => x > 0);
-        const avgHourVol = recentVols.length > 0 ? recentVols.reduce((a,b)=>a+b,0)/recentVols.length : lastV;
-        const lastVolRatio = avgHourVol > 0 ? lastV / avgHourVol : 1;
-        
-        // ── בדוק: האם הנר האחרון חזק? ────────────────────────
-        let hourlyBonus = 0;
-        let hourlyPenalty = 0;
-        
-        // נר ירוק חזק בשעה האחרונה + נפח גדל = מומנטום ממשיך
-        if(lastPct >= 1.0 && lastVolRatio >= 1.3)    hourlyBonus = 3;  // ☀️ חזק מאוד
-        else if(lastPct >= 0.5 && lastVolRatio >= 1.0) hourlyBonus = 2; // טוב
-        else if(lastPct >= 0.3)                       hourlyBonus = 1;  // קל
-        
-        // נר אדום בשעה האחרונה = מומנטום נחלש
-        if(lastPct <= -1.0 && lastVolRatio >= 1.2)   hourlyPenalty = 3; // ☁️ חלש מאוד
-        else if(lastPct <= -0.5)                      hourlyPenalty = 2;
-        else if(lastPct <= -0.2)                      hourlyPenalty = 1;
-        
-        // Pullback לאחר עלייה = הזדמנות כניסה ב-17:30
-        // (נר קודם ירוק חזק + נר אחרון ירידה קטנה = Pullback)
-        const isPullback = prevPct >= 1.5 && lastPct >= -0.5 && lastPct <= 0.3;
-        if(isPullback) hourlyBonus = Math.max(hourlyBonus, 2);
-        
-        // Continuation = שני נרות ירוקים ברצף + נפח גדל
-        const isContinuation = prevPct >= 0.5 && lastPct >= 0.5 && lastVolRatio >= 1.0;
-        if(isContinuation) hourlyBonus = Math.max(hourlyBonus, 3);
-        
-        // עדכן todayMomentum
-        item.todayMomentum = Math.max(0, Math.min(5, (item.todayMomentum||0) + hourlyBonus - hourlyPenalty));
-        
-        // שמור נתוני hourly לתצוגה
-        item.hourlyData = {
-          lastPct:   +lastPct.toFixed(2),
-          prevPct:   +prevPct.toFixed(2),
-          lastVolRatio: +lastVolRatio.toFixed(1),
-          isPullback, isContinuation,
-          signal: isContinuation ? "🔥 ממשיך לעלות" 
-                : isPullback     ? "🎯 Pullback — הזדמנות"
-                : lastPct >= 0.5 ? "📈 נר שעתי ירוק"
-                : lastPct <= -0.5 ? "⚠️ נר שעתי אדום"
-                : "➡️ דשדוש",
-        };
-        
-      } catch(e){}
-    }));
-    
-    // מיין מחדש לפי todayMomentum המעודכן
-    pass1.sort((a,b) => {
-      const aScore = (a.bigGap?4:a.hasGap?3:0) + (a.volumeSurge?3:a.highVolume?2:0) + (a.todayMomentum||0);
-      const bScore = (b.bigGap?4:b.hasGap?3:0) + (b.volumeSurge?3:b.highVolume?2:0) + (b.todayMomentum||0);
-      return bScore - aScore;
-    });
-    
-    status.textContent = "שלב 2 — ניתוח טכני מלא...";
-  }
+</html>
