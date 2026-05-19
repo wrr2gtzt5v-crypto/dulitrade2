@@ -1200,8 +1200,10 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
 
         # Pattern context הוסר
 
-        # Multi-Timeframe
-        if market_ctx.get("mtf_daily"):
+        # Multi-Timeframe — ב-Day Trade: רק שעתי (לא יומי)
+        # Daily MTF גורם ל-Claude לסרב עסקאות Day Trade בגלל "Choppy Daily"
+        is_day_trade_ctx = trade_type == "day"
+        if market_ctx.get("mtf_daily") and not is_day_trade_ctx:
             ctx_lines.append("")
             ctx_lines.append("── Multi-Timeframe Analysis ──")
             d = market_ctx["mtf_daily"]
@@ -1210,16 +1212,23 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
                 ctx_lines.append(f"Daily: {d['vs_ma200']}")
         if market_ctx.get("mtf_hourly"):
             h = market_ctx["mtf_hourly"]
-            ctx_lines.append(f"Hourly: RSI {h['rsi']} | MACD {h['macd']} | {h['ema9_vs_price']} | מגמה: {h['trend']}")
-            # סיכום MTF
-            d_bull = market_ctx["mtf_daily"]["trend"].startswith("עולה")
-            h_bull = h["trend"] == "עולה"
-            if d_bull and h_bull:
-                ctx_lines.append("MTF: יומי + שעתי עולים — רוח גבית ל-LONG")
-            elif not d_bull and not h_bull:
-                ctx_lines.append("MTF: יומי + שעתי יורדים — רוח גבית ל-SHORT")
+            if is_day_trade_ctx:
+                # Day Trade: רק שעתי — זה הרלוונטי לגרף 5 דקות
+                ctx_lines.append("")
+                ctx_lines.append("── Hourly Context ──")
+                ctx_lines.append(f"שעתי: RSI {h['rsi']} | MACD {h['macd']} | {h['ema9_vs_price']} | מגמה: {h['trend']}")
             else:
-                ctx_lines.append("MTF: כיוונים שונים — זהירות, בדוק את הגרף בקפידה")
+                ctx_lines.append(f"Hourly: RSI {h['rsi']} | MACD {h['macd']} | {h['ema9_vs_price']} | מגמה: {h['trend']}")
+                # סיכום MTF — רק ל-Swing
+                if market_ctx.get("mtf_daily"):
+                    d_bull = market_ctx["mtf_daily"]["trend"].startswith("עולה")
+                    h_bull = h["trend"] == "עולה"
+                    if d_bull and h_bull:
+                        ctx_lines.append("MTF: יומי + שעתי עולים — רוח גבית ל-LONG")
+                    elif not d_bull and not h_bull:
+                        ctx_lines.append("MTF: יומי + שעתי יורדים — רוח גבית ל-SHORT")
+                    else:
+                        ctx_lines.append("MTF: כיוונים שונים — זהירות, בדוק את הגרף בקפידה")
 
         # Support/Resistance היסטורי
         if market_ctx.get("week52_high"):
@@ -1254,12 +1263,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
 ═══════════════════════════════════
 המשתמש מחפש עסקה לאותו יום בלבד.
 - התמקד בנרות הקצרים (1-15 דקות)
-- מחפש: Breakout, VWAP Reclaim, Gap & Go, Bull Flag, Mean Reversion, Bounce מתמיכה
+- מחפש: Breakout, VWAP Reclaim, Gap & Go, Bull Flag, Mean Reversion
 - SL קרוב: 0.3-1% מהמחיר
 - TP קרוב: R/R 1.5-2.5
 - זמן החזקה: דקות עד שעות — לא יותר מיום
 - חשוב: אל תסרב עסקה בגלל Daily Choppy. אתה מנתח את הגרף הקצר שלפניך.
-- אם יש Bounce ברור מתמיכה, Pullback, או Breakout בגרף — זו עסקה גם אם Daily Choppy.
+- אם יש Bounce/Pullback/Breakout ברור בגרף — זו עסקה.
 """
         else:
             trade_instruction = """
@@ -1310,7 +1319,7 @@ BREAKOUT: מניה יצאה מאזור דחיסה עם נפח פי 1.5+ מהממ
 → כנס בכיוון הפריצה, SL מתחת לאזור הדחיסה
 
 CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל עלייה נמחקת
-→ NEUTRAL בגרף הנוכחי בלבד — אם המניה Choppy בגרף שאתה רואה. אל תסרב עסקה בגלל Daily Choppy אם בגרף הנוכחי יש Setup ברור.
+→ NEUTRAL — אבל רק אם הגרף שלפניך Choppy. ב-Day Trade: Daily Choppy לא מונע עסקה.
 
 כללי ברזל:
 1. R/R מתחת ל-1.0 → NEUTRAL חובה, אל תציע עסקה
@@ -1319,10 +1328,12 @@ CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל
 4. היפוך מגמה אפשרי רק כשיש CHoCH ברור + אישור נפח + דפוס נרות — אחרת NEUTRAL
 5. Entry Timing: המתן לסגירת נר מעל/מתחת הרמה לפני כניסה — מונע כניסות על פריצות מזויפות
 6. אם הגרף לא ברור ואין Setup מובהק — NEUTRAL
-7. Higher Timeframe Bias — כבד את המגמה היומית:
-   - אם MTF Daily מראה מגמה עולה → עדיפות ל-LONG, אבל אל תסרב SHORT אם יש Setup ברור
-   - אם MTF Daily מראה מגמה יורדת → עדיפות ל-SHORT, אבל אל תסרב LONG אם יש Setup ברור
-   - אם MTF Daily מראה Choppy → בדוק את הגרף הנוכחי בלבד. אם יש Setup ברור (Bounce/Breakout/Pullback) — כנס. NEUTRAL רק אם גם הגרף הנוכחי Choppy.
+7. Higher Timeframe Bias:
+   ב-DAY TRADE: אין כלל Higher Timeframe. נתח את הגרף שלפניך בלבד. Daily לא רלוונטי.
+   ב-SWING TRADE:
+   - מגמה יומית עולה → עדיפות ל-LONG
+   - מגמה יומית יורדת → עדיפות ל-SHORT
+   - Choppy יומי → בדוק את הגרף הנוכחי. Setup ברור = כנס.
 
 סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
