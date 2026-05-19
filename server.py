@@ -1254,10 +1254,12 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
 ═══════════════════════════════════
 המשתמש מחפש עסקה לאותו יום בלבד.
 - התמקד בנרות הקצרים (1-15 דקות)
-- מחפש: Breakout, VWAP Reclaim, Gap & Go, Bull Flag, Mean Reversion
+- מחפש: Breakout, VWAP Reclaim, Gap & Go, Bull Flag, Mean Reversion, Bounce מתמיכה
 - SL קרוב: 0.3-1% מהמחיר
 - TP קרוב: R/R 1.5-2.5
 - זמן החזקה: דקות עד שעות — לא יותר מיום
+- חשוב: אל תסרב עסקה בגלל Daily Choppy. אתה מנתח את הגרף הקצר שלפניך.
+- אם יש Bounce ברור מתמיכה, Pullback, או Breakout בגרף — זו עסקה גם אם Daily Choppy.
 """
         else:
             trade_instruction = """
@@ -1308,7 +1310,7 @@ BREAKOUT: מניה יצאה מאזור דחיסה עם נפח פי 1.5+ מהממ
 → כנס בכיוון הפריצה, SL מתחת לאזור הדחיסה
 
 CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל עלייה נמחקת
-→ NEUTRAL חובה — אין עסקה ב-Choppy market
+→ NEUTRAL בגרף הנוכחי בלבד — אם המניה Choppy בגרף שאתה רואה. אל תסרב עסקה בגלל Daily Choppy אם בגרף הנוכחי יש Setup ברור.
 
 כללי ברזל:
 1. R/R מתחת ל-1.0 → NEUTRAL חובה, אל תציע עסקה
@@ -1318,9 +1320,9 @@ CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל
 5. Entry Timing: המתן לסגירת נר מעל/מתחת הרמה לפני כניסה — מונע כניסות על פריצות מזויפות
 6. אם הגרף לא ברור ואין Setup מובהק — NEUTRAL
 7. Higher Timeframe Bias — כבד את המגמה היומית:
-   - אם MTF Daily מראה מגמה עולה (HH/HL או MACD חיובי או מחיר מעל MA50) → LONG בלבד, אל תמליץ SHORT
-   - אם MTF Daily מראה מגמה יורדת (LH/LL או MACD שלילי או מחיר מתחת MA50) → SHORT בלבד, אל תמליץ LONG
-   - אם MTF Daily מראה Choppy (אין כיוון ברור) → רק Setup מושלם עם Confluence 7+
+   - אם MTF Daily מראה מגמה עולה → עדיפות ל-LONG, אבל אל תסרב SHORT אם יש Setup ברור
+   - אם MTF Daily מראה מגמה יורדת → עדיפות ל-SHORT, אבל אל תסרב LONG אם יש Setup ברור
+   - אם MTF Daily מראה Choppy → בדוק את הגרף הנוכחי בלבד. אם יש Setup ברור (Bounce/Breakout/Pullback) — כנס. NEUTRAL רק אם גם הגרף הנוכחי Choppy.
 
 סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
