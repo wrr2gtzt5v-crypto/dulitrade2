@@ -7,21 +7,29 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a1628;--bg2:#0d1f3c;--bg3:#112240;
-  --border:#1a3a6b;--border2:#2a5298;
-  --text:#e8f0fe;--text2:#7aa3e5;--text3:#4a6fa5;
-  --green:#00d97e;--gdim:#003d20;
-  --red:#ff4757;--rdim:#3d0010;
-  --amber:#ffa502;--adim:#3d2500;
-  --blue:#4fc3f7;--bdim:#0d2a4a;
-  --cbtn:#1a73e8;--cbtnhov:#2196f3;
-  --accent:#4fc3f7;
+  /* Premium Dark — Bloomberg/TradingView feel */
+  --bg:#0b0e14;--bg2:#111620;--bg3:#161b27;--bg4:#1c2333;
+  --border:#1f2d45;--border2:#2d4a7a;--border3:#3d6aaa;
+  --text:#e2e8f4;--text2:#8899bb;--text3:#4a5e80;
+  --green:#00c57a;--gdim:#00200f;
+  --red:#f0394a;--rdim:#2d0812;
+  --amber:#f59e0b;--adim:#2d1f00;
+  --blue:#38bdf8;--bdim:#0a2040;
+  --purple:#7c3aed;--pdim:#1e0a40;
+  --cbtn:#2563eb;--cbtnhov:#3b82f6;--accent:#38bdf8;
+  /* Glow effects */
+  --glow-green:0 0 20px rgba(0,197,122,.15);
+  --glow-red:0 0 20px rgba(240,57,74,.15);
+  --glow-blue:0 0 20px rgba(56,189,248,.12);
 }
 body.light{
-  --bg:#f0f4fa;--bg2:#fff;--bg3:#e8edf7;
-  --border:#ccd3e0;--border2:#aab3c8;
-  --text:#1a202c;--text2:#4a5568;--text3:#94a3b8;
+  --bg:#f5f7fa;--bg2:#ffffff;--bg3:#edf0f7;--bg4:#e6eaf4;
+  --border:#dde2ef;--border2:#b8c4dd;--border3:#8fa5cc;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
   --gdim:#dcfce7;--rdim:#fee2e2;--adim:#fef3c7;--bdim:#dbeafe;
+  --glow-green:0 0 12px rgba(0,197,122,.1);
+  --glow-red:0 0 12px rgba(240,57,74,.1);
+  --glow-blue:0 0 12px rgba(56,189,248,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;min-height:100vh;direction:rtl;transition:background .25s,color .25s;}
@@ -36,7 +44,7 @@ body:not(.light)::before{content:'';position:fixed;inset:0;background-image:line
 .tf-label{font-size:10px;color:var(--text3);display:block;margin-top:1px;font-weight:400;}
 
 /* HEADER */
-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:200;}
+header{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.5rem;border-bottom:1px solid var(--border);background:rgba(11,14,20,.95);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;}
 .logo{display:flex;align-items:center;gap:10px;}
 .lbox{width:32px;height:32px;border:2px solid var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);font-weight:700;}
 .ltxt{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--text);letter-spacing:.08em;}
@@ -112,17 +120,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 /* CARD */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;overflow:hidden;animation:fadeUp .3s ease;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-.chead{padding:1rem 1.25rem;display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--bg3);}
+.chead{padding:1rem 1.25rem;display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid var(--border3);background:linear-gradient(135deg,var(--bg3) 0%,var(--bg4) 100%);}
 .csym{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;}
 .cname{font-size:12px;color:var(--text3);margin-top:2px;}
 .rbadge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--green);background:var(--gdim);border:1px solid var(--green);border-radius:4px;padding:2px 7px;margin-top:5px;}
 .siga{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
-.pill{padding:8px 22px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;}
-.pbuy{background:var(--gdim);color:var(--green);border:1.5px solid var(--green);}
-.psell{background:var(--rdim);color:var(--red);border:1.5px solid var(--red);}
+.pill{padding:8px 22px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:800;letter-spacing:.05em;}
+.pbuy{background:linear-gradient(135deg,rgba(0,197,122,.15),rgba(0,197,122,.08));color:var(--green);border:1.5px solid var(--green);box-shadow:var(--glow-green);}
+.psell{background:linear-gradient(135deg,rgba(240,57,74,.15),rgba(240,57,74,.08));color:var(--red);border:1.5px solid var(--red);box-shadow:var(--glow-red);}
 .phold{background:var(--adim);color:var(--amber);border:1.5px solid var(--amber);}
-.psbuy{background:#003d20;color:#00ff9d;border:2px solid #00ff9d;box-shadow:0 0 10px rgba(0,255,157,.3);}
-.pssell{background:#3d0010;color:#ff2d44;border:2px solid #ff2d44;box-shadow:0 0 10px rgba(255,45,68,.3);}
+.psbuy{background:rgba(0,197,122,.18);color:#00ff9d;border:2px solid #00ff9d;box-shadow:0 0 14px rgba(0,255,157,.3);}
+.pssell{background:rgba(240,57,74,.18);color:#ff2d44;border:2px solid #ff2d44;box-shadow:0 0 14px rgba(255,45,68,.3);}
 .cconf{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
 
 /* SCORE SUMMARY */
@@ -325,10 +333,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.75
 .scanner-progress{height:3px;background:var(--border);border-radius:2px;margin-bottom:12px;overflow:hidden;display:none;}
 .scanner-progress-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .3s;}
 .scanner-grid{display:flex;flex-direction:column;gap:8px;}
-.scan-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .15s;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;}
-.scan-card:hover{border-color:var(--blue);}
-.scan-card.buy{border-right:3px solid var(--blue);}
-.scan-card.sell{border-right:3px solid var(--red);}
+.scan-card{background:var(--bg4);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.scan-card:hover{border-color:var(--border3);box-shadow:var(--glow-blue);}
+.scan-card.buy{border-right:3px solid var(--green);box-shadow:var(--glow-green);}
+.scan-card.sell{border-right:3px solid var(--red);box-shadow:var(--glow-red);}
 .scan-left{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px;}
 .scan-sym{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;color:var(--text);}
 .scan-price{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);}
@@ -3183,31 +3191,28 @@ function confirmAddToWinRate(sym, sig, entry, tp, sl, holdDays, strategy){
 function openChartAnalyzer(){
   const modal = document.createElement("div");
   modal.id = "chartAnalyzerModal";
-  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem`;
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem`;
   modal.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-        <h3 style="font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
-          📸 ניתוח גרף עם Claude AI
-        </h3>
-        <button onclick="document.getElementById('chartAnalyzerModal').remove()" 
-          style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
-      </div>
-
-      <!-- הנחיות Setup ב-TradingView -->
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px">
-        <div style="font-weight:700;color:var(--amber);margin-bottom:6px;font-family:monospace">📋 הכן את הגרף לפני העלאה:</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-          <div style="color:var(--green)">✅ הוסף VWAP</div>
-          <div style="color:var(--green)">✅ הוסף EMA 9 + EMA 20</div>
-          <div style="color:var(--green)">✅ הצג נפח בתחתית</div>
-          <div style="color:var(--green)">✅ נרות יפניים (לא Heikin Ashi)</div>
-          <div style="color:var(--blue)">📌 Day Trade: Timeframe 1-15 דקות</div>
-          <div style="color:var(--blue)">📌 Swing: Timeframe 1h-Daily</div>
+    <div style="background:var(--bg2);border:1px solid var(--border3);border-radius:14px;padding:1.5rem;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--glow-blue)">
+      <!-- Step progress indicator -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-family:monospace;color:var(--blue)">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--cbtn);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">1</span>
+          <span>בחר סוג</span>
         </div>
-        <div style="margin-top:6px;color:var(--text3);border-top:1px solid var(--border);padding-top:5px">
-          💡 ככל שהגרף נקי יותר — הניתוח מדויק יותר
+        <div style="height:1px;width:24px;background:var(--border2)"></div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-family:monospace;color:var(--text3)">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">2</span>
+          <span>העלה גרף</span>
         </div>
+        <div style="height:1px;width:24px;background:var(--border2)"></div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-family:monospace;color:var(--text3)">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">3</span>
+          <span>קבל ניתוח</span>
+        </div>
+        <div style="flex:1"></div>
+        <button onclick="document.getElementById('chartAnalyzerModal').remove()"
+          style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1">✕</button>
       </div>
 
       <!-- בחירת סוג עסקה — קודם כל -->
@@ -3236,35 +3241,35 @@ function openChartAnalyzer(){
       </div>
 
       <!-- תמונה 1 -->
-      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px">
-        📈 תמונה 1 — גרף ראשי
+      <div style="font-size:11px;color:var(--text2);font-family:monospace;margin-bottom:6px;font-weight:600">
+        📈 שלב 2: העלה גרף ראשי
       </div>
       <div id="caDropZone"
-        style="border:2px dashed var(--border2);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
+        style="border:2px dashed var(--border3);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:all .2s;background:var(--bg3)"
         onclick="document.getElementById('caFileInput').click()"
-        ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
-        ondragleave="this.style.borderColor='var(--border2)'"
-        ondrop="handleChartDrop(event)">
-        <div style="font-size:1.5rem;margin-bottom:4px">📈</div>
-        <div style="font-size:12px;color:var(--text2)">גרור גרף לכאן</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px">או לחץ לבחירה</div>
+        ondragover="event.preventDefault();this.style.borderColor='var(--blue)';this.style.background='var(--bdim)'"
+        ondragleave="this.style.borderColor='var(--border3)';this.style.background='var(--bg3)'"
+        ondrop="handleChartDrop(event);this.style.borderColor='var(--border3)';this.style.background='var(--bg3)'">
+        <div style="font-size:2rem;margin-bottom:6px">📈</div>
+        <div style="font-size:13px;color:var(--text2);font-weight:600">גרור גרף לכאן</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">או לחץ לבחירה · PNG/JPG/WebP</div>
       </div>
       <input id="caFileInput" type="file" accept="image/*" style="display:none" onchange="handleChartFile(event)">
       <div id="caPreview" style="display:none;margin-bottom:8px">
-        <img id="caImg" style="width:100%;border-radius:8px;border:1px solid var(--green)">
-        <div style="font-size:10px;color:var(--green);font-family:monospace;margin-top:3px">✅ גרף ראשי נטען</div>
+        <img id="caImg" style="width:100%;border-radius:10px;border:2px solid var(--green);box-shadow:var(--glow-green)">
+        <div style="font-size:11px;color:var(--green);font-family:monospace;margin-top:4px">✅ גרף ראשי נטען</div>
       </div>
 
       <!-- תמונה 2 -->
-      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px;margin-top:8px">
+      <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:5px;margin-top:10px">
         🕯 תמונה 2 — גרף כניסה <span style="color:var(--amber)">(אופציונלי — מגדיל דיוק)</span>
       </div>
       <div id="caDropZone2"
-        style="border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s"
+        style="border:2px dashed var(--border2);border-radius:12px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:8px;transition:all .2s;background:var(--bg3)"
         onclick="document.getElementById('caFileInput2').click()"
-        ondragover="event.preventDefault();this.style.borderColor='var(--amber)'"
-        ondragleave="this.style.borderColor='var(--border)'"
-        ondrop="handleChartDrop2(event)">
+        ondragover="event.preventDefault();this.style.borderColor='var(--amber)';this.style.background='var(--adim)'"
+        ondragleave="this.style.borderColor='var(--border2)';this.style.background='var(--bg3)'"
+        ondrop="handleChartDrop2(event);this.style.borderColor='var(--border2)';this.style.background='var(--bg3)'">
         <div style="font-size:1.5rem;margin-bottom:4px">🕯</div>
         <div style="font-size:12px;color:var(--text2)">גרור גרף שני לכאן</div>
         <div style="font-size:10px;color:var(--amber);margin-top:3px">Multi-Timeframe = ניתוח מדויק יותר</div>
@@ -3276,8 +3281,8 @@ function openChartAnalyzer(){
       </div>
 
       <button id="caAnalyzeBtn" onclick="analyzeChartImage()"
-        style="display:none;width:100%;background:var(--cbtn);border:none;color:#fff;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:1rem">
-        🔍 נתח עם Claude AI
+        style="display:none;width:100%;background:linear-gradient(135deg,var(--cbtn),var(--purple));border:none;color:#fff;padding:13px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:1rem;letter-spacing:.04em;box-shadow:0 4px 20px rgba(37,99,235,.35)">
+        🔍 שלב 3: נתח עם Claude AI
       </button>
 
       <div id="caResult" style="display:none"></div>
@@ -3460,6 +3465,12 @@ async function analyzeChartImage(){
     const tradeTypeLbl = isDayTrade?"⚡ Day Trade":"📈 Swing Trade";
     const tradeTypeCol = isDayTrade?"var(--amber)":"var(--blue)";
     const cb = a.confidence_breakdown || {};
+    // Quality Score
+    const qs = a.quality_score || 0;
+    const qsColor = qs>=85?"var(--green)":qs>=70?"var(--amber)":qs>=55?"#f97316":"var(--red)";
+    const qsGlow  = qs>=85?"var(--glow-green)":qs>=70?"0 0 16px rgba(245,158,11,.2)":qs>=55?"0 0 16px rgba(249,115,22,.2)":"var(--glow-red)";
+    const qsLabel = qs>=85?"🟢 מצוין — כנס":qs>=70?"🟡 טוב — כנס":qs>=55?"🟠 בינוני — שקול":"🔴 לא מומלץ";
+    const cardBorder = a.signal==="NEUTRAL"?"var(--border2)":qs>=70?sigColor:"var(--border2)";
 
     // confidence breakdown bars
     const confItems = [
@@ -3483,20 +3494,29 @@ async function analyzeChartImage(){
     }).join("");
 
     result.innerHTML = `
-      <div style="background:var(--bg3);border:1px solid ${sigColor};border-radius:10px;padding:1rem">
+      <div style="background:var(--bg4);border:1px solid ${cardBorder};border-radius:12px;padding:1rem;box-shadow:${qsGlow}">
 
-        <!-- Header: טיקר + סיגנל + סוג -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-          <div>
-            ${a.ticker?`<div style="font-size:11px;color:var(--text3);font-family:monospace;margin-bottom:2px">זוהה: <strong style="color:var(--text);font-size:13px">${a.ticker}</strong></div>`:""}
-            <div style="font-size:24px;font-weight:700;color:${sigColor};font-family:monospace">${sigIcon}</div>
-            <div style="font-size:11px;color:${tradeTypeCol};font-family:monospace;margin-top:2px">${tradeTypeLbl}${a.timeframe?" · "+a.timeframe:""}${a.current_price?" · $"+a.current_price:""}</div>
+        <!-- Row 1: Ticker + meta -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            ${a.ticker?`<span style="font-family:monospace;font-size:15px;font-weight:800;color:var(--text)">${a.ticker}</span>`:""}
+            <span style="background:var(--bdim);color:${tradeTypeCol};border:1px solid ${tradeTypeCol};border-radius:4px;font-size:10px;font-family:monospace;padding:1px 6px">${tradeTypeLbl}</span>
+            ${a.timeframe?`<span style="font-size:10px;color:var(--text3);font-family:monospace">${a.timeframe}</span>`:""}
+            ${a.current_price?`<span style="font-size:11px;color:var(--text2);font-family:monospace">$${a.current_price}</span>`:""}
           </div>
-          <div style="text-align:left;background:var(--bg2);border-radius:8px;padding:8px 12px;border:1px solid ${(a.confidence||0)>=7?"var(--green)":(a.confidence||0)>=5?"var(--amber)":"var(--red)"}">
-            <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:2px">ביטחון</div>
-            <div style="font-size:22px;font-weight:700;font-family:monospace;color:${(a.confidence||0)>=7?"var(--green)":(a.confidence||0)>=5?"var(--amber)":"var(--red)"}">${a.confidence||"—"}/10</div>
-            <div style="font-size:9px;color:var(--text3);font-family:monospace">${cb.total||0}/16 גורמים</div>
-          </div>
+          <div style="font-size:10px;color:var(--text3);font-family:monospace">Conf ${a.confidence||"—"}/10</div>
+        </div>
+
+        <!-- Row 2: Signal + Quality Score badge -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:22px;font-weight:800;color:${sigColor};font-family:monospace;letter-spacing:.03em">${sigIcon}</div>
+          ${a.signal!=="NEUTRAL"?`<div style="background:var(--bg3);border:1.5px solid ${qsColor};border-radius:8px;padding:5px 12px;box-shadow:${qsGlow}">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:1px">Quality Score</div>
+            <div style="font-size:11px;font-weight:700;color:${qsColor};font-family:monospace">${qs}/100 · ${qsLabel}</div>
+          </div>`:`<div style="background:var(--adim);border:1px solid var(--amber);border-radius:8px;padding:5px 12px">
+            <div style="font-size:11px;font-weight:700;color:var(--amber);font-family:monospace">⏸ המתן לסטאפ ברור יותר</div>
+            ${a.original_signal?`<div style="font-size:9px;color:var(--text3);font-family:monospace">Claude הציע ${a.original_signal} — נחסם ע"י ולידציה</div>`:""}
+          </div>`}
         </div>
 
         <!-- Entry/TP/SL -->
@@ -3656,17 +3676,17 @@ async function analyzeChartImage(){
           </div>`:""}
         </div>`:""}
 
-        <!-- 3 תרחישים -->
+        <!-- 2 תרחישים -->
         ${a.scenario_standard?`
         <div style="margin-bottom:10px">
-          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:6px">📊 3 תרחישי כניסה</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">
-            ${[["🛡️ Conservative",a.scenario_conservative,"var(--blue)"],["⚖️ Standard",a.scenario_standard,"var(--green)"],["🚀 Aggressive",a.scenario_aggressive,"var(--amber)"]].filter(s=>s[1]).map(([label,s,col])=>`
-            <div style="background:var(--bg2);border:1px solid ${col};border-radius:6px;padding:7px;text-align:center">
-              <div style="font-size:9px;color:${col};margin-bottom:4px">${label}</div>
-              <div style="font-size:10px;color:var(--green);font-family:monospace">TP $${s.tp}</div>
-              <div style="font-size:10px;color:var(--red);font-family:monospace">SL $${s.sl}</div>
-              <div style="font-size:10px;color:${col};font-family:monospace">1:${s.rr}</div>
+          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:6px">📊 תרחישי כניסה</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            ${[["🛡️ Conservative",a.scenario_conservative,"var(--blue)"],["⚖️ Standard",a.scenario_standard,"var(--green)"]].filter(s=>s[1]).map(([label,s,col])=>`
+            <div style="background:var(--bg2);border:1px solid ${col};border-radius:8px;padding:9px;text-align:center">
+              <div style="font-size:10px;color:${col};margin-bottom:5px;font-weight:700">${label}</div>
+              <div style="font-size:11px;color:var(--green);font-family:monospace">TP $${s.tp}</div>
+              <div style="font-size:11px;color:var(--red);font-family:monospace">SL $${s.sl}</div>
+              <div style="font-size:12px;color:${col};font-family:monospace;font-weight:700;margin-top:3px">1:${s.rr}</div>
             </div>`).join("")}
           </div>
         </div>`:""}
@@ -3686,31 +3706,37 @@ async function analyzeChartImage(){
           ${a.first_warning_sign?`<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠️ סימן ראשון: ${a.first_warning_sign}</div>`:""}
         </div>`:""}
 
-        <!-- ניתוח מפורט -->
-        <div style="background:var(--bg2);border-radius:6px;padding:10px;border-right:3px solid ${sigColor};margin-bottom:10px">
-          <div style="font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:4px">🧠 ניתוח Claude</div>
-          <div style="font-size:13px;color:var(--text2);line-height:1.7">${a.reasoning||"—"}</div>
-        </div>
+        <!-- ניתוח מפורט — collapsible -->
+        <details style="margin-bottom:10px">
+          <summary style="cursor:pointer;background:var(--bg2);border-radius:6px;padding:8px 10px;border-right:3px solid ${sigColor};font-size:11px;font-family:monospace;color:var(--text2);list-style:none;display:flex;justify-content:space-between;align-items:center">
+            <span>⚡ ניתוח Claude</span>
+            <span style="font-size:10px;color:var(--text3)">לחץ לפתיחה ▼</span>
+          </summary>
+          <div style="background:var(--bg2);border-radius:0 0 6px 6px;padding:10px;margin-top:2px;border-right:3px solid ${sigColor}">
+            <div style="font-size:13px;color:var(--text2);line-height:1.7">${a.reasoning||"—"}</div>
+          </div>
+        </details>
 
         <!-- כפתור Win Rate + תוצאה -->
         ${a.signal!=="NEUTRAL"?`
         <button onclick="showAddToWinRate('${_chartTicker||a.ticker||'?'}', ${a.entry||0}, ${a.tp||0}, ${a.sl||0}, '${(a.strategy||'').replace(/'/g,'')}', '${a.holding||''}')"
-          style="width:100%;background:var(--cbtn);border:none;color:#fff;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">
+          style="width:100%;background:var(--cbtn);border:none;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;letter-spacing:.03em">
           📊 הוסף עסקה ל-Win Rate Tracking
         </button>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <button onclick="recordTradeResult('${_chartTicker||a.ticker||'?'}','${(a.strategy||'').replace(/'/g,'')}','${a.signal||''}',${a.confidence||5},${a.rr_ratio||1},'win')"
-            style="background:var(--gdim);border:2px solid var(--green);color:var(--green);padding:9px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">
+            style="background:linear-gradient(135deg,rgba(0,197,122,.2),rgba(0,197,122,.1));border:2px solid var(--green);color:var(--green);padding:10px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--glow-green)">
             ✅ הצליח
           </button>
           <button onclick="recordTradeResult('${_chartTicker||a.ticker||'?'}','${(a.strategy||'').replace(/'/g,'')}','${a.signal||''}',${a.confidence||5},${a.rr_ratio||1},'loss')"
-            style="background:var(--rdim);border:2px solid var(--red);color:var(--red);padding:9px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">
+            style="background:linear-gradient(135deg,rgba(240,57,74,.2),rgba(240,57,74,.1));border:2px solid var(--red);color:var(--red);padding:10px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--glow-red)">
             ❌ נכשל
           </button>
         </div>`:""}
 
         <button onclick="resetChartAnalyzer()"
-          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:6px;font-size:12px;cursor:pointer">
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:8px;border-radius:8px;font-size:12px;cursor:pointer;transition:border-color .15s"
+          onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border2)'">
           📸 נתח תמונה אחרת
         </button>
       </div>`;
