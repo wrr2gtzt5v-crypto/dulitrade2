@@ -1468,7 +1468,13 @@ What Could Go Wrong:
   "scenario_conservative": {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
   "scenario_standard":     {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
   "invalidation": "מחיר/תנאי שיבטל את ה-Setup",
-  "first_warning_sign": "הסימן הראשון שהעסקה נכשלת"
+  "first_warning_sign": "הסימן הראשון שהעסקה נכשלת",
+  "post_entry_scenarios": {
+    "bull_case": "מה קורה אם הכניסה עובדת — תיאור קצר של מה המחיר עושה, כמה זמן, target ראשון",
+    "bear_case": "מה קורה אם הכניסה נכשלת — איפה המחיר שובר, מתי לצאת מיידית",
+    "neutral_case": "consolidation/sideways — מה לחכות, איפה נקודת ההחלטה הבאה"
+  },
+  "timing_note": "מתי הכי טוב להיכנס — candle close? breakout confirm? pull-back? limit order?"
 }"""
         full_prompt = context_text + "\n\n" + prompt_body
         
@@ -1784,6 +1790,78 @@ class Handler(BaseHTTPRequestHandler):
         # WebSocket Key endpoint
         if parsed.path == "/api/wskey":
             self._json({"key": FINNHUB_KEY})
+            return
+
+        # ── Morning Briefing endpoint ──────────────────────────────
+        if parsed.path == "/api/morning-briefing":
+            try:
+                ctx = get_market_context_for_chart()
+                qqq_q = get_quote("QQQ")
+                spy_q = get_quote("SPY")
+                qqq_price = qqq_q.get("c") or qqq_q.get("pc") or 0
+                spy_price = ctx.get("spy_price") or spy_q.get("c") or 0
+                vix_val   = ctx.get("vix") or 0
+                above_ma50 = ctx.get("aboveMa50", True)
+                regime    = ctx.get("market_regime", "UNKNOWN")
+                spy_chg   = round(((spy_q.get("c",0)-spy_q.get("pc",1))/max(spy_q.get("pc",1),0.01))*100, 2) if spy_q.get("pc") else 0
+                qqq_chg   = round(((qqq_q.get("c",0)-qqq_q.get("pc",1))/max(qqq_q.get("pc",1),0.01))*100, 2) if qqq_q.get("pc") else 0
+
+                anthropic_key = os.environ.get("ANTHROPIC_API_KEY","")
+                if not anthropic_key:
+                    self._json({"error": "ANTHROPIC_API_KEY חסר"}, 500); return
+
+                briefing_prompt = f"""אתה מנתח שוק מקצועי. כתוב briefing בוקר קצר למסחר יומי בעברית.
+
+נתוני שוק:
+- SPY: ${spy_price:.2f} ({spy_chg:+.2f}%) | {"מעל" if above_ma50 else "מתחת ל-"}MA50
+- QQQ: ${qqq_price:.2f} ({qqq_chg:+.2f}%)
+- VIX: {vix_val:.1f} | Regime: {regime}
+
+ענה JSON בלבד (ללא backticks), 150 מילה מקסימום לsummary:
+{{
+  "summary": "2-3 משפטים — מצב השוק כרגע",
+  "spy_levels": {{"support": X, "resistance": X}},
+  "qqq_levels": {{"support": X, "resistance": X}},
+  "alerts": ["אזהרה 1", "הזדמנות 1"],
+  "bias": "BULL|BEAR|NEUTRAL",
+  "bias_reason": "הסבר קצר",
+  "day_trade_note": "המלצה ספציפית ל-Day Trade היום"
+}}"""
+
+                url = "https://api.anthropic.com/v1/messages"
+                payload = {
+                    "model": "claude-haiku-4-5",
+                    "max_tokens": 600,
+                    "messages": [{"role": "user", "content": briefing_prompt}]
+                }
+                req = Request(url,
+                    data=json.dumps(payload).encode(),
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-api-key": anthropic_key,
+                        "anthropic-version": "2023-06-01"
+                    },
+                    method="POST"
+                )
+                with urlopen(req, timeout=20) as r:
+                    resp_data = json.loads(r.read())
+                text = resp_data.get("content",[{}])[0].get("text","")
+                text = text.strip()
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0].strip()
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0].strip()
+                s = text.find("{"); e = text.rfind("}") + 1
+                if s >= 0 and e > s: text = text[s:e]
+                briefing = json.loads(text)
+                briefing["_market"] = {
+                    "spy": spy_price, "spy_chg": spy_chg,
+                    "qqq": qqq_price, "qqq_chg": qqq_chg,
+                    "vix": vix_val, "regime": regime
+                }
+                self._json({"success": True, "briefing": briefing})
+            except Exception as e:
+                self._json({"error": str(e)}, 500)
             return
 
         if parsed.path == "/api/stock":
