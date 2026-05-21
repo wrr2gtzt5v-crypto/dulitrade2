@@ -1086,7 +1086,7 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
     try:
         url = "https://api.anthropic.com/v1/messages"
         payload = {
-            "model": "claude-sonnet-4-20250514",
+            "model": "claude-sonnet-4-6",
             "max_tokens": 50,
             "messages": [{
                 "role": "user",
@@ -1449,7 +1449,7 @@ What Could Go Wrong:
         })
 
         payload = {
-            "model": "claude-sonnet-4-20250514",
+            "model": "claude-sonnet-4-6",
             "max_tokens": 3000,
             "messages": [{
                 "role": "user",
@@ -1561,6 +1561,90 @@ def get_sector(sector_name):
         return {"available": False}
 
 
+def get_market_regime():
+    """מחזיר מצב השוק הכללי: Bull/Bear/Choppy + SPY vs MA50/MA200 + VIX level"""
+    import datetime
+    try:
+        spy_q = fh("/quote?symbol=SPY")
+        spy_price = spy_q.get("c", 0)
+        spy_dp    = round(spy_q.get("dp", 0), 2)
+
+        vix_q = fh("/quote?symbol=VIX")
+        vix   = round(vix_q.get("c", 0), 1)
+
+        # SPY candles לחישוב MA50/MA200
+        to  = int(time.time())
+        frm = to - 250 * 86400
+        d = fh(f"/stock/candle?symbol=SPY&resolution=D&from={frm}&to={to}")
+        closes = d.get("c", []) if d.get("s") == "ok" else []
+
+        ma50  = round(sum(closes[-50:]) / 50, 2)  if len(closes) >= 50  else 0
+        ma200 = round(sum(closes[-200:]) / 200, 2) if len(closes) >= 200 else 0
+
+        above_ma50  = spy_price > ma50  if ma50  > 0 else True
+        above_ma200 = spy_price > ma200 if ma200 > 0 else True
+
+        # קבע Regime
+        if above_ma50 and above_ma200 and spy_dp > -1:
+            regime = "bull"
+            label  = "שוק שורי"
+            color  = "green"
+        elif not above_ma50 and not above_ma200:
+            regime = "bear"
+            label  = "שוק דובי"
+            color  = "red"
+        elif not above_ma50 and above_ma200:
+            regime = "choppy"
+            label  = "תיקון / Choppy"
+            color  = "amber"
+        else:
+            regime = "recovery"
+            label  = "התאוששות"
+            color  = "blue"
+
+        # VIX level
+        if vix > 30:
+            vix_level = "פחד גבוה"
+            vix_color = "red"
+        elif vix > 20:
+            vix_level = "זהירות"
+            vix_color = "amber"
+        else:
+            vix_level = "רגוע"
+            vix_color = "green"
+
+        # long_penalty: כמה % להפחית מ-confidence של LONG signals
+        long_penalty = 0
+        if regime == "bear":   long_penalty = 25
+        elif regime == "choppy": long_penalty = 12
+        if vix > 30:           long_penalty += 10
+        elif vix > 25:         long_penalty += 5
+
+        return {
+            "regime":       regime,
+            "label":        label,
+            "color":        color,
+            "spyPrice":     round(spy_price, 2),
+            "spyDp":        spy_dp,
+            "ma50":         ma50,
+            "ma200":        ma200,
+            "aboveMa50":    above_ma50,
+            "aboveMa200":   above_ma200,
+            "vix":          vix,
+            "vixLevel":     vix_level,
+            "vixColor":     vix_color,
+            "longPenalty":  long_penalty,
+        }
+    except:
+        return {
+            "regime": "unknown", "label": "לא זמין", "color": "text3",
+            "spyPrice": 0, "spyDp": 0, "ma50": 0, "ma200": 0,
+            "aboveMa50": True, "aboveMa200": True,
+            "vix": 0, "vixLevel": "—", "vixColor": "text3",
+            "longPenalty": 0,
+        }
+
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -1654,6 +1738,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif endpoint=="premarket":   data = get_premarket_volume(symbol)
                 elif endpoint=="yahoo":       data = get_yahoo_fundamentals(symbol)
                 elif endpoint=="usdils":     data = get_usdils()
+                elif endpoint=="regime":     data = get_market_regime()
                 elif endpoint=="sector":
                     sector = qs.get("sector",[""])[0]
                     data = get_sector(sector)
