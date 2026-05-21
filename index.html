@@ -418,6 +418,42 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
 .scan-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px;font-family:'IBM Plex Mono',monospace;line-height:2;}
 .scan-loading{display:flex;align-items:center;gap:10px;padding:1.5rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:12px;}
 
+/* Reason chips — why this trade */
+.scan-reasons{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px;}
+.reason-chip{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid rgba(0,197,122,.3);color:var(--green);background:var(--gdim);font-family:'Heebo',sans-serif;line-height:1.6;}
+
+/* Sizing row */
+.scan-sizing{font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:var(--text3);padding:4px 8px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.scan-sizing .sz-highlight{color:var(--text2);font-weight:700;}
+.scan-sizing .sz-risk{color:var(--amber);}
+.scan-sizing .sz-warn{color:var(--red);font-weight:700;}
+
+/* Scan filter buttons */
+.scan-filter-btn{padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif;transition:all .15s;}
+.scan-filter-btn:hover{border-color:var(--border3);color:var(--text2);}
+.scan-filter-btn.active{background:var(--cbtn);border-color:var(--cbtn);color:#fff;}
+
+/* Hot mover badge */
+.hot-mover-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;background:rgba(245,166,35,.15);border:1px solid var(--amber);color:var(--amber);font-family:monospace;}
+
+/* Skeleton loading */
+.skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;}
+
+/* Watchlist alert button */
+.watch-btn{background:none;border:1px solid var(--border);color:var(--text3);border-radius:5px;padding:2px 7px;font-size:10px;cursor:pointer;font-family:monospace;transition:all .15s;white-space:nowrap;}
+.watch-btn:hover{border-color:var(--blue);color:var(--blue);}
+.watch-btn.watching{border-color:var(--green);color:var(--green);background:var(--gdim);}
+
+/* Trade Planner Modal */
+#trade-planner-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;}
+#trade-planner-modal.open{display:flex;}
+.tp-box{background:var(--bg2);border:1px solid var(--border3);border-radius:14px;max-width:480px;width:96%;padding:20px;box-shadow:var(--shadow-lg);animation:fadeInUp .25s ease both;}
+.tp-levels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;}
+.tp-level{text-align:center;padding:10px;border-radius:8px;border:1px solid var(--border);}
+.tp-level-label{font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:4px;}
+.tp-level-price{font-size:18px;font-family:'IBM Plex Mono',monospace;font-weight:800;}
+.tp-level-pct{font-size:11px;font-family:monospace;margin-top:2px;}
+
 .empty{text-align:center;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:2.2;}
 .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:3rem 0;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:13px;}
 .dots span{width:7px;height:7px;border-radius:50%;background:var(--blue);display:inline-block;animation:b 1.2s infinite;}
@@ -518,6 +554,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
   .scan-row1-right{gap:8px;}
   .scan-reason{font-size:10px;}
   .scanner-head{flex-direction:column;gap:6px;}
+  .scan-sizing{font-size:9.5px;}
+  #acct-widget{display:none!important;}  /* hide on very small screens */
+  .tp-levels{grid-template-columns:1fr;}
+  .tp-box{padding:14px;}
 
   /* ── Quick buttons ── */
   .quick{gap:5px;}
@@ -572,7 +612,18 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
     <div class="ltxt">DULI<span>TRADE</span></div>
   </div>
   <div class="hright">
-    <div class="live"><div class="dot"></div>Live Data</div>
+    <!-- Account Size Widget -->
+    <div id="acct-widget" style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:4px 10px;">
+      <span>💰</span>
+      <span style="white-space:nowrap">חשבון:</span>
+      <span style="color:var(--text3);font-size:9px">$</span>
+      <input id="acct-size" type="number" value="4000" min="500" step="100"
+        style="width:64px;background:transparent;border:none;outline:none;color:var(--green);font-size:12px;font-weight:700;text-align:center;font-family:'IBM Plex Mono',monospace;"
+        onchange="localStorage.setItem('acctSize',this.value);refreshAllSizing()"
+        title="גודל חשבון — משמש לחישוב position size (2% סיכון)">
+      <span style="color:var(--text3);font-size:9px;white-space:nowrap">2%⚠</span>
+    </div>
+    <div class="live"><div class="dot"></div>Live</div>
     <div id="marketStatus" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--border);cursor:default;" title="שעות מסחר NYSE/NASDAQ">
       <span id="marketDot" style="width:7px;height:7px;border-radius:50%;background:var(--text3)"></span>
       <span id="marketLabel">בודק...</span>
@@ -612,6 +663,24 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
 </div>
 
 <div class="wrap">
+
+  <!-- MORNING BRIEFING PANEL -->
+  <div id="morning-briefing-panel" style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;margin-bottom:16px;border-right:3px solid var(--accent);display:none;animation:fadeInUp .3s ease both">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">🌅</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text);font-family:'IBM Plex Mono',monospace;">Briefing בוקר — AI</span>
+        <span id="briefing-bias-badge" style="display:none;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:800;font-family:monospace"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="briefing-ts" style="font-size:10px;color:var(--text3);font-family:monospace"></span>
+        <button onclick="loadMorningBriefing(true)" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border2)'">↺ רענן</button>
+        <button onclick="document.getElementById('morning-briefing-panel').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
+      </div>
+    </div>
+    <div id="briefing-content" style="color:var(--text2);font-size:12.5px;line-height:1.6"></div>
+  </div>
+
   <!-- SCANNER -->
   <div class="scanner-section">
     <div class="scanner-head">
@@ -637,6 +706,23 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
           <button class="svbtn" id="viewHeat" onclick="setScanView('heat')">⬛ Heat Map</button>
         </div>
         <button onclick="runScanner()" id="scanBtn" style="font-size:12px;background:linear-gradient(135deg,var(--cbtn),#1d4ed8);color:#fff;border:none;padding:7px 18px;font-weight:800;border-radius:8px;cursor:pointer;letter-spacing:.04em;transition:all .2s;box-shadow:0 0 14px rgba(37,99,235,.35);" onmouseover="this.style.boxShadow='0 0 24px rgba(37,99,235,.6)'" onmouseout="this.style.boxShadow='0 0 14px rgba(37,99,235,.35)'" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform='scale(1)'">▶ סרוק עכשיו</button>
+        <button onclick="loadMorningBriefing()" id="briefingBtn" title="Briefing בוקר AI" style="font-size:12px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);padding:7px 12px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .2s;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">🌅 Briefing</button>
+        <button onclick="requestNotifPermission()" id="notif-btn" title="אפשר התראות push" style="font-size:12px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);padding:7px 10px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--amber)';this.style.color='var(--amber)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">🔔</button>
+      </div>
+    </div>
+
+    <!-- SCAN RESULTS HEADER -->
+    <div id="scan-results-bar" style="display:none;align-items:center;justify-content:space-between;padding:6px 2px;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-family:'IBM Plex Mono',monospace">
+        <span id="scan-count" style="font-weight:700;color:var(--text)">0 תוצאות</span>
+        <span id="scan-breakdown" style="color:var(--text3)">0 קנייה · 0 מכירה</span>
+        <span id="last-scan-time" style="color:var(--text3);font-size:10px"></span>
+      </div>
+      <div style="display:flex;gap:5px">
+        <button onclick="filterScan('all')" id="fAll" class="scan-filter-btn active">הכל</button>
+        <button onclick="filterScan('buy')" id="fBuy" class="scan-filter-btn">קנייה</button>
+        <button onclick="filterScan('sell')" id="fSell" class="scan-filter-btn">מכירה</button>
+        <button onclick="filterScan('hot')" id="fHot" class="scan-filter-btn">🔥 Hot</button>
       </div>
     </div>
 
@@ -3776,6 +3862,36 @@ async function analyzeChartImage(){
           ${a.first_warning_sign?`<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠️ סימן ראשון: ${a.first_warning_sign}</div>`:""}
         </div>`:""}
 
+        <!-- Post-Entry Scenarios -->
+        ${a.post_entry_scenarios?`
+        <details style="margin-bottom:10px">
+          <summary style="cursor:pointer;background:var(--bg2);border-radius:6px;padding:8px 10px;border-right:3px solid var(--blue);font-size:11px;font-family:monospace;color:var(--text2);list-style:none;display:flex;justify-content:space-between;align-items:center">
+            <span>📊 מה לצפות אחרי כניסה</span>
+            <span style="font-size:10px;color:var(--text3)">לחץ לפתיחה ▼</span>
+          </summary>
+          <div style="padding:10px;background:var(--bg2);border-radius:0 0 6px 6px;border-right:3px solid var(--blue);margin-top:2px;display:flex;flex-direction:column;gap:8px">
+            ${a.post_entry_scenarios.bull_case?`<div style="padding:8px 10px;background:var(--gdim);border:1px solid rgba(0,197,122,.3);border-radius:6px">
+              <div style="font-size:9px;color:var(--green);font-family:monospace;margin-bottom:3px">🟢 תרחיש אופטימי</div>
+              <div style="font-size:12px;color:var(--text2)">${a.post_entry_scenarios.bull_case}</div>
+            </div>`:""}
+            ${a.post_entry_scenarios.bear_case?`<div style="padding:8px 10px;background:var(--rdim);border:1px solid rgba(240,57,74,.3);border-radius:6px">
+              <div style="font-size:9px;color:var(--red);font-family:monospace;margin-bottom:3px">🔴 תרחיש שלילי</div>
+              <div style="font-size:12px;color:var(--text2)">${a.post_entry_scenarios.bear_case}</div>
+            </div>`:""}
+            ${a.post_entry_scenarios.neutral_case?`<div style="padding:8px 10px;background:var(--adim);border:1px solid rgba(245,166,35,.3);border-radius:6px">
+              <div style="font-size:9px;color:var(--amber);font-family:monospace;margin-bottom:3px">🟡 Consolidation</div>
+              <div style="font-size:12px;color:var(--text2)">${a.post_entry_scenarios.neutral_case}</div>
+            </div>`:""}
+            ${a.timing_note?`<div style="font-size:11px;color:var(--blue);padding:4px 8px;background:var(--bdim);border-radius:4px">⏰ Timing: ${a.timing_note}</div>`:""}
+          </div>
+        </details>`:""}
+
+        <!-- Position Sizing for chart analyzer -->
+        ${a.signal !== "NEUTRAL" && a.entry && a.sl?`
+        <div style="margin-bottom:10px">
+          ${renderSizingHtml(a.entry, a.sl, a.tp||null)}
+        </div>`:""}
+
         <!-- ניתוח מפורט — collapsible -->
         <details style="margin-bottom:10px">
           <summary style="cursor:pointer;background:var(--bg2);border-radius:6px;padding:8px 10px;border-right:3px solid ${sigColor};font-size:11px;font-family:monospace;color:var(--text2);list-style:none;display:flex;justify-content:space-between;align-items:center">
@@ -5683,9 +5799,20 @@ async function runScanner(auto=false){
         else if(Math.abs(pct) >= 1.5) todayMomentum = 1;                     // תנועה קטנה
         else todayMomentum = 0;
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews, sectorChange: +sectorChange.toFixed(2), sectorStrong, sectorWeak, stockSector });
+        // ── Hot Mover detection: >5% tchange AND vr>2.5 ──────────
+        const isHotMover = Math.abs(pct) >= 5 && vrFromQuote >= 2.5;
+        if(isHotMover) todayMomentum = 5; // force top momentum
+
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews, sectorChange: +sectorChange.toFixed(2), sectorStrong, sectorWeak, stockSector, isHotMover, hotChangePct: isHotMover ? pct : 0 });
       } catch(e){}
     }));
+  }
+
+  // ── Hot Movers section label ───────────────────────────────
+  const hotMovers = pass1.filter(x => x.isHotMover);
+  if(hotMovers.length > 0 && scannerTimeframe === 'today'){
+    // Hot movers will be sorted to top in final results — just log here
+    console.log(`🔥 Hot Movers: ${hotMovers.map(x=>x.sym).join(', ')}`);
   }
 
   // ══════════════════════════════════════════════════════════
@@ -6076,6 +6203,14 @@ async function runScanner(auto=false){
           earningsDays: _earnings?.available ? (_earnings?.daysUntil ?? null) : null,
           shortFloat: profile?.shortFloat || 0,
           signal: scores.sig?.includes("BUY") ? "BUY" : scores.sig?.includes("SELL") ? "SELL" : "HOLD",
+          isHotMover: (pass1.find(x=>x.sym===sym)||{}).isHotMover||false,
+          hotChangePct: (pass1.find(x=>x.sym===sym)||{}).hotChangePct||0,
+          aboveVwap: ind.aboveVwap || false,
+          nearSupport: ind.nearSupport || false,
+          entry: scores.entry || scanQuote.c,
+          sl: scores.sl || null,
+          tp: scores.tp || null,
+          invalidation: scores.invalidation || null,
         });
       } catch(e){}
     }));
@@ -6107,12 +6242,14 @@ async function runScanner(auto=false){
                    ((a.adx||0) >= 25 ? 1 : 0) +
                    (a.divergence === "bullish" ? 1 : 0) +
                    (a.insiderNet >= 2 ? 1 : 0) +
+                   (a.isHotMover ? 5 : 0) +    // 🔥 Hot Mover bonus — sort to top
                    hourlyA + aRegimePen;
     const bBonus = (b.volumeSurge ? 2 : 0) +
                    (b.hasCatalyst ? 2 : 0) +
                    ((b.adx||0) >= 25 ? 1 : 0) +
                    (b.divergence === "bullish" ? 1 : 0) +
                    (b.insiderNet >= 2 ? 1 : 0) +
+                   (b.isHotMover ? 5 : 0) +    // 🔥 Hot Mover bonus — sort to top
                    hourlyB + bRegimePen;
 
     const aTotal = (a.dealStrength||0) + aBonus;
@@ -6180,39 +6317,105 @@ function openTradingView(sym, tf){
   return `https://il.tradingview.com/chart/?symbol=${exchange}%3A${sym}&interval=${interval}`;
 }
 
+function buildScanReasons(r){
+  const reasons = [];
+  if(r.aboveVwap)         reasons.push("מעל VWAP — momentum חיובי");
+  else if(!r.aboveVwap && r.sig && r.sig.includes('SELL')) reasons.push("מתחת VWAP — לחץ מכירה");
+  if(r.vr >= 2.0)         reasons.push(`נפח ×${r.vr.toFixed(1)} מהממוצע — עניין מוסדי`);
+  else if(r.vr >= 1.5)    reasons.push(`נפח ×${r.vr.toFixed(1)} מהממוצע — אישור תנועה`);
+  if(r.rsi && r.rsi < 38) reasons.push(`RSI=${r.rsi.toFixed(0)} — מנוצל יתר, חזרה צפויה`);
+  if(r.rsi && r.rsi > 62) reasons.push(`RSI=${r.rsi.toFixed(0)} — קנוי יתר, מכירה צפויה`);
+  if(r.hasPmGap)          reasons.push(`פריצת Pre-Market ${r.pmGapPct>0?"+":""}${r.pmGapPct}%`);
+  if(r.nearSupport)       reasons.push(`קרוב לתמיכה — סיכון/תגמול נוח`);
+  if(r.darkPool)          reasons.push("פעילות Dark Pool — ידיים חזקות");
+  if(r.shortFloat > 15)   reasons.push(`Short Interest ${r.shortFloat.toFixed(0)}% — סקוויז אפשרי`);
+  if(r.relStrengthVsSpy >= 2) reasons.push(`חוזק יחסי +${r.relStrengthVsSpy}% vs SPY`);
+  const strat = r.detectedStrats?.best?.name || r.strategy || "";
+  if(strat)               reasons.push(`פטרן: ${strat}`);
+  return reasons.slice(0, 3);
+}
+
 function renderScanResults(results){
   const grid = document.getElementById("scanGrid");
   checkAndUpdateTrades();
   const wrEl = document.getElementById("winRateWidget");
   if(wrEl) wrEl.innerHTML = renderWinRateHtml();
 
-  if(!results.length){
-    grid.innerHTML = `<div class="scan-empty">לא נמצאו עסקאות שעומדות בקריטריונים כרגע<br><span style="font-size:11px;color:var(--text3)">נסה שוב מאוחר יותר — השוק משתנה</span></div>`;
+  // Apply filter
+  let filtered = results;
+  if(typeof _scanFilter !== 'undefined'){
+    if(_scanFilter === 'buy')  filtered = results.filter(r => r.sig && r.sig.includes('BUY'));
+    else if(_scanFilter === 'sell') filtered = results.filter(r => r.sig && r.sig.includes('SELL'));
+    else if(_scanFilter === 'hot')  filtered = results.filter(r => r.isHotMover || r.todayMomentum >= 4);
+  }
+
+  // Update results bar
+  const bar = document.getElementById('scan-results-bar');
+  if(bar && results.length > 0){
+    bar.style.display = 'flex';
+    const buyCnt  = results.filter(r => r.sig && r.sig.includes('BUY')).length;
+    const sellCnt = results.filter(r => r.sig && r.sig.includes('SELL')).length;
+    const el1 = document.getElementById('scan-count');
+    const el2 = document.getElementById('scan-breakdown');
+    if(el1) el1.textContent = `${results.length} תוצאות`;
+    if(el2) el2.innerHTML = `<span style="color:var(--green)">${buyCnt} קנייה</span> · <span style="color:var(--red)">${sellCnt} מכירה</span>`;
+    const tsEl = document.getElementById('last-scan-time');
+    if(tsEl) tsEl.textContent = `עדכון: ${new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`;
+  }
+
+  if(!filtered.length){
+    grid.innerHTML = `<div class="scan-empty">
+      <div style="font-size:36px;margin-bottom:8px">🔍</div>
+      ${results.length ? 'אין תוצאות לפילטר זה — נסה "הכל"' : 'לא נמצאו עסקאות שעומדות בקריטריונים כרגע'}
+      <br><span style="font-size:11px;color:var(--text3)">${results.length ? '' : 'נסה שוב מאוחר יותר — השוק משתנה'}</span>
+    </div>`;
     return;
   }
 
   // Heat Map view
-  if(scanView === "heat"){ renderHeatMap(results); return; }
+  if(scanView === "heat"){ renderHeatMap(filtered); return; }
+
+  // Send push notification if auto scan found good BUY
+  if(typeof sendScanAlert === 'function') sendScanAlert(results);
 
   const sigColor = s => s.includes("BUY")?"var(--green)":s.includes("SELL")?"var(--red)":"var(--amber)";
   const sigBg    = s => s.includes("BUY")?"var(--gdim)":s.includes("SELL")?"var(--rdim)":"var(--adim)";
   const chDir    = p => p>=0?"var(--green)":"var(--red)";
 
-  const stars = n => "★".repeat(Math.min(n,5)) + "☆".repeat(Math.max(0,5-n));
-
   const scoreCol = s => s>=65?"var(--green)":s>=50?"var(--amber)":"var(--red)";
 
-  grid.innerHTML = results.slice(0,12).map(r=>{
+  grid.innerHTML = filtered.slice(0,12).map((r,idx)=>{
     const isBuy = r.sig.includes('BUY');
     const sc = sigColor(r.sig);
     const sb = sigBg(r.sig);
     const strat = r.detectedStrats?.best?.name || r.strategy || "";
+    const reasons = r.reasons || buildScanReasons(r);
+    r.reasons = reasons; // cache for planner
+
+    // sizing
+    const sizingRow = (typeof renderSizingHtml === 'function' && r.price && r.sl)
+      ? renderSizingHtml(r.entry || r.price, r.sl, r.tp)
+      : '';
+
+    // hot mover badge
+    const hotBadge = r.isHotMover
+      ? `<span class="hot-mover-badge">🔥 HOT +${r.hotChangePct?.toFixed(1)||''}%</span>`
+      : '';
+
     const hourlyBadge = (scannerTimeframe==='today' && r.hourlySignal) ? `
       <span style="font-size:10px;font-family:monospace;font-weight:700;padding:2px 7px;border-radius:4px;
         background:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Up')?'var(--gdim)':r.hourlySignal.includes('Choppy')?'var(--rdim)':'var(--bdim)'};
         color:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Up')?'var(--green)':r.hourlySignal.includes('Choppy')?'var(--red)':'var(--blue)'}">
         ${r.hourlySignal}
       </span>` : '';
+
+    // reasons chips
+    const reasonsHtml = reasons.length
+      ? `<div class="scan-reasons">${reasons.map(rx=>`<span class="reason-chip">✓ ${rx}</span>`).join('')}</div>`
+      : '';
+
+    // watchlist button — unique id per card
+    const wid = `wb_${r.sym}_${idx}`;
 
     return `
     <div class="scan-card ${isBuy?'buy':'sell'}" onclick="q('${r.sym}')">
@@ -6223,6 +6426,7 @@ function renderScanResults(results){
           <span class="scan-pill" style="background:${sb};color:${sc};border:1.5px solid ${sc}">
             ${isBuy?'▲':'▼'} ${r.sigLabel}
           </span>
+          ${hotBadge}
           <span class="scan-sym">${r.sym}</span>
           <div class="scan-price-wrap">
             <span class="scan-price">$${r.price.toFixed(2)}</span>
@@ -6268,6 +6472,26 @@ function renderScanResults(results){
           ${strat?`<span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 7px;border-radius:4px;white-space:nowrap">${strat}</span>`:""}
           ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace;white-space:nowrap">⏱ ${r.holding}</span>`:""}
         </div>
+      </div>
+
+      <!-- ROW 4: Why this trade — reasons chips -->
+      ${reasonsHtml}
+
+      <!-- ROW 5: Position Sizing -->
+      ${sizingRow}
+
+      <!-- ROW 6: Action buttons -->
+      <div style="display:flex;gap:6px;margin-top:2px" onclick="event.stopPropagation()">
+        <button class="watch-btn ${_watchAlerts && _watchAlerts[r.sym] ? 'watching' : ''}" id="${wid}"
+          onclick="toggleWatchAlert('${r.sym}',${r.entry||r.price},${r.sl||0},${r.tp||0},document.getElementById('${wid}'))">
+          👁 עקוב
+        </button>
+        <button onclick="openTradePlanner(lastScanResults.find(x=>x.sym==='${r.sym}')||{})"
+          style="background:var(--bg4);border:1px solid var(--border2);color:var(--text2);border-radius:5px;padding:2px 9px;font-size:10px;cursor:pointer;font-family:monospace;transition:all .15s;white-space:nowrap"
+          onmouseover="this.style.borderColor='var(--cbtn)';this.style.color='var(--blue)'"
+          onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+          📋 תכנן עסקה
+        </button>
       </div>
 
     </div>`;
@@ -6776,6 +7000,382 @@ function renderScanList(results){
   if(typeof renderScanResults === "function") renderScanResults(results);
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// TOAST NOTIFICATIONS
+// ══════════════════════════════════════════════════════════════════════
+function showToast(msg, type='green'){
+  const color = type==='green'?'var(--green)':type==='red'?'var(--red)':type==='amber'?'var(--amber)':'var(--blue)';
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);
+    background:var(--bg2);border:1.5px solid ${color};border-radius:8px;
+    padding:9px 18px;font-family:monospace;font-size:12px;color:${color};
+    z-index:9999;box-shadow:var(--shadow-md);white-space:nowrap;
+    transition:opacity .3s,transform .3s;opacity:0`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>{
+    el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)';
+  });
+  setTimeout(()=>{
+    el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(10px)';
+    setTimeout(()=>el.remove(), 300);
+  }, 2500);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ACCOUNT SIZE — global helpers
+// ══════════════════════════════════════════════════════════════════════
+function getAcctSize(){
+  return +(localStorage.getItem('acctSize') || 4000);
+}
+
+function calcSizing(entry, sl){
+  const acct = getAcctSize();
+  if(!entry || !sl || entry === sl) return null;
+  const risk2pct     = acct * 0.02;
+  const riskPerShare = Math.abs(entry - sl);
+  const shares       = Math.floor(risk2pct / riskPerShare);
+  const maxShares    = Math.floor((acct * 0.25) / entry);
+  const final        = Math.min(shares, maxShares);
+  if(final < 1) return null;
+  const totalCost    = final * entry;
+  const riskDollar   = final * riskPerShare;
+  const pctOfAcct    = (totalCost / acct * 100).toFixed(0);
+  return { shares: final, totalCost, riskDollar, pctOfAcct: +pctOfAcct };
+}
+
+function renderSizingHtml(entry, sl, tp){
+  const sz = calcSizing(entry, sl);
+  if(!sz) return '';
+  const acct   = getAcctSize();
+  const profit = tp ? (sz.shares * Math.abs(tp - entry)).toFixed(0) : null;
+  const warn   = sz.pctOfAcct > 25 ? `<span class="sz-warn">⚠ ${sz.pctOfAcct}% מהחשבון — חלק מהפוזיציה</span>` : '';
+  return `<div class="scan-sizing">
+    <span>💼 $${acct.toLocaleString()} →</span>
+    <span class="sz-highlight">${sz.shares} מניות</span>
+    <span class="sz-risk">⚠ סיכון: $${sz.riskDollar.toFixed(0)}</span>
+    ${profit ? `<span style="color:var(--green)">↑ רווח: $${profit}</span>` : ''}
+    <span style="color:var(--text3)">(עלות: $${sz.totalCost.toFixed(0)})</span>
+    ${warn}
+  </div>`;
+}
+
+function refreshAllSizing(){
+  // עדכן account widget display
+  const inp = document.getElementById('acct-size');
+  if(inp) inp.value = getAcctSize();
+  // רנדר מחדש את כרטיסי הסורק אם יש תוצאות
+  if(typeof lastScanResults !== 'undefined' && lastScanResults && lastScanResults.length){
+    renderScanResults(lastScanResults);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BROWSER NOTIFICATIONS
+// ══════════════════════════════════════════════════════════════════════
+async function requestNotifPermission(){
+  if(!('Notification' in window)){
+    showToast('הדפדפן לא תומך בהתראות','red'); return;
+  }
+  if(Notification.permission === 'granted'){
+    showToast('התראות כבר מופעלות ✓','green'); return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm === 'granted'){
+    const btn = document.getElementById('notif-btn');
+    if(btn){ btn.textContent = '🔔✓'; btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)'; }
+    showToast('התראות הופעלו ✓','green');
+  } else {
+    showToast('ההרשאה נדחתה','red');
+  }
+}
+
+function sendScanAlert(cards){
+  if(Notification.permission !== 'granted') return;
+  const buys = cards.filter(c => (c.sig||'').includes('BUY') && (c.score||0) >= 65);
+  if(!buys.length) return;
+  const top = buys[0];
+  const strat = top.detectedStrats?.best?.name || top.strategy || '';
+  try {
+    new Notification(`🚀 DULITRADE — ${top.sym} קנייה!`, {
+      body: `ציון: ${top.score}/100 | ${strat}\n${top.reason||''}`,
+      tag: 'scan-alert'
+    });
+  } catch(e){}
+}
+
+// Update notification button on load
+(function(){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const btn = document.getElementById('notif-btn');
+    if(btn && Notification.permission === 'granted'){
+      btn.textContent = '🔔✓'; btn.style.color = 'var(--green)';
+    }
+    // restore account size
+    const inp = document.getElementById('acct-size');
+    if(inp) inp.value = getAcctSize();
+  });
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// SMART WATCHLIST ALERTS
+// ══════════════════════════════════════════════════════════════════════
+const _watchAlerts = {}; // sym → {levels, lastPrice}
+
+function setupWatchlistAlert(sym, levels){
+  _watchAlerts[sym] = { levels, lastPrice: null };
+  // subscribe via existing WebSocket system
+  if(typeof subscribeWS === 'function') subscribeWS(sym);
+  if(typeof _wsCallbacks !== 'undefined'){
+    const prev = _wsCallbacks[sym];
+    _wsCallbacks[sym] = (price) => {
+      if(prev) prev(price);
+      const wa = _watchAlerts[sym];
+      if(!wa) return;
+      if(wa.lastPrice === null){ wa.lastPrice = price; return; }
+      for(const lvl of wa.levels){
+        const crossed = (wa.lastPrice < lvl.price && price >= lvl.price) ||
+                        (wa.lastPrice > lvl.price && price <= lvl.price);
+        if(crossed){
+          const dir = price >= lvl.price ? '⬆️' : '⬇️';
+          showToast(`${sym} ${dir} חצה ${lvl.type} @ $${lvl.price.toFixed(2)}`, 'amber');
+          if(Notification.permission === 'granted'){
+            try {
+              new Notification(`${sym} ${dir} ${lvl.type}`, {
+                body: `מחיר: $${price.toFixed(2)} | רמה: $${lvl.price.toFixed(2)}`,
+                tag: `${sym}-${lvl.type}`
+              });
+            } catch(e){}
+          }
+        }
+      }
+      wa.lastPrice = price;
+    };
+  }
+}
+
+function toggleWatchAlert(sym, entry, sl, tp, btnEl){
+  if(_watchAlerts[sym]){
+    delete _watchAlerts[sym];
+    if(btnEl){ btnEl.textContent = '👁 עקוב'; btnEl.classList.remove('watching'); }
+    showToast(`${sym} הוסר ממעקב`,'amber');
+  } else {
+    const levels = [];
+    if(sl)    levels.push({type:'SL',    price: sl});
+    if(tp)    levels.push({type:'TP',    price: tp});
+    if(entry) levels.push({type:'כניסה', price: entry});
+    setupWatchlistAlert(sym, levels);
+    if(btnEl){ btnEl.textContent = '👁 עוקב'; btnEl.classList.add('watching'); }
+    showToast(`${sym} במעקב — SL/TP/כניסה`,'green');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SCAN FILTER
+// ══════════════════════════════════════════════════════════════════════
+let _scanFilter = 'all';
+
+function filterScan(mode){
+  _scanFilter = mode;
+  ['all','buy','sell','hot'].forEach(m => {
+    const el = document.getElementById('f' + m.charAt(0).toUpperCase() + m.slice(1));
+    if(el) el.classList.toggle('active', m === mode);
+  });
+  if(typeof lastScanResults !== 'undefined' && lastScanResults && lastScanResults.length){
+    renderScanResults(lastScanResults);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TRADE PLANNER MODAL
+// ══════════════════════════════════════════════════════════════════════
+function openTradePlanner(r){
+  const modal = document.getElementById('trade-planner-modal');
+  const content = document.getElementById('tp-content');
+  if(!modal || !content) return;
+  modal.classList.add('open');
+
+  const entry = r.entry || r.price;
+  const sl    = r.sl;
+  const tp    = r.tp;
+  const sz    = calcSizing(entry, sl);
+  const acct  = getAcctSize();
+  const strat = r.detectedStrats?.best?.name || r.strategy || '';
+  const isBuy = (r.sig||'').includes('BUY');
+  const sc    = isBuy ? 'var(--green)' : 'var(--red)';
+
+  const tpPct  = tp    ? (((tp - entry) / entry * 100) * (isBuy ? 1 : -1)).toFixed(2) : null;
+  const slPct  = sl    ? (((sl - entry) / entry * 100) * (isBuy ? 1 : -1)).toFixed(2) : null;
+  const profit = (sz && tp) ? (sz.shares * Math.abs(tp - entry)).toFixed(0) : '—';
+
+  const reasonsHtml = (r.reasons && r.reasons.length)
+    ? r.reasons.map(rx => `<div style="font-size:12px;color:var(--text2);padding:3px 0">✓ ${rx}</div>`).join('')
+    : `<div style="font-size:12px;color:var(--text2)">✓ ${r.reason || ''}</div>`;
+
+  const sizingWarn = sz && sz.pctOfAcct > 25
+    ? `<div style="font-size:11px;color:var(--red);margin-top:4px">⚠ ${sz.pctOfAcct}% מהחשבון — שקול לקנות רק חצי</div>`
+    : '';
+
+  const clipboard = `${r.sym} ${isBuy?'LONG':'SHORT'}\nכניסה: $${entry?.toFixed(2)||'—'} | TP: $${tp?.toFixed(2)||'—'} | SL: $${sl?.toFixed(2)||'—'}\nR/R: 1:${r.rrRatio||'—'} | ציון: ${r.score||'—'}\nמניות: ${sz?.shares||'—'} | סיכון: $${sz?.riskDollar?.toFixed(0)||'—'}\nאסטרטגיה: ${strat}`;
+
+  content.innerHTML = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--text)">${r.sym}</span>
+      <span style="padding:4px 10px;border-radius:6px;background:${isBuy?'var(--gdim)':'var(--rdim)'};color:${sc};border:1.5px solid ${sc};font-size:12px;font-weight:800;font-family:monospace">${isBuy?'▲ LONG':'▼ SHORT'}</span>
+      <span style="font-size:12px;color:var(--text3);font-family:monospace">ציון ${r.score||'—'}/100</span>
+    </div>
+    <button onclick="document.getElementById('trade-planner-modal').classList.remove('open')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px 8px">✕</button>
+  </div>
+
+  <div class="tp-levels">
+    <div class="tp-level" style="border-color:var(--border3)">
+      <div class="tp-level-label">כניסה</div>
+      <div class="tp-level-price">$${entry?.toFixed(2)||'—'}</div>
+      <div class="tp-level-pct" style="color:var(--text3)">${r.entry_timing||'limit / market'}</div>
+    </div>
+    <div class="tp-level" style="border-color:var(--green)">
+      <div class="tp-level-label">Target (TP)</div>
+      <div class="tp-level-price" style="color:var(--green)">$${tp?.toFixed(2)||'—'}</div>
+      <div class="tp-level-pct" style="color:var(--green)">${tpPct ? '+' + tpPct + '%' : ''}</div>
+    </div>
+    <div class="tp-level" style="border-color:var(--red)">
+      <div class="tp-level-label">Stop Loss</div>
+      <div class="tp-level-price" style="color:var(--red)">$${sl?.toFixed(2)||'—'}</div>
+      <div class="tp-level-pct" style="color:var(--red)">${slPct ? slPct + '%' : ''}</div>
+    </div>
+  </div>
+
+  <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px;margin:12px 0">
+    <div style="font-size:11px;font-weight:700;color:var(--text3);font-family:monospace;margin-bottom:8px">💼 Position Sizing — חשבון $${acct.toLocaleString()}</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-family:monospace;font-size:12px">
+      <div><span style="color:var(--text3)">מניות: </span><span style="font-weight:800;color:var(--text)">${sz?.shares||'—'}</span></div>
+      <div><span style="color:var(--text3)">עלות: </span><span style="color:var(--text)">$${sz?.totalCost?.toFixed(0)||'—'}</span></div>
+      <div><span style="color:var(--text3)">סיכון: </span><span style="color:var(--amber);font-weight:700">$${sz?.riskDollar?.toFixed(0)||'—'}</span></div>
+      <div><span style="color:var(--text3)">רווח צפוי: </span><span style="color:var(--green);font-weight:700">$${profit}</span></div>
+    </div>
+    ${sizingWarn}
+  </div>
+
+  <div style="display:flex;gap:12px;font-size:12px;color:var(--text2);margin:8px 0;flex-wrap:wrap">
+    ${strat ? `<span>📌 ${strat}</span>` : ''}
+    ${r.holding ? `<span>⏱ ${r.holding}</span>` : ''}
+    ${r.invalidation ? `<span>🛡 בטל אם: ${r.invalidation}</span>` : ''}
+    <span>R/R 1:${r.rrRatio||'—'}</span>
+  </div>
+
+  <div style="margin:10px 0">
+    <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">✅ למה הכניסה טובה:</div>
+    ${reasonsHtml}
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:16px">
+    <button onclick="navigator.clipboard.writeText(\`${clipboard.replace(/`/g,'')}\`).then(()=>showToast('הועתק ✓','green'))"
+      style="flex:1;background:var(--cbtn);border:none;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      📋 העתק לClipboard
+    </button>
+    <button onclick="document.getElementById('trade-planner-modal').classList.remove('open')"
+      style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      סגור
+    </button>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// MORNING BRIEFING
+// ══════════════════════════════════════════════════════════════════════
+async function loadMorningBriefing(force=false){
+  const panel = document.getElementById('morning-briefing-panel');
+  const content = document.getElementById('briefing-content');
+  const tsEl = document.getElementById('briefing-ts');
+  if(!panel || !content) return;
+
+  // Cache check (30 min)
+  if(!force){
+    const cached = localStorage.getItem('morningBriefing');
+    if(cached){
+      try {
+        const {data, ts} = JSON.parse(cached);
+        if(Date.now() - ts < 30 * 60 * 1000){
+          renderBriefing(data);
+          panel.style.display = 'block';
+          if(tsEl) tsEl.textContent = `נטען ${new Date(ts).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`;
+          return;
+        }
+      } catch(e){}
+    }
+  }
+
+  panel.style.display = 'block';
+  content.innerHTML = `<div style="display:flex;align-items:center;gap:8px;color:var(--text3)"><div class="dots"><span></span><span></span><span></span></div> טוען Briefing AI...</div>`;
+
+  try {
+    const resp = await fetch('/api/morning-briefing');
+    const json = await resp.json();
+    if(!json.success) throw new Error(json.error || 'שגיאה');
+    const data = json.briefing;
+    localStorage.setItem('morningBriefing', JSON.stringify({data, ts: Date.now()}));
+    renderBriefing(data);
+    if(tsEl) tsEl.textContent = `עכשיו`;
+  } catch(e){
+    content.innerHTML = `<span style="color:var(--red)">שגיאה: ${e.message}</span>`;
+  }
+}
+
+function renderBriefing(data){
+  const content = document.getElementById('briefing-content');
+  const badge   = document.getElementById('briefing-bias-badge');
+  if(!content) return;
+
+  const biasColor = data.bias==='BULL'?'var(--green)':data.bias==='BEAR'?'var(--red)':'var(--amber)';
+  const biasBg    = data.bias==='BULL'?'var(--gdim)':data.bias==='BEAR'?'var(--rdim)':'var(--adim)';
+  if(badge){
+    badge.style.display='inline-block';
+    badge.style.background=biasBg; badge.style.color=biasColor; badge.style.border=`1px solid ${biasColor}`;
+    badge.textContent = data.bias==='BULL'?'🐂 BULL':data.bias==='BEAR'?'🐻 BEAR':'🟡 NEUTRAL';
+  }
+
+  const levelsHtml = (data.spy_levels || data.qqq_levels) ? `
+  <div style="display:flex;gap:16px;margin:8px 0;flex-wrap:wrap">
+    ${data.spy_levels ? `
+    <div style="font-size:11px;font-family:monospace">
+      <span style="color:var(--text3)">SPY: </span>
+      <span style="color:var(--green)">↑ $${data.spy_levels.resistance||'—'}</span>
+      <span style="color:var(--text3)"> / </span>
+      <span style="color:var(--red)">↓ $${data.spy_levels.support||'—'}</span>
+    </div>` : ''}
+    ${data.qqq_levels ? `
+    <div style="font-size:11px;font-family:monospace">
+      <span style="color:var(--text3)">QQQ: </span>
+      <span style="color:var(--green)">↑ $${data.qqq_levels.resistance||'—'}</span>
+      <span style="color:var(--text3)"> / </span>
+      <span style="color:var(--red)">↓ $${data.qqq_levels.support||'—'}</span>
+    </div>` : ''}
+  </div>` : '';
+
+  const alertsHtml = (data.alerts && data.alerts.length) ? `
+  <div style="display:flex;flex-direction:column;gap:3px;margin:6px 0">
+    ${data.alerts.map(a => `<div style="font-size:11.5px;color:var(--amber)">⚡ ${a}</div>`).join('')}
+  </div>` : '';
+
+  content.innerHTML = `
+  <div style="color:var(--text);font-size:13px;line-height:1.6;margin-bottom:6px">${data.summary||''}</div>
+  ${levelsHtml}
+  ${alertsHtml}
+  ${data.bias_reason ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">💡 ${data.bias_reason}</div>` : ''}
+  ${data.day_trade_note ? `<div style="font-size:11.5px;color:var(--blue);margin-top:6px;padding:6px 10px;background:var(--bdim);border-radius:6px">📍 Day Trade: ${data.day_trade_note}</div>` : ''}
+  `;
+}
+
 </script>
+
+<!-- TRADE PLANNER MODAL -->
+<div id="trade-planner-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="tp-box">
+    <div id="tp-content"></div>
+  </div>
+</div>
+
 </body>
 </html>
