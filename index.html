@@ -360,81 +360,61 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
 .scanner-progress-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .3s;}
 .scanner-grid{display:flex;flex-direction:column;gap:10px;}
 
-/* ── SCAN CARD — TradingView Pro style ── */
+/* ── SCAN CARD — Clean horizontal layout ── */
 .scan-card{
   background:var(--bg3);
   border:1px solid var(--border);
-  border-radius:14px;
-  padding:0;
+  border-radius:12px;
+  padding:12px 14px;
   cursor:pointer;
   transition:transform .18s ease,border-color .18s,box-shadow .18s;
-  display:grid;
-  grid-template-columns:72px 1fr auto;
-  gap:0;
-  align-items:stretch;
-  box-shadow:var(--shadow-sm);
-  overflow:hidden;
-  animation:fadeInUp .3s ease both;
-}
-.scan-card:nth-child(2){animation-delay:.04s}
-.scan-card:nth-child(3){animation-delay:.08s}
-.scan-card:nth-child(4){animation-delay:.12s}
-.scan-card:nth-child(5){animation-delay:.16s}
-.scan-card:nth-child(6){animation-delay:.20s}
-.scan-card:nth-child(n+7){animation-delay:.24s}
-.scan-card:hover{
-  transform:translateY(-2px);
-  border-color:var(--border3);
-  box-shadow:var(--shadow-md),var(--glow-blue);
-}
-.scan-card.buy{border-color:rgba(0,197,122,.35);box-shadow:var(--shadow-sm),var(--glow-green);}
-.scan-card.buy:hover{box-shadow:var(--shadow-md),var(--glow-green-lg);}
-.scan-card.sell{border-color:rgba(240,57,74,.35);box-shadow:var(--shadow-sm),var(--glow-red);}
-.scan-card.sell:hover{box-shadow:var(--shadow-md),var(--glow-red-lg);}
-
-/* Badge column — big BUY/SELL vertical strip */
-.scan-badge-col{
   display:flex;
   flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:5px;
-  padding:12px 0;
-  border-left:1px solid var(--border);
+  gap:8px;
+  box-shadow:var(--shadow-sm);
+  border-right:3px solid transparent;
+  animation:fadeInUp .3s ease both;
 }
-.scan-card.buy .scan-badge-col{background:rgba(0,197,122,.08);border-left-color:rgba(0,197,122,.2);}
-.scan-card.sell .scan-badge-col{background:rgba(240,57,74,.08);border-left-color:rgba(240,57,74,.2);}
-.scan-badge{
-  writing-mode:vertical-rl;
-  text-orientation:mixed;
-  transform:rotate(180deg);
-  font-family:'IBM Plex Mono',monospace;
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:.15em;
-  padding:6px 0;
-}
-.scan-card.buy .scan-badge{color:var(--green);}
-.scan-card.sell .scan-badge{color:var(--red);}
-.scan-card:not(.buy):not(.sell) .scan-badge{color:var(--amber);}
+.scan-card:nth-child(2){animation-delay:.05s}
+.scan-card:nth-child(3){animation-delay:.10s}
+.scan-card:nth-child(4){animation-delay:.15s}
+.scan-card:nth-child(5){animation-delay:.20s}
+.scan-card:nth-child(n+6){animation-delay:.25s}
+.scan-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md),var(--glow-blue);border-color:var(--border3);}
+.scan-card.buy{border-right-color:var(--green);box-shadow:var(--shadow-sm),var(--glow-green);}
+.scan-card.buy:hover{box-shadow:var(--shadow-md),var(--glow-green-lg);}
+.scan-card.sell{border-right-color:var(--red);box-shadow:var(--shadow-sm),var(--glow-red);}
+.scan-card.sell:hover{box-shadow:var(--shadow-md),var(--glow-red-lg);}
 
-/* Main body */
-.scan-left{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:14px 12px;}
-.scan-sym{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:800;color:var(--text);letter-spacing:.04em;}
-.scan-price{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);margin-top:1px;}
-.scan-mid{display:flex;flex-direction:column;gap:4px;padding:14px 10px 14px 0;}
-.scan-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;width:fit-content;}
-.scan-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
-.scan-tag{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border2);color:var(--text3);font-family:'IBM Plex Mono',monospace;transition:border-color .15s;}
+/* Row 1: signal pill + ticker + price | score */
+.scan-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.scan-row1-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.scan-sym{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:800;color:var(--text);letter-spacing:.04em;}
+.scan-price-wrap{display:flex;flex-direction:column;gap:1px;}
+.scan-price{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);}
+.scan-row1-right{display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.scan-score-wrap{text-align:center;}
+.scan-score{font-size:22px;font-family:'IBM Plex Mono',monospace;font-weight:800;line-height:1;}
+.scan-rr{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-top:2px;}
+
+/* Signal pill — horizontal, not rotated */
+.scan-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:800;letter-spacing:.04em;white-space:nowrap;}
+
+/* Row 2: tags */
+.scan-tags{display:flex;gap:5px;flex-wrap:wrap;}
+.scan-tag{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border2);color:var(--text3);font-family:'IBM Plex Mono',monospace;}
 .scan-tag.hot{border-color:var(--amber);color:var(--amber);background:var(--adim);}
 .scan-tag.rr{border-color:var(--blue);color:var(--blue);background:var(--bdim);}
 .scan-tag.mom{border-color:var(--green);color:var(--green);background:var(--gdim);}
 .scan-tag.safe{border-color:rgba(0,197,122,.4);color:var(--green);background:var(--gdim);}
-.scan-reason{font-size:11px;color:var(--text2);line-height:1.45;margin-top:4px;}
-.scan-right{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;padding:14px 14px 14px 8px;min-width:82px;}
-.scan-score{font-size:20px;font-family:'IBM Plex Mono',monospace;font-weight:800;}
-.scan-rr{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);}
+
+/* Row 3: reason + strategy */
+.scan-reason{font-size:11px;color:var(--text2);line-height:1.45;}
 .scan-risk{font-size:10px;font-family:'IBM Plex Mono',monospace;}
+.scan-left{display:none;}/* legacy — hidden */
+.scan-mid{display:none;}/* legacy — hidden */
+.scan-right{display:none;}/* legacy — hidden */
+.scan-badge-col{display:none;}/* legacy — hidden */
 .scan-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px;font-family:'IBM Plex Mono',monospace;line-height:2;}
 .scan-loading{display:flex;align-items:center;gap:10px;padding:1.5rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:12px;}
 
@@ -532,10 +512,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.6r
   .chart-wrap{height:180px!important;}
 
   /* ── Scanner ── */
-  .scan-card{grid-template-columns:56px 1fr;}
-  .scan-right{display:none;}
-  .scan-badge-col{min-width:56px;}
-  .scan-sym{font-size:14px;}
+  .scan-card{padding:10px 12px;gap:6px;}
+  .scan-sym{font-size:15px;}
+  .scan-score{font-size:18px;}
+  .scan-row1-right{gap:8px;}
+  .scan-reason{font-size:10px;}
   .scanner-head{flex-direction:column;gap:6px;}
 
   /* ── Quick buttons ── */
@@ -6219,70 +6200,78 @@ function renderScanResults(results){
 
   const stars = n => "★".repeat(Math.min(n,5)) + "☆".repeat(Math.max(0,5-n));
 
-  grid.innerHTML = `<div style="font-size:10px;color:var(--text3);font-family:monospace;padding:4px 8px;margin-bottom:4px">
-    ℹ️ לחץ על כרטיס לניתוח מלא — הסורק מציג נתונים חלקיים
-  </div>` + results.slice(0,12).map(r=>`
-    <div class="scan-card ${r.sig.includes('BUY')?'buy':'sell'}">
-      <!-- Badge column — vertical BUY/SELL -->
-      <div class="scan-badge-col">
-        <div class="scan-badge">${r.sig.includes('BUY')?'BUY':'SELL'}</div>
-        <div style="font-size:9px;font-family:monospace;color:${r.sig.includes('BUY')?'var(--green)':'var(--red)'}">
-          ${r.sig.includes('STRONG')?'★★':'★'}
-        </div>
-        <a href="${openTradingView(r.sym, scannerTimeframe)}" target="_blank"
-          onclick="event.stopPropagation()"
-          style="display:flex;align-items:center;justify-content:center;width:32px;height:22px;background:var(--cbtn);color:#fff;border-radius:5px;font-size:9px;font-family:monospace;text-decoration:none;margin-top:4px;transition:background .15s"
-          onmouseover="this.style.background='var(--cbtnhov)'" onmouseout="this.style.background='var(--cbtn)'">
-          TV
-        </a>
-      </div>
-      <div class="scan-left" onclick="q('${r.sym}')" style="cursor:pointer">
-        <div class="scan-sym">${r.sym}</div>
-        <div class="scan-price">$${r.price.toFixed(2)}</div>
-        <div class="scan-price" style="color:${chDir(r.pct)};font-weight:600">${r.pct>=0?"+":""}${r.pct}%</div>
-        <div style="font-size:11px;color:var(--amber);letter-spacing:-1px;margin-top:2px">${stars(r.dealStrength||0)}</div>
-      </div>
-      <div class="scan-mid">
-        <div class="scan-pill" style="background:${sigBg(r.sig)};color:${sigColor(r.sig)};border:1px solid ${sigColor(r.sig)}">${r.sigLabel}</div>
-        <div class="scan-tags">
-          ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
-          ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק היום</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה יומית</span>':""}
-          ${r.hasGap?'<span class="scan-tag hot">📈 Gap היום</span>':""}
-          ${r.hasPmGap?`<span class="scan-tag hot">🌅 PM Gap ${r.pmGapPct>0?"+":""}${r.pmGapPct}%</span>`:""}
-          ${r.relStrengthVsSpy>=2?`<span class="scan-tag hot">💪 RS +${r.relStrengthVsSpy}% vs SPY</span>`:""}
-          ${r.hasTodayNews?'<span class="scan-tag mom">📰 חדשות היום</span>':""}
-          ${r.topCatalystScore>=8?'<span class="scan-tag hot">🚀 Earnings Beat</span>':r.topCatalystScore>=6?'<span class="scan-tag hot">📈 Analyst Upgrade</span>':r.topCatalystScore<=-8?'<span class="scan-tag" style="border-color:var(--red);color:var(--red)">❌ Earnings Miss</span>':""}
-          ${r.darkPool?'<span class="scan-tag hot">🐋 Dark Pool</span>':""}
-          ${r.sectorStrong?`<span class="scan-tag mom">🏭 סקטור חזק ${r.sectorChange>0?"+":""}${r.sectorChange}%</span>`:""}
-          ${r.sectorWeak?`<span class="scan-tag" style="border-color:var(--red);color:var(--red)">⚠️ סקטור חלש ${r.sectorChange}%</span>`:""}
-          ${r.detectedStrats&&r.detectedStrats.matched.length?r.detectedStrats.matched.slice(0,2).map(s=>`<span class="scan-tag mom">✓ ${s.name}</span>`).join(""):""}
-          ${r.earningsDays!=null&&r.earningsDays<=7?`<span class="scan-tag" style="border-color:var(--amber);color:var(--amber);font-weight:700">📅 דוח ${r.earningsDays===0?"היום!":"בעוד "+r.earningsDays+" ימים"}</span>`:""}
-          ${r.shortFloat>20?`<span class="scan-tag hot">🔥 Short ${r.shortFloat.toFixed(0)}%</span>`:""}
-        </div>
-        <div class="scan-reason" style="margin-top:4px">${r.reason}</div>
-        ${scannerTimeframe==='today'&&r.hourlySignal?`
-        <div style="font-size:11px;font-family:monospace;margin-top:4px;font-weight:700;
-          padding:3px 7px;border-radius:4px;display:inline-block;
-          background:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Pullback')||r.hourlySignal.includes('Up')?'var(--gdim)':r.hourlySignal.includes('Choppy')||r.hourlySignal.includes('Reversal')?'var(--rdim)':'var(--bdim)'};
-          color:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Pullback')||r.hourlySignal.includes('Up')?'var(--green)':r.hourlySignal.includes('Choppy')?'var(--red)':'var(--blue)'}">
-          ${r.hourlySignal}
-        </div>
-        ${r.hourlyDesc?`<div style="font-size:10px;color:var(--text3);font-family:monospace;margin-top:2px">${r.hourlyDesc}</div>`:''}
-        `:''}
+  const scoreCol = s => s>=65?"var(--green)":s>=50?"var(--amber)":"var(--red)";
 
-        <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center;">
-          <span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 6px;border-radius:4px">${r.detectedStrats&&r.detectedStrats.best?r.detectedStrats.best.name:r.strategy||""}</span>
-          ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace">⏱ ${r.holding}</span>`:""}
+  grid.innerHTML = results.slice(0,12).map(r=>{
+    const isBuy = r.sig.includes('BUY');
+    const sc = sigColor(r.sig);
+    const sb = sigBg(r.sig);
+    const strat = r.detectedStrats?.best?.name || r.strategy || "";
+    const hourlyBadge = (scannerTimeframe==='today' && r.hourlySignal) ? `
+      <span style="font-size:10px;font-family:monospace;font-weight:700;padding:2px 7px;border-radius:4px;
+        background:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Up')?'var(--gdim)':r.hourlySignal.includes('Choppy')?'var(--rdim)':'var(--bdim)'};
+        color:${r.hourlySignal.includes('Bounce')||r.hourlySignal.includes('Up')?'var(--green)':r.hourlySignal.includes('Choppy')?'var(--red)':'var(--blue)'}">
+        ${r.hourlySignal}
+      </span>` : '';
+
+    return `
+    <div class="scan-card ${isBuy?'buy':'sell'}" onclick="q('${r.sym}')">
+
+      <!-- ROW 1: Signal pill  ·  Ticker + Price  |  Score + R/R + TV -->
+      <div class="scan-row1">
+        <div class="scan-row1-left">
+          <span class="scan-pill" style="background:${sb};color:${sc};border:1.5px solid ${sc}">
+            ${isBuy?'▲':'▼'} ${r.sigLabel}
+          </span>
+          <span class="scan-sym">${r.sym}</span>
+          <div class="scan-price-wrap">
+            <span class="scan-price">$${r.price.toFixed(2)}</span>
+            <span style="font-family:monospace;font-size:11px;font-weight:700;color:${chDir(r.pct)}">${r.pct>=0?"+":""}${r.pct}%</span>
+          </div>
+        </div>
+        <div class="scan-row1-right">
+          <div class="scan-score-wrap">
+            <div class="scan-score" style="color:${scoreCol(r.score)}">${r.score}</div>
+            <div class="scan-rr">R/R 1:${r.rrRatio}</div>
+          </div>
+          <a href="${openTradingView(r.sym, scannerTimeframe)}" target="_blank"
+            onclick="event.stopPropagation()"
+            style="background:var(--bg2);border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:4px 8px;font-size:10px;font-family:monospace;text-decoration:none;transition:all .15s"
+            onmouseover="this.style.borderColor='var(--border3)';this.style.color='var(--text)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+            📊 TV
+          </a>
         </div>
       </div>
-      <div class="scan-right">
-        <div class="scan-score" style="color:${r.score>=65?"var(--green)":r.score>=55?"var(--amber)":"var(--red)"}">${r.score}</div>
-        <div class="scan-rr">R/R 1:${r.rrRatio}</div>
-        <div class="scan-risk" style="color:${r.risk<35?"var(--green)":r.risk<55?"var(--amber)":"var(--red)"}">⚠ ${r.risk}</div>
-        <div class="scan-rr" style="color:var(--blue)">✓${r.conf}/10</div>
-        <div style="font-size:10px;color:var(--text3)">נפח ${r.vr||1}x</div>
+
+      <!-- ROW 2: Tags -->
+      <div class="scan-tags">
+        ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
+        ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה</span>':""}
+        ${r.hasGap?'<span class="scan-tag hot">📈 Gap</span>':""}
+        ${r.hasPmGap?`<span class="scan-tag hot">🌅 PM ${r.pmGapPct>0?"+":""}${r.pmGapPct}%</span>`:""}
+        ${r.relStrengthVsSpy>=2?`<span class="scan-tag hot">💪 RS +${r.relStrengthVsSpy}%</span>`:""}
+        ${r.hasTodayNews?'<span class="scan-tag mom">📰 חדשות</span>':""}
+        ${r.topCatalystScore>=8?'<span class="scan-tag hot">🚀 Earnings Beat</span>':r.topCatalystScore>=6?'<span class="scan-tag hot">⬆ Upgrade</span>':r.topCatalystScore<=-8?`<span class="scan-tag" style="border-color:var(--red);color:var(--red)">❌ Miss</span>`:""}
+        ${r.darkPool?'<span class="scan-tag hot">🐋 Dark Pool</span>':""}
+        ${r.sectorStrong?`<span class="scan-tag mom">🏭 סקטור +${r.sectorChange}%</span>`:""}
+        ${r.sectorWeak?`<span class="scan-tag" style="border-color:var(--red);color:var(--red)">⚠ סקטור ${r.sectorChange}%</span>`:""}
+        ${r.earningsDays!=null&&r.earningsDays<=7?`<span class="scan-tag" style="border-color:var(--amber);color:var(--amber);font-weight:700">📅 ${r.earningsDays===0?"דוח היום!":"דוח ב-"+r.earningsDays+"י"}</span>`:""}
+        ${r.shortFloat>20?`<span class="scan-tag hot">🔥 Short ${r.shortFloat.toFixed(0)}%</span>`:""}
+        ${hourlyBadge}
       </div>
-    </div>`).join("");
+
+      <!-- ROW 3: Reason + Strategy + Hold -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div class="scan-reason">${r.reason}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${strat?`<span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 7px;border-radius:4px;white-space:nowrap">${strat}</span>`:""}
+          ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace;white-space:nowrap">⏱ ${r.holding}</span>`:""}
+        </div>
+      </div>
+
+    </div>`;
+  }).join("");
 }
 
 // Auto-scan כל 10 דקות
