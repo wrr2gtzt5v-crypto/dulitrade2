@@ -678,6 +678,18 @@ def get_market_context_for_chart(ticker=None, **kwargs):
             ctx["spy_change"] = round(spy.get("dp", 0), 2)
             ctx["spy_direction"] = "עולה" if spy.get("dp",0) > 0 else "יורד"
     except: pass
+    # SPY MA50 — לשמש את validate_and_filter_signal
+    try:
+        spy_candles = get_candles("SPY")
+        spy_c = spy_candles.get("c", [])
+        if len(spy_c) >= 50:
+            spy_ma50 = sum(spy_c[-50:]) / 50
+            spy_price_now = ctx.get("spy_price", 0) or 0
+            ctx["aboveMa50"] = spy_price_now > spy_ma50 if spy_price_now > 0 else True
+        else:
+            ctx["aboveMa50"] = True
+    except:
+        ctx["aboveMa50"] = True
     
     # VIX — מדד פחד
     try:
@@ -1126,6 +1138,49 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
         return None
 
 
+def validate_and_filter_signal(result, market_ctx=None):
+    """ולידציה שרת — חסם סיגנלים חלשים לפני שהם מגיעים למשתמש"""
+    if market_ctx is None:
+        market_ctx = {}
+    sig = result.get("signal", "NEUTRAL")
+    if sig not in ("LONG", "SHORT"):
+        return result  # כבר NEUTRAL
+
+    rr      = result.get("rr_ratio", 0) or 0
+    conf    = result.get("confidence", 0) or 0
+    conf_sc = result.get("confluence_score", 0) or 0
+    reasons = []
+
+    # שערים קשיחים — כל אחד מהם מספיק לבטל הסיגנל
+    if rr < 1.5:
+        reasons.append(f"R/R={rr} מתחת ל-1.5 המינימלי")
+    if conf < 6:
+        reasons.append(f"Confidence={conf}/10 מתחת ל-6 המינימלי")
+    if conf_sc < 6:
+        reasons.append(f"Confluence={conf_sc}/15 מתחת ל-6 המינימלי")
+
+    # Market Regime — שוק דובי + VIX גבוה → רק SHORT מותר
+    vix = market_ctx.get("vix", 0) or 0
+    spy_above_ma50 = market_ctx.get("aboveMa50", True)
+    if spy_above_ma50 is None:
+        spy_above_ma50 = True
+    if sig == "LONG" and not spy_above_ma50 and vix > 25:
+        reasons.append(f"שוק דובי (SPY מתחת MA50) + VIX={vix} — LONG נחסם")
+
+    # זמן מסחר גרוע — 9:30-10:00 ET
+    time_of_day = market_ctx.get("time_of_day", "")
+    if time_of_day == "open":
+        reasons.append("שעת פתיחה 9:30-10:00 ET — תנודתיות גבוהה מדי")
+
+    if reasons:
+        result["signal"] = "NEUTRAL"
+        result["original_signal"] = sig
+        result["warnings"] = result.get("warnings", []) + [
+            f"🛡 ולידציה בלמה את הסיגנל: {' | '.join(reasons)}"
+        ]
+    return result
+
+
 def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, image2_base64=None, media_type2="image/jpeg", trade_type="day"):
     """ניתוח גרף מתמונה עם Claude Vision"""
     anthropic_key = os.environ.get("ANTHROPIC_KEY", "")
@@ -1267,8 +1322,8 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
 - SL קרוב: 0.3-1% מהמחיר
 - TP קרוב: R/R 1.5-2.5
 - זמן החזקה: דקות עד שעות — לא יותר מיום
-- חשוב: אל תסרב עסקה בגלל Daily Choppy. אתה מנתח את הגרף הקצר שלפניך.
-- אם יש Bounce/Pullback/Breakout ברור בגרף — זו עסקה.
+- חשוב: Daily Choppy לא מונע עסקת Day Trade — אבל הגרף הקצר חייב להראות Setup חד וברור. Choppy בגרף הקצר = NEUTRAL.
+- רק אם יש Bounce/Pullback/Breakout חד וברור בגרף הקצר — זו עסקה.
 """
         else:
             trade_instruction = """
@@ -1322,18 +1377,22 @@ CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל
 → NEUTRAL — אבל רק אם הגרף שלפניך Choppy. ב-Day Trade: Daily Choppy לא מונע עסקה.
 
 כללי ברזל:
-1. R/R מתחת ל-1.0 → NEUTRAL חובה, אל תציע עסקה
-2. השתמש בכל הגרף להבנת הקשר ומגמה, אבל קבל החלטת כניסה לפי הנרות האחרונים בצד ימין
-3. עדיף לסחור עם המגמה: LONG במגמת עלייה (HH/HL), SHORT במגמת ירידה (LH/LL)
-4. היפוך מגמה אפשרי רק כשיש CHoCH ברור + אישור נפח + דפוס נרות — אחרת NEUTRAL
-5. Entry Timing: המתן לסגירת נר מעל/מתחת הרמה לפני כניסה — מונע כניסות על פריצות מזויפות
-6. אם הגרף לא ברור ואין Setup מובהק — NEUTRAL
-7. Higher Timeframe Bias:
-   ב-DAY TRADE: אין כלל Higher Timeframe. נתח את הגרף שלפניך בלבד. Daily לא רלוונטי.
-   ב-SWING TRADE:
-   - מגמה יומית עולה → עדיפות ל-LONG
-   - מגמה יומית יורדת → עדיפות ל-SHORT
-   - Choppy יומי → בדוק את הגרף הנוכחי. Setup ברור = כנס.
+1. R/R מתחת ל-1.5 → NEUTRAL חובה, אל תציע עסקה
+2. Confidence מתחת ל-6/10 → NEUTRAL חובה
+3. Confluence מתחת ל-6/15 → NEUTRAL חובה
+4. אין אישור נפח (volume flat/declining) → NEUTRAL, גם אם pattern ברור
+5. מחיר באמצע הטווח (לא קרוב לתמיכה/התנגדות) → NEUTRAL
+6. אם הגרף לא ברור ב-3 שניות ראשונות — הוא לא ברור מספיק להיכנס → NEUTRAL
+7. השתמש בכל הגרף להבנת הקשר ומגמה, אבל קבל החלטת כניסה לפי הנרות האחרונים בצד ימין
+8. עדיף לסחור עם המגמה: LONG במגמת עלייה (HH/HL), SHORT במגמת ירידה (LH/LL)
+9. היפוך מגמה אפשרי רק כשיש CHoCH ברור + אישור נפח + דפוס נרות — אחרת NEUTRAL
+10. Entry Timing: המתן לסגירת נר מעל/מתחת הרמה לפני כניסה — מונע כניסות על פריצות מזויפות
+11. Higher Timeframe Bias:
+    ב-DAY TRADE: אין כלל Higher Timeframe. נתח את הגרף שלפניך בלבד. Daily לא רלוונטי.
+    ב-SWING TRADE:
+    - מגמה יומית עולה → עדיפות ל-LONG
+    - מגמה יומית יורדת → עדיפות ל-SHORT
+    - Choppy יומי → בדוק את הגרף הנוכחי. Setup חד וברור עם נפח = כנס. ספק = NEUTRAL.
 
 סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
@@ -1344,12 +1403,12 @@ Psychology of Price Action:
 
 Confluence Score:
 - כל גורם מאשר = +1, גורמים חזקים (OB/FVG/CHoCH/VWAP Reclaim) = +2
-- 8+ = כניסה חזקה מאוד | 5-7 = טובה | 3-4 = בינונית, הקטן פוזיציה | מתחת 3 = אל תיכנס
+- אל תספור גורמים מתואמים: מעל MA50 + מעל MA200 + מעל VWAP = 1 נקודה בלבד, לא 3
+- 8+ = כניסה חזקה | 6-7 = טובה | מתחת ל-6 = NEUTRAL חובה (לא "הקטן פוזיציה" — אל תיכנס בכלל)
 
-3 תרחישי כניסה:
+2 תרחישי כניסה:
 Conservative: SL קרוב, TP קרוב, R/R 1.5 (לסוחרים זהירים)
 Standard: SL בינוני, TP בינוני, R/R 2.0 (המלצה רגילה)
-Aggressive: SL רחוק, TP רחוק, R/R 3.0 (לסוחרים אגרסיביים)
 
 What Could Go Wrong:
 - ציין מחיר/תנאי שיבטל את ה-Setup לחלוטין
@@ -1408,7 +1467,6 @@ What Could Go Wrong:
   "psychology": "מה הסוחרים האחרים חושבים ואיפה ה-SL שלהם",
   "scenario_conservative": {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
   "scenario_standard":     {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
-  "scenario_aggressive":   {"entry": מחיר, "tp": מחיר, "sl": מחיר, "rr": יחס},
   "invalidation": "מחיר/תנאי שיבטל את ה-Setup",
   "first_warning_sign": "הסימן הראשון שהעסקה נכשלת"
 }"""
@@ -1500,6 +1558,18 @@ What Could Go Wrong:
                     "reasoning": text[:500] if text else "לא ניתן לנתח את התגובה",
                     "warnings": ["הניתוח חזר בפורמט לא תקין — נסה שוב"]
                 }
+        # ולידציה שרת — חסם סיגנלים חלשים
+        result = validate_and_filter_signal(result, market_ctx)
+        # חשב quality_score בצד שרת
+        sig_final = result.get("signal", "NEUTRAL")
+        if sig_final in ("LONG", "SHORT"):
+            rr_q   = result.get("rr_ratio", 1) or 1
+            conf_q = result.get("confidence", 5) or 5
+            confs_q = result.get("confluence_score", 5) or 5
+            rr_bonus = min(20, int((rr_q - 1.5) * 10)) if rr_q >= 1.5 else 0
+            result["quality_score"] = min(100, int(conf_q * 4 + confs_q * 3 + rr_bonus))
+        else:
+            result["quality_score"] = 0
         return {"success": True, "analysis": result}
     except Exception as e:
         return {"error": str(e)}
