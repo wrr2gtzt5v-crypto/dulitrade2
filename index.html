@@ -941,23 +941,6 @@ header::after{
 
 <div class="wrap">
 
-  <!-- MORNING BRIEFING PANEL -->
-  <div id="morning-briefing-panel" style="background:linear-gradient(145deg,rgba(32,15,69,.5),rgba(13,16,32,.95));border:1px solid rgba(157,92,255,.25);border-radius:14px;padding:16px 18px;margin-bottom:16px;border-right:3px solid var(--accent);box-shadow:var(--glow-accent),var(--shadow-md);display:none;animation:fadeInUp .3s ease both">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:16px">🌅</span>
-        <span style="font-size:13px;font-weight:700;color:var(--text);font-family:'IBM Plex Mono',monospace;">Briefing בוקר — AI</span>
-        <span id="briefing-bias-badge" style="display:none;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:800;font-family:monospace"></span>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span id="briefing-ts" style="font-size:10px;color:var(--text3);font-family:monospace"></span>
-        <button onclick="loadMorningBriefing(true)" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--border3)'" onmouseout="this.style.borderColor='var(--border2)'">↺ רענן</button>
-        <button onclick="document.getElementById('morning-briefing-panel').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
-      </div>
-    </div>
-    <div id="briefing-content" style="color:var(--text2);font-size:12.5px;line-height:1.6"></div>
-  </div>
-
   <!-- SCANNER -->
   <div class="scanner-section">
     <div class="scanner-head">
@@ -983,8 +966,7 @@ header::after{
           <button class="svbtn" id="viewHeat" onclick="setScanView('heat')">⬛ Heat Map</button>
         </div>
         <button onclick="runScanner()" id="scanBtn" style="font-size:12px;background:linear-gradient(135deg,var(--cbtn),#1d4ed8);color:#fff;border:none;padding:7px 18px;font-weight:800;border-radius:8px;cursor:pointer;letter-spacing:.04em;transition:all .2s;box-shadow:0 0 14px rgba(37,99,235,.35);" onmouseover="this.style.boxShadow='0 0 24px rgba(37,99,235,.6)'" onmouseout="this.style.boxShadow='0 0 14px rgba(37,99,235,.35)'" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform='scale(1)'">▶ סרוק עכשיו</button>
-        <button onclick="loadMorningBriefing()" id="briefingBtn" title="Briefing בוקר AI" style="font-size:12px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);padding:7px 12px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .2s;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">🌅 Briefing</button>
-        <button onclick="requestNotifPermission()" id="notif-btn" title="אפשר התראות push" style="font-size:12px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);padding:7px 10px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--amber)';this.style.color='var(--amber)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">🔔</button>
+<button onclick="requestNotifPermission()" id="notif-btn" title="אפשר התראות push" style="font-size:12px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);padding:7px 10px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--amber)';this.style.color='var(--amber)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">🔔</button>
       </div>
     </div>
 
@@ -7074,24 +7056,6 @@ setTimeout(()=>{
 }, 1000);
 setTimeout(refreshAllWL, 2000);
 
-// טען Briefing אוטומטית בשעות Pre-Market ישראל (15:00–16:30 IDT = UTC+3)
-(function(){
-  try {
-    const now = new Date();
-    // זיהוי שעון ישראלי — UTC+3 קיץ (IDT), UTC+2 חורף (IST)
-    // שימוש ב-Intl.DateTimeFormat לדיוק מלא
-    const ilParts = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Jerusalem', hour: 'numeric', minute: 'numeric', hour12: false
-    }).formatToParts(now);
-    const ilHour = +(ilParts.find(p=>p.type==='hour')?.value || 0);
-    const ilMin  = +(ilParts.find(p=>p.type==='minute')?.value || 0);
-    const ilTime = ilHour + ilMin / 60;
-    // 15:00–16:30 ישראל = Pre-Market אמריקאי — הזמן הכי רלוונטי להתכוננות
-    if(ilTime >= 15.0 && ilTime <= 16.5){
-      setTimeout(loadMorningBriefing, 4000); // 4 שניות אחרי סיום טעינת הדף
-    }
-  } catch(e){} // אם Intl לא זמין — לא נפרסם
-})();
 
 // Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
 setInterval(()=>{
@@ -7596,91 +7560,6 @@ function openTradePlanner(r){
   </div>`;
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// MORNING BRIEFING
-// ══════════════════════════════════════════════════════════════════════
-async function loadMorningBriefing(force=false){
-  const panel = document.getElementById('morning-briefing-panel');
-  const content = document.getElementById('briefing-content');
-  const tsEl = document.getElementById('briefing-ts');
-  if(!panel || !content) return;
-
-  // Cache check (30 min)
-  if(!force){
-    const cached = localStorage.getItem('morningBriefing');
-    if(cached){
-      try {
-        const {data, ts} = JSON.parse(cached);
-        if(Date.now() - ts < 30 * 60 * 1000){
-          renderBriefing(data);
-          panel.style.display = 'block';
-          if(tsEl) tsEl.textContent = `נטען ${new Date(ts).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`;
-          return;
-        }
-      } catch(e){}
-    }
-  }
-
-  panel.style.display = 'block';
-  content.innerHTML = `<div style="display:flex;align-items:center;gap:8px;color:var(--text3)"><div class="dots"><span></span><span></span><span></span></div> טוען Briefing AI...</div>`;
-
-  try {
-    const resp = await fetch('/api/morning-briefing');
-    const json = await resp.json();
-    if(!json.success) throw new Error(json.error || 'שגיאה');
-    const data = json.briefing;
-    localStorage.setItem('morningBriefing', JSON.stringify({data, ts: Date.now()}));
-    renderBriefing(data);
-    if(tsEl) tsEl.textContent = `עכשיו`;
-  } catch(e){
-    content.innerHTML = `<span style="color:var(--red)">שגיאה: ${e.message}</span>`;
-  }
-}
-
-function renderBriefing(data){
-  const content = document.getElementById('briefing-content');
-  const badge   = document.getElementById('briefing-bias-badge');
-  if(!content) return;
-
-  const biasColor = data.bias==='BULL'?'var(--green)':data.bias==='BEAR'?'var(--red)':'var(--amber)';
-  const biasBg    = data.bias==='BULL'?'var(--gdim)':data.bias==='BEAR'?'var(--rdim)':'var(--adim)';
-  if(badge){
-    badge.style.display='inline-block';
-    badge.style.background=biasBg; badge.style.color=biasColor; badge.style.border=`1px solid ${biasColor}`;
-    badge.textContent = data.bias==='BULL'?'🐂 BULL':data.bias==='BEAR'?'🐻 BEAR':'🟡 NEUTRAL';
-  }
-
-  const levelsHtml = (data.spy_levels || data.qqq_levels) ? `
-  <div style="display:flex;gap:16px;margin:8px 0;flex-wrap:wrap">
-    ${data.spy_levels ? `
-    <div style="font-size:11px;font-family:monospace">
-      <span style="color:var(--text3)">SPY: </span>
-      <span style="color:var(--green)">↑ $${data.spy_levels.resistance||'—'}</span>
-      <span style="color:var(--text3)"> / </span>
-      <span style="color:var(--red)">↓ $${data.spy_levels.support||'—'}</span>
-    </div>` : ''}
-    ${data.qqq_levels ? `
-    <div style="font-size:11px;font-family:monospace">
-      <span style="color:var(--text3)">QQQ: </span>
-      <span style="color:var(--green)">↑ $${data.qqq_levels.resistance||'—'}</span>
-      <span style="color:var(--text3)"> / </span>
-      <span style="color:var(--red)">↓ $${data.qqq_levels.support||'—'}</span>
-    </div>` : ''}
-  </div>` : '';
-
-  const alertsHtml = (data.alerts && data.alerts.length) ? `
-  <div style="display:flex;flex-direction:column;gap:3px;margin:6px 0">
-    ${data.alerts.map(a => `<div style="font-size:11.5px;color:var(--amber)">⚡ ${a}</div>`).join('')}
-  </div>` : '';
-
-  content.innerHTML = `
-  <div style="color:var(--text);font-size:13px;line-height:1.6;margin-bottom:6px">${data.summary||''}</div>
-  ${levelsHtml}
-  ${alertsHtml}
-  ${data.bias_reason ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">💡 ${data.bias_reason}</div>` : ''}
-  ${data.day_trade_note ? `<div style="font-size:11.5px;color:var(--blue);margin-top:6px;padding:6px 10px;background:var(--bdim);border-radius:6px">📍 Day Trade: ${data.day_trade_note}</div>` : ''}
-  `;
-}
 
 </script>
 
