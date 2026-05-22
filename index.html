@@ -5823,9 +5823,9 @@ async function runScanner(auto=false){
   if(scannerTimeframe === "today" && pass1.length > 0){
     status.textContent = "שלב 1.5 — מנתח תנועה תוך-יומית...";
 
-    const top30 = pass1.slice(0, 30);
+    const top40 = pass1.slice(0, 40); // הורחב מ-30 — לתפוס Bounce Setups שנדחקו
 
-    await Promise.allSettled(top30.map(async (item) => {
+    await Promise.allSettled(top40.map(async (item) => {
       try {
         const hourly = await api(item.sym, "candle_hourly");
         if(!hourly.c || hourly.c.length < 3) return;
@@ -5927,14 +5927,23 @@ async function runScanner(auto=false){
     );
     const removed = before - pass1.length;
 
-    // מיין מחדש — Bounce/Pullback קודם, Choppy נפסל
+    // מיין מחדש — סדר עדיפויות: Bounce/Breakdown > Pullback > Trend > HotMover > Gap > Volume
     pass1.sort((a,b) => {
-      const aScore = (a.bigGap?4:a.hasGap?3:0)
-                   + (a.volumeSurge?3:a.highVolume?2:0)
-                   + (a.todayMomentum||0);
-      const bScore = (b.bigGap?4:b.hasGap?3:0)
-                   + (b.volumeSurge?3:b.highVolume?2:0)
-                   + (b.todayMomentum||0);
+      const hA = a.hourlyData, hB = b.hourlyData;
+      const aScore = ((hA?.bounceSetup || hA?.breakdownSetup) ? 10 : 0)  // היפוך + נפח — הכי חזק
+                   + (hA?.pullback   ? 7 : 0)                             // כניסה בנסיגה
+                   + ((hA?.trendUp || hA?.trendDown) ? 5 : 0)             // מגמה ברורה
+                   + (a.isHotMover  ? 8 : 0)                              // +5%/VR>2.5
+                   + (a.bigGap      ? 4 : a.hasGap ? 3 : 0)
+                   + (a.volumeSurge ? 3 : a.highVolume ? 2 : 0)
+                   + (a.todayMomentum || 0);
+      const bScore = ((hB?.bounceSetup || hB?.breakdownSetup) ? 10 : 0)
+                   + (hB?.pullback   ? 7 : 0)
+                   + ((hB?.trendUp || hB?.trendDown) ? 5 : 0)
+                   + (b.isHotMover  ? 8 : 0)
+                   + (b.bigGap      ? 4 : b.hasGap ? 3 : 0)
+                   + (b.volumeSurge ? 3 : b.highVolume ? 2 : 0)
+                   + (b.todayMomentum || 0);
       return bScore - aScore;
     });
 
@@ -6774,8 +6783,8 @@ loadIndices();
 loadMacro();
 loadBTC();
 loadMarketRegime();
-// רענן Market Regime כל 15 דקות
-setInterval(loadMarketRegime, 15 * 60 * 1000);
+// רענן Market Regime כל 2 דקות — Regime יכול להשתנות מהר
+setInterval(loadMarketRegime, 2 * 60 * 1000);
 // בדוק עסקאות ישנות בטעינה
 setTimeout(checkAndUpdateTrades, 3000);
 // הפעל WebSocket
@@ -6786,6 +6795,25 @@ setTimeout(()=>{
   if(wrEl) wrEl.innerHTML = renderWinRateHtml();
 }, 1000);
 setTimeout(refreshAllWL, 2000);
+
+// טען Briefing אוטומטית בשעות Pre-Market ישראל (15:00–16:30 IDT = UTC+3)
+(function(){
+  try {
+    const now = new Date();
+    // זיהוי שעון ישראלי — UTC+3 קיץ (IDT), UTC+2 חורף (IST)
+    // שימוש ב-Intl.DateTimeFormat לדיוק מלא
+    const ilParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Jerusalem', hour: 'numeric', minute: 'numeric', hour12: false
+    }).formatToParts(now);
+    const ilHour = +(ilParts.find(p=>p.type==='hour')?.value || 0);
+    const ilMin  = +(ilParts.find(p=>p.type==='minute')?.value || 0);
+    const ilTime = ilHour + ilMin / 60;
+    // 15:00–16:30 ישראל = Pre-Market אמריקאי — הזמן הכי רלוונטי להתכוננות
+    if(ilTime >= 15.0 && ilTime <= 16.5){
+      setTimeout(loadMorningBriefing, 4000); // 4 שניות אחרי סיום טעינת הדף
+    }
+  } catch(e){} // אם Intl לא זמין — לא נפרסם
+})();
 
 // Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
 setInterval(()=>{
