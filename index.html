@@ -11,9 +11,9 @@
   --bg:#08090f;--bg2:#0d1020;--bg3:#131929;--bg4:#192035;
   --bg-glass:rgba(13,16,32,.7);
   /* ── Borders ── */
-  --border:#1a2340;--border2:#2a3d6a;--border3:#4a6fcc;
+  --border:#1e2d50;--border2:#2e4575;--border3:#4a6fcc;
   /* ── Text ── */
-  --text:#dde6f8;--text2:#7a90c0;--text3:#334468;
+  --text:#dde6f8;--text2:#9ab0d4;--text3:#6080aa;
   /* ── Signal colors ── */
   --green:#00e87a;--gdim:#002615;--green2:#00c86a;
   --red:#ff3d55;--rdim:#35000f;--red2:#e02840;
@@ -166,14 +166,14 @@ header::after{
   background:rgba(74,111,204,.08);
   border-bottom-color:var(--accent);
 }
-.idx-name{color:var(--text3);margin-bottom:2px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;}
+.idx-name{color:var(--text2);margin-bottom:2px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;}
 .idx-price{color:var(--text);font-weight:700;font-size:13px;}
 .idx-chg{font-size:10px;font-weight:700;}
 
 /* MACRO BAR */
 .macro-bar{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
 .macro-cell{background:var(--bg2);padding:8px 14px;text-align:center;}
-.macro-lbl{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;cursor:pointer;}
+.macro-lbl{font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;cursor:pointer;}
 .macro-lbl:hover{color:var(--blue);}
 .macro-val{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
 
@@ -304,7 +304,7 @@ header::after{
 .score-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
 .score-cell{background:var(--bg2);padding:11px 14px;text-align:center;transition:background .15s;}
 .score-cell:hover{background:var(--bg3);}
-.score-lbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:4px;cursor:pointer;letter-spacing:.04em;}
+.score-lbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);margin-bottom:4px;cursor:pointer;letter-spacing:.04em;}
 .score-lbl:hover{color:var(--amber);}
 .score-val{font-size:20px;font-family:'IBM Plex Mono',monospace;font-weight:800;}
 .score-sub{font-size:9px;color:var(--text3);margin-top:3px;}
@@ -321,14 +321,14 @@ header::after{
 /* METRICS */
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);}
 .metric{background:var(--bg2);padding:11px 14px;text-align:center;}
-.mlbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:3px;cursor:pointer;}
+.mlbl{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);margin-bottom:3px;cursor:pointer;}
 .mlbl:hover{color:var(--amber);}
 .mval{font-size:15px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
 .up{color:var(--green);}.dn{color:var(--red);}.warn{color:var(--amber);}
 
 /* BODY */
 .cbody{padding:1.25rem;}
-.stitle{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text3);letter-spacing:.12em;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.stitle{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);letter-spacing:.12em;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
 .stitle::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
 .stitle .info-icon{cursor:pointer;color:var(--text3);font-size:12px;}
 .stitle .info-icon:hover{color:var(--amber);}
@@ -638,7 +638,7 @@ header::after{
 
 /* Row 2: tags */
 .scan-tags{display:flex;gap:5px;flex-wrap:wrap;}
-.scan-tag{font-size:10px;padding:3px 9px;border-radius:10px;border:1px solid var(--border2);color:var(--text3);font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;}
+.scan-tag{font-size:10px;padding:3px 9px;border-radius:10px;border:1px solid var(--border2);color:var(--text2);font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;}
 .scan-tag.hot{border-color:rgba(245,166,35,.45);color:var(--amber);background:rgba(45,30,0,.6);}
 .scan-tag.rr{border-color:rgba(96,200,255,.35);color:var(--blue);background:rgba(6,24,48,.6);}
 .scan-tag.mom{border-color:rgba(0,232,122,.35);color:var(--green);background:rgba(0,38,21,.6);}
