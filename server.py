@@ -1138,8 +1138,10 @@ def identify_ticker_from_chart(image_base64, media_type="image/jpeg"):
         return None
 
 
-def validate_and_filter_signal(result, market_ctx=None):
-    """ולידציה שרת — חסם סיגנלים חלשים לפני שהם מגיעים למשתמש"""
+def validate_and_filter_signal(result, market_ctx=None, trade_type="swing"):
+    """ולידציה שרת — חסם סיגנלים חלשים לפני שהם מגיעים למשתמש.
+    trade_type: "day" = Day Trade (threshold נמוך יותר), "swing" = Swing (strict)
+    """
     if market_ctx is None:
         market_ctx = {}
     sig = result.get("signal", "NEUTRAL")
@@ -1156,8 +1158,12 @@ def validate_and_filter_signal(result, market_ctx=None):
         reasons.append(f"R/R={rr} מתחת ל-1.5 המינימלי")
     if conf < 6:
         reasons.append(f"Confidence={conf}/10 מתחת ל-6 המינימלי")
-    if conf_sc < 6:
-        reasons.append(f"Confluence={conf_sc}/15 מתחת ל-6 המינימלי")
+    # Day Trade: מינימום Confluence = 4 (setup קצר, פחות גורמים נדרשים)
+    # Swing:    מינימום Confluence = 6 (מחזיק ימים — צריך אישור רחב יותר)
+    min_confluence = 4 if trade_type == "day" else 6
+    if conf_sc < min_confluence:
+        trade_label = "Day Trade" if trade_type == "day" else "Swing"
+        reasons.append(f"Confluence={conf_sc}/15 מתחת ל-{min_confluence} ({trade_label})")
 
     # Market Regime — שוק דובי + VIX גבוה → רק SHORT מותר
     vix = market_ctx.get("vix", 0) or 0
@@ -1564,8 +1570,8 @@ What Could Go Wrong:
                     "reasoning": text[:500] if text else "לא ניתן לנתח את התגובה",
                     "warnings": ["הניתוח חזר בפורמט לא תקין — נסה שוב"]
                 }
-        # ולידציה שרת — חסם סיגנלים חלשים
-        result = validate_and_filter_signal(result, market_ctx)
+        # ולידציה שרת — חסם סיגנלים חלשים (threshold שונה לפי trade_type)
+        result = validate_and_filter_signal(result, market_ctx, trade_type=trade_type)
         # חשב quality_score בצד שרת
         sig_final = result.get("signal", "NEUTRAL")
         if sig_final in ("LONG", "SHORT"):
