@@ -3189,7 +3189,11 @@ function scoreAll(sym, quote, candles, ind, patterns, newsArr, extNewsArr, profi
   macroScore=Math.max(0,Math.min(100,macroScore));
 
   // ── TOTAL SCORE ────────────────────────────────────────
-  const totalScore=Math.round(techScoreNorm*0.35+fundScoreNorm*0.30+newsScoreNorm*0.20+macroScore*0.15);
+  // Day Trade: Fundamental לא רלוונטי (P/E חסר משמעות לעסקת יום) → Technical מקבל 60%
+  const _isDayTrade = typeof scannerTimeframe !== "undefined" && scannerTimeframe === "today";
+  const totalScore = _isDayTrade
+    ? Math.round(techScoreNorm*0.60 + newsScoreNorm*0.25 + macroScore*0.15)
+    : Math.round(techScoreNorm*0.35 + fundScoreNorm*0.30 + newsScoreNorm*0.20 + macroScore*0.15);
 
   // ── SIGNAL ─────────────────────────────────────────────
   // סף נמוך יותר + שינוי יומי כ-tiebreaker כשהנתונים חלקיים
@@ -5605,12 +5609,32 @@ function detectStrategies(candles, quote, ind, tf){
     totalScore += 3;
   }
 
+  // ── Squeeze Breakout — Bollinger Band מתכווץ ופורץ ──────
+  if(ind.bbU > 0 && ind.bbL > 0 && ind.atr > 0){
+    const bbWidth = ind.bbU - ind.bbL;
+    const isSqueeze = bbWidth < 2 * ind.atr; // רוחב BB קטן מ-2×ATR = דחיסה
+    if(isSqueeze && price >= ind.bbU * 0.998 && vr >= 1.5){
+      matched.push({name:"Squeeze Breakout 💥", score:3, tf:["today"]});
+      totalScore += 3;
+    }
+  }
+
+  // ── Opening Range Breakout — פריצת טווח תחילת יום ───────
+  if(tf === "today" && quote.h > 0 && quote.l > 0){
+    const nearHigh = price >= quote.h * 0.99; // קרוב לשיא היום
+    const nearLow  = price <= quote.l * 1.01; // קרוב לשפל היום
+    if((pct > 0 && nearHigh || pct < 0 && nearLow) && vr >= 1.5){
+      matched.push({name:"Opening Range Breakout 📐", score:3, tf:["today"]});
+      totalScore += 3;
+    }
+  }
+
   // מפה TF חדשים לישנים
   const tfMap = {today:"today", week:"tomorrow", month:"week"};
   const mappedTf = tfMap[tf] || tf;
 
   // אסטרטגיות מותרות לפי TF
-  const dayTradeStrats = ["Gap & Go ⚡","Breakout 🚀","Momentum 📈","Mean Reversion 🔄"];
+  const dayTradeStrats = ["Gap & Go ⚡","Breakout 🚀","Momentum 📈","Mean Reversion 🔄","Squeeze Breakout 💥","Opening Range Breakout 📐"];
   const filtered = matched.filter(s => {
     if(tf === "today") return dayTradeStrats.some(d => s.name.includes(d.split(" ")[0]));
     return s.tf.includes(mappedTf) || s.tf.includes(tf);
@@ -5974,6 +5998,7 @@ async function runScanner(auto=false){
 
         // ── שלב 1: פילטר בסיסי בלבד ──────────────────────────
         if(price <= 1) return; // לא penny stock
+        if(scannerTimeframe === "today" && price < 5) return; // Day Trade: מינימום $5 לנזילות
 
         // ── Pre-Market Gap filter ──────────────────────────
         // אם Pre-Market פעיל ויש Gap Down > 4% — דלג (לא מעניין לקנייה)
@@ -5992,6 +6017,8 @@ async function runScanner(auto=false){
 
         if(scannerTimeframe === "today"){
           // Day Trade — חייב תנועה ונפח היום
+          if(vrFromQuote < 1.0 && price < 10) return;     // נזילות נמוכה מדי לDay Trade
+          if(Math.abs(pct) < 0.5 && !pmActiveRaw) return; // מניה שטוחה + אין Pre-Market — דלג
           if(pct < -8 && !volumeSurge) return;
           if(vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
           if(Math.abs(pct) < tfCfg.minPct) return;
@@ -6505,12 +6532,21 @@ async function runScanner(auto=false){
     const aRegimePen = (a.signal==="BUY" && regimePen>0) ? -Math.round(regimePen/10) : 0;
     const bRegimePen = (b.signal==="BUY" && regimePen>0) ? -Math.round(regimePen/10) : 0;
 
+    const _isDT = scannerTimeframe === "today";
     const aBonus = (a.volumeSurge ? 2 : 0) +
                    (a.hasCatalyst ? 2 : 0) +
                    ((a.adx||0) >= 25 ? 1 : 0) +
                    (a.divergence === "bullish" ? 1 : 0) +
                    (a.insiderNet >= 2 ? 1 : 0) +
                    (a.isHotMover ? 5 : 0) +    // 🔥 Hot Mover bonus — sort to top
+                   // ── בונוסים Day Trade בלבד ──────────────────────────────
+                   (_isDT && a.hourlyIsCont && (a.hourlyMove3h||0) > 0.5 ? 3 : 0) + // Bounce שעתי מאושר
+                   (_isDT && a.detectedStrats?.best?.name?.includes("Squeeze") ? 3 : 0) + // Squeeze Breakout
+                   (_isDT && a.detectedStrats?.best?.name?.includes("Gap") && (a.gapPct||0)>=3 ? 2 : 0) + // Gap&Go חזק
+                   (_isDT && (a.relStrengthVsSpy||0) >= 3 ? 2 : 0) +  // חזק vs שוק
+                   (_isDT && (a.rsi||50)>=45 && (a.rsi||50)<=65 ? 1 : 0) + // זון תנופה בריא
+                   (_isDT && (a.rsi||50) > 75 ? -2 : 0) +             // RSI קנוי יתר — עונש
+                   (_isDT && (a.pct||0) > 8 ? -1 : 0) +               // כבר זז יותר מדי — עונש
                    hourlyA + aRegimePen;
     const bBonus = (b.volumeSurge ? 2 : 0) +
                    (b.hasCatalyst ? 2 : 0) +
@@ -6518,6 +6554,14 @@ async function runScanner(auto=false){
                    (b.divergence === "bullish" ? 1 : 0) +
                    (b.insiderNet >= 2 ? 1 : 0) +
                    (b.isHotMover ? 5 : 0) +    // 🔥 Hot Mover bonus — sort to top
+                   // ── בונוסים Day Trade בלבד ──────────────────────────────
+                   (_isDT && b.hourlyIsCont && (b.hourlyMove3h||0) > 0.5 ? 3 : 0) +
+                   (_isDT && b.detectedStrats?.best?.name?.includes("Squeeze") ? 3 : 0) +
+                   (_isDT && b.detectedStrats?.best?.name?.includes("Gap") && (b.gapPct||0)>=3 ? 2 : 0) +
+                   (_isDT && (b.relStrengthVsSpy||0) >= 3 ? 2 : 0) +
+                   (_isDT && (b.rsi||50)>=45 && (b.rsi||50)<=65 ? 1 : 0) +
+                   (_isDT && (b.rsi||50) > 75 ? -2 : 0) +
+                   (_isDT && (b.pct||0) > 8 ? -1 : 0) +
                    hourlyB + bRegimePen;
 
     const aTotal = (a.dealStrength||0) + aBonus;
@@ -6653,7 +6697,7 @@ function renderScanResults(results){
   const scoreCol = s => s>=65?"var(--green)":s>=50?"var(--amber)":"var(--red)";
   const scoreClass = s => s>=65?"score-green":s>=50?"score-amber":"score-red";
 
-  grid.innerHTML = filtered.slice(0,12).map((r,idx)=>{
+  grid.innerHTML = filtered.slice(0, scannerTimeframe==="today" ? 15 : 12).map((r,idx)=>{
     const isBuy = r.sig.includes('BUY');
     const sc = sigColor(r.sig);
     const sb = sigBg(r.sig);
@@ -6682,6 +6726,17 @@ function renderScanResults(results){
     const reasonsHtml = reasons.length
       ? `<div class="scan-reasons">${reasons.map(rx=>`<span class="reason-chip">✓ ${rx}</span>`).join('')}</div>`
       : '';
+
+    // WHY tag — הסיבה הראשית לבחירת המניה (Day Trade בלבד)
+    const whyTag = (scannerTimeframe === "today") ? (() => {
+      if(r.isHotMover)                                   return `<span class="scan-tag hot" style="font-weight:900;font-size:11px">🔥 Hot Mover</span>`;
+      if(r.hourlyIsCont && (r.hourlyMove3h||0) > 0.5)   return `<span class="scan-tag mom" style="font-weight:900;font-size:11px">🎯 Bounce ✓</span>`;
+      if(r.hourlyIsPullback)                             return `<span class="scan-tag mom" style="font-weight:900;font-size:11px">⬇ Pullback</span>`;
+      if(Math.abs(r.gapPct||0) >= 2 || r.hasPmGap)      return `<span class="scan-tag hot" style="font-weight:900;font-size:11px">⚡ Gap</span>`;
+      if(r.volumeSurge)                                  return `<span class="scan-tag hot" style="font-weight:900;font-size:11px">🐋 Volume</span>`;
+      if(Math.abs(r.pct||0) >= 2)                        return `<span class="scan-tag mom" style="font-weight:900;font-size:11px">📈 Momentum</span>`;
+      return "";
+    })() : "";
 
     // watchlist button — unique id per card
     const wid = `wb_${r.sym}_${idx}`;
@@ -6717,8 +6772,9 @@ function renderScanResults(results){
         </div>
       </div>
 
-      <!-- ROW 2: Tags -->
+      <!-- ROW 2: Tags — WHY tag ראשון, אחריו שאר התגיות -->
       <div class="scan-tags">
+        ${whyTag}
         ${r.tags.map(t=>`<span class="scan-tag ${t.cls}">${t.t}</span>`).join("")}
         ${r.todayMomentum>=4?'<span class="scan-tag hot">🔥 זזה חזק</span>':r.todayMomentum>=3?'<span class="scan-tag hot">⚡ תנועה</span>':""}
         ${r.hasGap?'<span class="scan-tag hot">📈 Gap</span>':""}
