@@ -1148,35 +1148,27 @@ def validate_and_filter_signal(result, market_ctx=None, trade_type="swing"):
     if sig not in ("LONG", "SHORT"):
         return result  # כבר NEUTRAL
 
-    rr      = result.get("rr_ratio", 0) or 0
-    conf    = result.get("confidence", 0) or 0
-    conf_sc = result.get("confluence_score", 0) or 0
+    rr   = result.get("rr_ratio", 0) or 0
+    conf = result.get("confidence", 0) or 0
     reasons = []
+    is_day = trade_type == "day"
 
-    # שערים קשיחים — כל אחד מהם מספיק לבטל הסיגנל
-    if rr < 1.5:
-        reasons.append(f"R/R={rr} מתחת ל-1.5 המינימלי")
-    if conf < 6:
-        reasons.append(f"Confidence={conf}/10 מתחת ל-6 המינימלי")
-    # Day Trade: מינימום Confluence = 4 (setup קצר, פחות גורמים נדרשים)
-    # Swing:    מינימום Confluence = 6 (מחזיק ימים — צריך אישור רחב יותר)
-    min_confluence = 4 if trade_type == "day" else 6
-    if conf_sc < min_confluence:
-        trade_label = "Day Trade" if trade_type == "day" else "Swing"
-        reasons.append(f"Confluence={conf_sc}/15 מתחת ל-{min_confluence} ({trade_label})")
+    # שערים לפי סוג עסקה
+    min_rr = 1.2 if is_day else 1.5
+    if rr < min_rr:
+        reasons.append(f"R/R={rr} מתחת ל-{min_rr} ({'Day Trade' if is_day else 'Swing'})")
 
-    # Market Regime — שוק דובי + VIX גבוה → רק SHORT מותר
+    min_conf = 5 if is_day else 6
+    if conf < min_conf:
+        reasons.append(f"Confidence={conf}/10 מתחת ל-{min_conf} ({'Day Trade' if is_day else 'Swing'})")
+
+    # Market Regime — שוק דובי + VIX גבוה מאוד → רק SHORT מותר
     vix = market_ctx.get("vix", 0) or 0
     spy_above_ma50 = market_ctx.get("aboveMa50", True)
     if spy_above_ma50 is None:
         spy_above_ma50 = True
-    if sig == "LONG" and not spy_above_ma50 and vix > 25:
+    if sig == "LONG" and not spy_above_ma50 and vix > 30:
         reasons.append(f"שוק דובי (SPY מתחת MA50) + VIX={vix} — LONG נחסם")
-
-    # זמן מסחר גרוע — 9:30-10:00 ET
-    time_of_day = market_ctx.get("time_of_day", "")
-    if time_of_day == "open":
-        reasons.append("שעת פתיחה 9:30-10:00 ET — תנודתיות גבוהה מדי")
 
     if reasons:
         result["signal"] = "NEUTRAL"
@@ -1383,22 +1375,25 @@ CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל
 → NEUTRAL — אבל רק אם הגרף שלפניך Choppy. ב-Day Trade: Daily Choppy לא מונע עסקה.
 
 כללי ברזל:
-1. R/R מתחת ל-1.5 → NEUTRAL חובה, אל תציע עסקה
-2. Confidence מתחת ל-6/10 → NEUTRAL חובה
-3. Confluence מתחת ל-6/15 → NEUTRAL חובה
-4. אין אישור נפח (volume flat/declining) → NEUTRAL, גם אם pattern ברור
-5. מחיר באמצע הטווח (לא קרוב לתמיכה/התנגדות) → NEUTRAL
-6. אם הגרף לא ברור ב-3 שניות ראשונות — הוא לא ברור מספיק להיכנס → NEUTRAL
-7. השתמש בכל הגרף להבנת הקשר ומגמה, אבל קבל החלטת כניסה לפי הנרות האחרונים בצד ימין
-8. עדיף לסחור עם המגמה: LONG במגמת עלייה (HH/HL), SHORT במגמת ירידה (LH/LL)
-9. היפוך מגמה אפשרי רק כשיש CHoCH ברור + אישור נפח + דפוס נרות — אחרת NEUTRAL
-10. Entry Timing: המתן לסגירת נר מעל/מתחת הרמה לפני כניסה — מונע כניסות על פריצות מזויפות
-11. Higher Timeframe Bias:
+1. R/R: מתחת ל-1.2 ב-DAY_TRADE / מתחת ל-1.5 ב-SWING → NEUTRAL חובה, אל תציע עסקה
+2. Confidence: מתחת ל-5/10 ב-DAY_TRADE / מתחת ל-6/10 ב-SWING → NEUTRAL חובה
+3. אם הגרף לא ברור ואין setup מוגדר ברמת מחיר ברורה → העדף NEUTRAL, אבל pattern ברור בתמיכה/התנגדות = כנס
+4. השתמש בכל הגרף להבנת הקשר ומגמה, אבל קבל החלטת כניסה לפי הנרות האחרונים בצד ימין
+5. עדיף לסחור עם המגמה: LONG במגמת עלייה (HH/HL), SHORT במגמת ירידה (LH/LL)
+6. היפוך מגמה אפשרי רק כשיש CHoCH ברור + אישור נפח + דפוס נרות — אחרת NEUTRAL
+7. Entry Timing: המתן לסגירת נר מעל/מתחת הרמה לפני כניסה — מונע כניסות על פריצות מזויפות
+8. Higher Timeframe Bias:
     ב-DAY TRADE: אין כלל Higher Timeframe. נתח את הגרף שלפניך בלבד. Daily לא רלוונטי.
     ב-SWING TRADE:
     - מגמה יומית עולה → עדיפות ל-LONG
     - מגמה יומית יורדת → עדיפות ל-SHORT
     - Choppy יומי → בדוק את הגרף הנוכחי. Setup חד וברור עם נפח = כנס. ספק = NEUTRAL.
+
+כניסות תקפות ל-Day Trade (גם ללא כל הגורמים):
+- Bounce ברור מתמיכה עם wick דחייה
+- Pullback ל-VWAP/EMA עם נר היפוך
+- Breakout מ-Consolidation עם נפח
+- Gap Continuation אחרי 30 דקות ראשונות
 
 סדר חישוב SL/TP: קודם זהה TP ריאלי (התנגדות/FVG/OB), אחר כך קבע SL קטן ממנו.
 
@@ -1410,7 +1405,7 @@ Psychology of Price Action:
 Confluence Score:
 - כל גורם מאשר = +1, גורמים חזקים (OB/FVG/CHoCH/VWAP Reclaim) = +2
 - אל תספור גורמים מתואמים: מעל MA50 + מעל MA200 + מעל VWAP = 1 נקודה בלבד, לא 3
-- 8+ = כניסה חזקה | 6-7 = טובה | מתחת ל-6 = NEUTRAL חובה (לא "הקטן פוזיציה" — אל תיכנס בכלל)
+- 8+ = כניסה חזקה | 6-7 = טובה | 4-5 ב-Day Trade = מותר עם pattern ברור ברמת מחיר
 
 2 תרחישי כניסה:
 Conservative: SL קרוב, TP קרוב, R/R 1.5 (לסוחרים זהירים)
