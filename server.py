@@ -1374,6 +1374,13 @@ BREAKOUT: מניה יצאה מאזור דחיסה עם נפח פי 1.5+ מהממ
 CHOPPY: תנועה ללא כיוון, נרות קטנים, נפח נמוך, כל עלייה נמחקת
 → NEUTRAL — אבל רק אם הגרף שלפניך Choppy. ב-Day Trade: Daily Choppy לא מונע עסקה.
 
+סקאלת Confidence (1-10) — השתמש בה בעקביות:
+9-10: Setup מושלם — כל הפקטורים מאשרים, כניסה מיידית מומלצת
+7-8: Setup טוב — 3-4 פקטורים מאשרים, כניסה מומלצת בגודל מלא
+5-6: Setup בינוני — כניסה בגודל מצומצם בלבד (50% גודל רגיל)
+3-4: Setup חלש — אין edge ברור, דלג על העסקה
+1-2: לא ברור / נגד מגמה — NEUTRAL בכל מקרה
+
 כללי ברזל:
 1. R/R: מתחת ל-1.2 ב-DAY_TRADE / מתחת ל-1.5 ב-SWING → NEUTRAL חובה, אל תציע עסקה
 2. Confidence: מתחת ל-5/10 ב-DAY_TRADE / מתחת ל-6/10 ב-SWING → NEUTRAL חובה
@@ -1475,8 +1482,19 @@ What Could Go Wrong:
     "bear_case": "מה קורה אם הכניסה נכשלת — איפה המחיר שובר, מתי לצאת מיידית",
     "neutral_case": "consolidation/sideways — מה לחכות, איפה נקודת ההחלטה הבאה"
   },
-  "timing_note": "מתי הכי טוב להיכנס — candle close? breakout confirm? pull-back? limit order?"
-}"""
+  "timing_note": "מתי הכי טוב להיכנס — candle close? breakout confirm? pull-back? limit order?",
+  "win_probability": 0,
+  "max_adverse_excursion": 0.0,
+  "ideal_hold_time": "15m/30m/1h/2h",
+  "skip_reason": ""
+}
+
+הערות לשדות החדשים:
+- win_probability: מספר 0-100 בלבד (ללא %). כמה % מהמקרים דומים הצליחו לפי ניסיון.
+- max_adverse_excursion: כמה % המחיר יכול לנוע נגדנו לפני שה-SL נפגע (0.0-5.0).
+- ideal_hold_time: זמן החזקה אידאלי לפי הסטאפ — 15m/30m/1h/2h.
+- skip_reason: אם העסקה לא ראויה — כתוב סיבה קצרה. אם כדאי לסחור — השאר ריק "".
+"""
         full_prompt = context_text + "\n\n" + prompt_body
         
         url = "https://api.anthropic.com/v1/messages"
