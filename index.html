@@ -3938,6 +3938,29 @@ async function analyzeChartImage(){
           </div>`}
         </div>
 
+        <!-- Skip Reason — אם יש סיבה לדלג, הצג אזהרה בולטת -->
+        ${a.skip_reason?`
+        <div style="background:var(--adim);border:2px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">⚠️</span>
+          <div>
+            <div style="font-size:10px;color:var(--amber);font-family:monospace;margin-bottom:2px;font-weight:700">שקול לדלג על עסקה זו</div>
+            <div style="font-size:12px;color:var(--text2)">${a.skip_reason}</div>
+          </div>
+        </div>`:""}
+
+        <!-- Win Probability + Ideal Hold Time -->
+        ${(a.win_probability||a.ideal_hold_time)?`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          ${a.win_probability?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center;border:1px solid ${a.win_probability>=60?"var(--green)":a.win_probability>=45?"var(--amber)":"var(--red)"}">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">סיכוי הצלחה</div>
+            <div style="font-size:18px;font-weight:800;font-family:monospace;color:${a.win_probability>=60?"var(--green)":a.win_probability>=45?"var(--amber)":"var(--red)"}">${a.win_probability}%</div>
+          </div>`:"<div></div>"}
+          ${a.ideal_hold_time?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center;border:1px solid var(--blue)">
+            <div style="font-size:9px;color:var(--text3);font-family:monospace">זמן החזקה אידאלי</div>
+            <div style="font-size:16px;font-weight:800;font-family:monospace;color:var(--blue)">${a.ideal_hold_time}</div>
+          </div>`:"<div></div>"}
+        </div>`:""}
+
         <!-- Entry/TP/SL -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">
           <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--blue)">
@@ -4149,10 +4172,10 @@ async function analyzeChartImage(){
           </div>
         </details>`:""}
 
-        <!-- Position Sizing for chart analyzer -->
+        <!-- Position Sizing for chart analyzer — uses confidence for risk% -->
         ${a.signal !== "NEUTRAL" && a.entry && a.sl?`
         <div style="margin-bottom:10px">
-          ${renderSizingHtml(a.entry, a.sl, a.tp||null)}
+          ${renderSizingHtml(a.entry, a.sl, a.tp||null, a.confidence||7)}
         </div>`:""}
 
         <!-- ניתוח מפורט — collapsible -->
@@ -6279,6 +6302,12 @@ async function runScanner(auto=false){
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
 
+        // ── Day Trade: פילטר קשיח Phase 2 — VR ו-RSI ─────────
+        if(scannerTimeframe === "today"){
+          if((ind.vr || 0) < 1.5) return; // VR נמוך מדי — אין מספיק נפח לDay Trade
+          if(ind.rsi > 0 && (ind.rsi < 35 || ind.rsi > 70)) return; // RSI מחוץ לזון בריא (35-70)
+        }
+
         // ── עדכן volumeSurge לפי vr אמיתי מ-candles ──────────
         const realVr = ind.vr || 1;
         const realVolumeSurge = realVr >= 3.0;
@@ -6355,6 +6384,19 @@ async function runScanner(auto=false){
       if((p1.relStrengthVsSpy||0)>=2)   dealStrength+=1;
 
       const topFactor = scores.techFactors?.find(f=>f.c==="positive");
+
+      // ── Entry Quality Score (0-10) — 4 פקטורי כניסה ────────
+      let _entryScore = 0;
+      if((ind.vr || 1) >= 2)                       _entryScore += 3; // נפח חזק
+      else if((ind.vr || 1) >= 1.5)                _entryScore += 1;
+      const _rsi = ind.rsi || 50;
+      if(_rsi >= 40 && _rsi <= 65)                 _entryScore += 3; // RSI זון בריא
+      else if(_rsi > 65 && _rsi <= 75)             _entryScore += 1; // RSI קצת גבוה
+      else if(_rsi > 75)                           _entryScore -= 2; // RSI קנוי יתר
+      if(p1.hourlyData?.bounceSetup || p1.hourlyData?.trendUp) _entryScore += 2; // Bounce מאושר
+      if(Math.abs(gapPct||0) >= 2)            _entryScore += 2; // Gap
+      _entryScore = Math.max(0, Math.min(10, _entryScore));
+
       results.push({
         sym, price:scanQuote.c, pct:scores.pct,
         gapPct, hasPmGap, pmGapPct:p1.pmGapPct||0,
@@ -6382,6 +6424,7 @@ async function runScanner(auto=false){
         volumeSurge:vs, vr:ind.vr||1, detectedStrats,
         earningsDays: null, shortFloat: 0,
         signal: scores.sig?.includes("BUY") ? "BUY" : scores.sig?.includes("SELL") ? "SELL" : "HOLD",
+        entryScore: _entryScore,
       });
     }
     // קפוץ ישר למיון
@@ -6513,6 +6556,20 @@ async function runScanner(auto=false){
 
   } // end Swing phase 3
   // ── מיון סופי — dealStrength + בונוסים + ציון + R/R ──────
+  // Win Rate Feedback: קרא ביצועי אסטרטגיות עבר (Day Trade בלבד)
+  const _wrData = scannerTimeframe === "today"
+    ? JSON.parse(localStorage.getItem("dt_wr_analysis") || "null")
+    : null;
+  const _wrStratBonus = (r) => {
+    if(!_wrData) return 0;
+    const sName = r.detectedStrats?.best?.name || r.strategy || "";
+    const sd = _wrData.byStrategy?.[sName];
+    if(!sd || sd.total < 3) return 0; // לא מספיק נתונים
+    const wr = sd.wins / sd.total;
+    if(wr > 0.60) return 2;  // אסטרטגיה מנצחת — בונוס
+    if(wr < 0.40) return -2; // אסטרטגיה מפסידה — ענישה
+    return 0;
+  };
   results.sort((a,b)=>{
     // Day Trade: בונוס לפי נר שעתי אחרון
     const hourlyA = scannerTimeframe==="today" ? (
@@ -6547,6 +6604,8 @@ async function runScanner(auto=false){
                    (_isDT && (a.rsi||50)>=45 && (a.rsi||50)<=65 ? 1 : 0) + // זון תנופה בריא
                    (_isDT && (a.rsi||50) > 75 ? -2 : 0) +             // RSI קנוי יתר — עונש
                    (_isDT && (a.pct||0) > 8 ? -1 : 0) +               // כבר זז יותר מדי — עונש
+                   (_isDT && (a.entryScore||0) >= 7 ? 2 : 0) +        // Entry Quality Score טוב
+                   (_isDT ? _wrStratBonus(a) : 0) +                    // Win Rate feedback
                    hourlyA + aRegimePen;
     const bBonus = (b.volumeSurge ? 2 : 0) +
                    (b.hasCatalyst ? 2 : 0) +
@@ -6562,6 +6621,8 @@ async function runScanner(auto=false){
                    (_isDT && (b.rsi||50)>=45 && (b.rsi||50)<=65 ? 1 : 0) +
                    (_isDT && (b.rsi||50) > 75 ? -2 : 0) +
                    (_isDT && (b.pct||0) > 8 ? -1 : 0) +
+                   (_isDT && (b.entryScore||0) >= 7 ? 2 : 0) +        // Entry Quality Score טוב
+                   (_isDT ? _wrStratBonus(b) : 0) +                    // Win Rate feedback
                    hourlyB + bRegimePen;
 
     const aTotal = (a.dealStrength||0) + aBonus;
@@ -6697,22 +6758,36 @@ function renderScanResults(results){
   const scoreCol = s => s>=65?"var(--green)":s>=50?"var(--amber)":"var(--red)";
   const scoreClass = s => s>=65?"score-green":s>=50?"score-amber":"score-red";
 
+  // מניעת כפילויות — הצג badge על מניות שנסחרו היום
+  const _todayStr = new Date().toISOString().slice(0,10);
+  const _tradedToday = new Set(
+    JSON.parse(localStorage.getItem("dt_journal")||"[]")
+      .filter(t => t.date?.startsWith(_todayStr))
+      .map(t => t.sym)
+  );
+
   grid.innerHTML = filtered.slice(0, scannerTimeframe==="today" ? 15 : 12).map((r,idx)=>{
     const isBuy = r.sig.includes('BUY');
+    const alreadyTraded = _tradedToday.has(r.sym);
     const sc = sigColor(r.sig);
     const sb = sigBg(r.sig);
     const strat = r.detectedStrats?.best?.name || r.strategy || "";
     const reasons = r.reasons || buildScanReasons(r);
     r.reasons = reasons; // cache for planner
 
-    // sizing
+    // sizing — confidence from r.conf (scanner confluence, 1-10 approx)
     const sizingRow = (typeof renderSizingHtml === 'function' && r.price && r.sl)
-      ? renderSizingHtml(r.entry || r.price, r.sl, r.tp)
+      ? renderSizingHtml(r.entry || r.price, r.sl, r.tp, r.conf || 7)
       : '';
 
     // hot mover badge
     const hotBadge = r.isHotMover
       ? `<span class="hot-mover-badge">🔥 HOT +${r.hotChangePct?.toFixed(1)||''}%</span>`
+      : '';
+
+    // כבר נסחרת היום badge
+    const tradedBadge = alreadyTraded
+      ? `<span style="font-size:10px;font-family:monospace;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(96,200,255,.12);border:1px solid rgba(96,200,255,.3);color:var(--blue)">✓ נסחר היום</span>`
       : '';
 
     const hourlyBadge = (scannerTimeframe==='today' && r.hourlySignal) ? `
@@ -6751,6 +6826,7 @@ function renderScanResults(results){
             ${isBuy?'▲':'▼'} ${r.sigLabel}
           </span>
           ${hotBadge}
+          ${tradedBadge}
           <span class="scan-sym">${r.sym}</span>
           <div class="scan-price-wrap">
             <span class="scan-price">$${r.price.toFixed(2)}</span>
@@ -6796,6 +6872,7 @@ function renderScanResults(results){
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${strat?`<span style="font-size:10px;color:var(--blue);font-family:monospace;background:var(--bdim);padding:2px 7px;border-radius:4px;white-space:nowrap">${strat}</span>`:""}
           ${r.holding?`<span style="font-size:10px;color:var(--text3);font-family:monospace;white-space:nowrap">⏱ ${r.holding}</span>`:""}
+          ${(scannerTimeframe==="today" && r.entryScore!=null)?`<span style="font-size:10px;font-family:monospace;white-space:nowrap;padding:2px 7px;border-radius:4px;background:${r.entryScore>=7?"var(--gdim)":r.entryScore>=5?"var(--adim)":"var(--rdim)"};color:${r.entryScore>=7?"var(--green)":r.entryScore>=5?"var(--amber)":"var(--red)"};font-weight:700">כניסה ${r.entryScore}/10</span>`:""}
         </div>
       </div>
 
@@ -7364,10 +7441,12 @@ function getAcctSize(){
   return +(localStorage.getItem('acctSize') || 4000);
 }
 
-function calcSizing(entry, sl){
+function calcSizing(entry, sl, confidence=7){
   const acct = getAcctSize();
   if(!entry || !sl || entry === sl) return null;
-  const risk2pct     = acct * 0.02;
+  // סיכון לפי Confidence: 8+ = 3%, 6-7 = 2%, <6 = 1%
+  const riskPctRate = confidence >= 8 ? 0.03 : confidence >= 6 ? 0.02 : 0.01;
+  const risk2pct     = acct * riskPctRate;
   const riskPerShare = Math.abs(entry - sl);
   const shares       = Math.floor(risk2pct / riskPerShare);
   const maxShares    = Math.floor((acct * 0.25) / entry);
@@ -7379,9 +7458,10 @@ function calcSizing(entry, sl){
   return { shares: final, totalCost, riskDollar, pctOfAcct: +pctOfAcct };
 }
 
-function renderSizingHtml(entry, sl, tp){
-  const sz = calcSizing(entry, sl);
+function renderSizingHtml(entry, sl, tp, confidence=7){
+  const sz = calcSizing(entry, sl, confidence);
   if(!sz) return '';
+  const confLabel = confidence >= 8 ? '3% סיכון (Conf גבוה)' : confidence >= 6 ? '2% סיכון' : '1% סיכון (Conf נמוך)';
   const acct   = getAcctSize();
   const profit = tp ? (sz.shares * Math.abs(tp - entry)).toFixed(0) : null;
   const warn   = sz.pctOfAcct > 25 ? `<span class="sz-warn">⚠ ${sz.pctOfAcct}% מהחשבון — חלק מהפוזיציה</span>` : '';
@@ -7391,6 +7471,7 @@ function renderSizingHtml(entry, sl, tp){
     <span class="sz-risk">⚠ סיכון: $${sz.riskDollar.toFixed(0)}</span>
     ${profit ? `<span style="color:var(--green)">↑ רווח: $${profit}</span>` : ''}
     <span style="color:var(--text3)">(עלות: $${sz.totalCost.toFixed(0)})</span>
+    <span style="color:var(--text3);font-size:10px">${confLabel}</span>
     ${warn}
   </div>`;
 }
