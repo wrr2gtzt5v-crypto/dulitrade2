@@ -5781,7 +5781,7 @@ async function runScanner(auto=false){
     today: {
       label: "⚡ Day Trade — היום",
       minVR: 1.5,
-      minPct: 1.0,
+      minPct: 0.5,
       minConf: 4,
       maxRisk: 60,
       minRR: 1.5,
@@ -6041,7 +6041,7 @@ async function runScanner(auto=false){
         if(scannerTimeframe === "today"){
           // Day Trade — חייב תנועה ונפח היום
           if(vrFromQuote < 1.0 && price < 10) return;     // נזילות נמוכה מדי לDay Trade
-          if(Math.abs(pct) < 0.5 && !pmActiveRaw) return; // מניה שטוחה + אין Pre-Market — דלג
+          if(Math.abs(pct) < 0.3 && !pmActiveRaw && (vrFromQuote||0) < 1.2) return; // שטוחה לגמרי — דלג
           if(pct < -8 && !volumeSurge) return;
           if(vrFromQuote < tfCfg.minVR && Math.abs(pct) < 1.5) return;
           if(Math.abs(pct) < tfCfg.minPct) return;
@@ -6302,10 +6302,11 @@ async function runScanner(auto=false){
         const ind = calcIndicators(candles, scanQuote, {});
         const patterns = detectPatterns(candles);
 
-        // ── Day Trade: פילטר קשיח Phase 2 — VR ו-RSI ─────────
+        // ── Day Trade: פילטר קל Phase 2 — רק מניות מתות לגמרי ─
+        // (VR נבדק ב-Phase 1 דרך vrFromQuote — ind.vr יומי לא מתאים ל-Day Trade)
         if(scannerTimeframe === "today"){
-          if((ind.vr || 0) < 1.5) return; // VR נמוך מדי — אין מספיק נפח לDay Trade
-          if(ind.rsi > 0 && (ind.rsi < 35 || ind.rsi > 70)) return; // RSI מחוץ לזון בריא (35-70)
+          if((ind.vr || 0) < 0.5 && (ind.atr || 0) < 0.01) return; // מניה מתה לגמרי
+          if(ind.rsi > 0 && (ind.rsi < 25 || ind.rsi > 80)) return; // RSI קיצוני בלבד (25-80)
         }
 
         // ── עדכן volumeSurge לפי vr אמיתי מ-candles ──────────
@@ -6345,8 +6346,8 @@ async function runScanner(auto=false){
   // ══════════════════════════════════════════════════════════
   // שלב 3 — מסנן מלא (חדשות + Confluence + ציון סופי)
   // ══════════════════════════════════════════════════════════
-  console.log(`שלב 2 debug: noQuote=${_dbg2.noQuote} MA=${_dbg2.ma} Hold=${_dbg2.hold} Sig=${_dbg2.sig} candidates=${candidates.length}`);
-  status.textContent = `שלב 3/3 — ${candidates.length} מועמדות (סונן: MA:${_dbg2.ma} Hold:${_dbg2.hold})`;
+  console.log(`שלב 2 debug: noQuote=${_dbg2.noQuote} MA=${_dbg2.ma} Hold=${_dbg2.hold} Sig=${_dbg2.sig} candidates=${candidates.length} | pass1=${pass1.length}`);
+  status.textContent = `שלב 2 → ${pass1.length} נכנסו, ${candidates.length} עברו | שלב 3/3...`;
   const results = [];
   const _dbg = {rr:0,conf:0,risk:0,score:0};
   fill.style.width = "65%";
