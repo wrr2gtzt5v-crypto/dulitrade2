@@ -6112,7 +6112,11 @@ async function runScanner(auto=false){
         const isHotMover = Math.abs(pct) >= 5 && vrFromQuote >= 2.5;
         if(isHotMover) todayMomentum = 5; // force top momentum
 
-        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap, relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews, sectorChange: +sectorChange.toFixed(2), sectorStrong, sectorWeak, stockSector, isHotMover, hotChangePct: isHotMover ? pct : 0 });
+        pass1.push({ sym, scanQuote, volumeSurge, highVolume, todayMomentum, hasGap,
+          gapPct: +gapPct.toFixed(2),
+          hasPmGap,
+          pmGapPct: pmGapData?.gapPct || 0,
+          relStrengthVsSpy: +relStrengthVsSpy.toFixed(1), hasTodayNews, sectorChange: +sectorChange.toFixed(2), sectorStrong, sectorWeak, stockSector, isHotMover, hotChangePct: isHotMover ? pct : 0 });
       } catch(e){}
     }));
   }
@@ -6414,6 +6418,9 @@ async function runScanner(auto=false){
         sig:scores.sig, sigLabel:scores.sigLabel,
         score:scores.totalScore, risk:scores.risk,
         rrRatio:scores.rrRatio, conf:scores.confluence||3,
+        entry: scores.entry || scanQuote.c,
+        sl:    scores.sl    || null,
+        tp:    scores.tp    || null,
         dealStrength, strategy:scores.strategy||"",
         holding:"היום בלבד ⚡",
         adx:ind.adx||0, divergence:ind.divergence||null, insiderNet:0,
@@ -6564,6 +6571,7 @@ async function runScanner(auto=false){
   const _wrStratBonus = (r) => {
     if(!_wrData) return 0;
     const sName = r.detectedStrats?.best?.name || r.strategy || "";
+    if(!sName) return 0; // אין שם אסטרטגיה — אל תתן בונוס
     const sd = _wrData.byStrategy?.[sName];
     if(!sd || sd.total < 3) return 0; // לא מספיק נתונים
     const wr = sd.wins / sd.total;
@@ -6763,7 +6771,7 @@ function renderScanResults(results){
   const _todayStr = new Date().toISOString().slice(0,10);
   const _tradedToday = new Set(
     JSON.parse(localStorage.getItem("dt_journal")||"[]")
-      .filter(t => t.date?.startsWith(_todayStr))
+      .filter(t => typeof t.date === 'string' && t.date.startsWith(_todayStr))
       .map(t => t.sym)
   );
 
