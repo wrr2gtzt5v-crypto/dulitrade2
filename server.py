@@ -1555,16 +1555,21 @@ What Could Go Wrong:
         text = resp.get("content", [{}])[0].get("text", "")
         # נקה backticks ותוכן לפני/אחרי JSON
         text = text.strip()
-        # הסר ```json ו-```
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
-        # מצא את ה-JSON בתוך הטקסט — מ-{ עד }
-        start = text.find("{")
-        end   = text.rfind("}") + 1
-        if start >= 0 and end > start:
-            text = text[start:end]
+        # שלוף JSON — תחילה נסה regex מדויק, אחר כך fallback לחיפוש { }
+        import re as _re
+        _json_match = _re.search(r'\{[\s\S]*\}', text)
+        if _json_match:
+            text = _json_match.group(0)
+        else:
+            # fallback: הסר markdown backticks
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            start = text.find("{")
+            end   = text.rfind("}") + 1
+            if start >= 0 and end > start:
+                text = text[start:end]
         # נסה parse
         try:
             result = json.loads(text)
@@ -1583,6 +1588,22 @@ What Could Go Wrong:
                     "reasoning": text[:500] if text else "לא ניתן לנתח את התגובה",
                     "warnings": ["הניתוח חזר בפורמט לא תקין — נסה שוב"]
                 }
+        # נרמל שדות חדשים — מנע type mismatches מ-Claude
+        try:
+            wp = result.get("win_probability", 0)
+            result["win_probability"] = max(0, min(100, int(str(wp).replace("%","").strip()))) if wp else 0
+        except:
+            result["win_probability"] = 0
+        try:
+            mae = result.get("max_adverse_excursion", 0)
+            result["max_adverse_excursion"] = round(float(mae), 2) if mae else 0.0
+        except:
+            result["max_adverse_excursion"] = 0.0
+        if not isinstance(result.get("ideal_hold_time", ""), str):
+            result["ideal_hold_time"] = ""
+        if not isinstance(result.get("skip_reason", ""), str):
+            result["skip_reason"] = ""
+
         # ולידציה שרת — חסם סיגנלים חלשים (threshold שונה לפי trade_type)
         result = validate_and_filter_signal(result, market_ctx, trade_type=trade_type)
         # חשב quality_score בצד שרת
@@ -1591,8 +1612,9 @@ What Could Go Wrong:
             rr_q   = result.get("rr_ratio", 1) or 1
             conf_q = result.get("confidence", 5) or 5
             confs_q = result.get("confluence_score", 5) or 5
-            rr_bonus = min(20, int((rr_q - 1.5) * 10)) if rr_q >= 1.5 else 0
-            result["quality_score"] = min(100, int(conf_q * 4 + confs_q * 3 + rr_bonus))
+            rr_base  = 1.0 if trade_type == "day" else 1.5  # Day Trade: בסיס נמוך יותר
+            rr_bonus = min(25, int((rr_q - rr_base) * 12)) if rr_q >= rr_base else 0
+            result["quality_score"] = min(100, int(conf_q * 5 + confs_q * 3 + rr_bonus))
         else:
             result["quality_score"] = 0
         return {"success": True, "analysis": result}
@@ -1759,7 +1781,7 @@ class Handler(BaseHTTPRequestHandler):
                 ticker = body.get("ticker", None)
                 image2_b64 = body.get("image2", None)
                 media_type2 = body.get("mediaType2", "image/jpeg")
-                trade_type  = body.get("tradeType", "day")
+                trade_type  = body.get("tradeType", "day").lower().strip()
 
                 if not image_b64:
                     self._json({"error": "חסרה תמונה"}, 400)
