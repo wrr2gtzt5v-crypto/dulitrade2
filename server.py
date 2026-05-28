@@ -1635,6 +1635,10 @@ What Could Go Wrong:
             result["ideal_hold_time"] = ""
         if not isinstance(result.get("skip_reason", ""), str):
             result["skip_reason"] = ""
+        if not isinstance(result.get("skip_if", ""), str):
+            result["skip_if"] = ""
+        if not isinstance(result.get("win_probability_reason", ""), str):
+            result["win_probability_reason"] = ""
 
         # ולידציה שרת — חסם סיגנלים חלשים (threshold שונה לפי trade_type)
         result = validate_and_filter_signal(result, market_ctx, trade_type=trade_type)
