@@ -1255,8 +1255,8 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
             ctx_lines.append("── דוח רווחים ──")
             ctx_lines.append(market_ctx["earnings_warning"])
 
-        # Time of Day
-        if market_ctx.get("time_warning"):
+        # Time of Day — רק ל-Swing. Day Trade: משתמש ב-17:30 ישראל = ~10:30 ET, לא רלוונטי
+        if market_ctx.get("time_warning") and not is_day_trade_ctx:
             ctx_lines.append("")
             ctx_lines.append("── שעת מסחר ──")
             ctx_lines.append(f"שעה: {market_ctx.get('et_time_str','—')} | איכות: {market_ctx.get('time_quality','—')}")
