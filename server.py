@@ -1440,7 +1440,7 @@ Psychology of Price Action:
 Confluence Score:
 - כל גורם מאשר = +1, גורמים חזקים (OB/FVG/CHoCH/VWAP Reclaim) = +2
 - אל תספור גורמים מתואמים: מעל MA50 + מעל MA200 + מעל VWAP = 1 נקודה בלבד, לא 3
-- 8+ = כניסה חזקה | 6-7 = טובה | מתחת ל-6 ב-Day Trade = NEUTRAL (לא מספיק)
+- 8+ = כניסה חזקה | 6-7 = טובה | 4-5 ב-Day Trade = מספיק עם pattern ברור | מתחת ל-4 = NEUTRAL
 
 2 תרחישי כניסה:
 Conservative: SL קרוב, TP קרוב, R/R 1.5 (לסוחרים זהירים)
