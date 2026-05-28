@@ -1153,14 +1153,24 @@ def validate_and_filter_signal(result, market_ctx=None, trade_type="swing"):
     reasons = []
     is_day = trade_type == "day"
 
-    # שערים לפי סוג עסקה
-    min_rr = 1.2 if is_day else 1.5
+    # שערים לפי סוג עסקה — מוגבהים כדי לסנן עסקאות חלשות
+    min_rr = 1.5  # Day Trade ו-Swing שניהם דורשים R/R 1.5+
     if rr < min_rr:
         reasons.append(f"R/R={rr} מתחת ל-{min_rr} ({'Day Trade' if is_day else 'Swing'})")
 
-    min_conf = 5 if is_day else 6
+    min_conf = 7 if is_day else 6  # Day Trade: דורש Confidence 7+ (היה 5)
     if conf < min_conf:
         reasons.append(f"Confidence={conf}/10 מתחת ל-{min_conf} ({'Day Trade' if is_day else 'Swing'})")
+
+    # Win Probability — חסם אם מתחת ל-65%
+    wp = result.get("win_probability", 0) or 0
+    if wp > 0 and wp < 65:
+        reasons.append(f"Win Probability={wp}% מתחת ל-65% — setup לא מספיק חזק")
+
+    # Confluence — Day Trade דורש לפחות 6
+    conf_score = result.get("confluence_score", 0) or 0
+    if is_day and conf_score < 6:
+        reasons.append(f"Confluence={conf_score} מתחת ל-6 ל-Day Trade")
 
     # Market Regime — שוק דובי + VIX גבוה מאוד → רק SHORT מותר
     vix = market_ctx.get("vix", 0) or 0
