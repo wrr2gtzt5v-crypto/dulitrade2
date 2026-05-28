@@ -3948,12 +3948,26 @@ async function analyzeChartImage(){
           </div>
         </div>`:""}
 
+        <!-- STOP banner — Quality Score נמוך מדי -->
+        ${(a.signal!=="NEUTRAL" && qs > 0 && qs < 65)?`
+        <div style="background:rgba(239,68,68,.15);border:2px solid var(--red);border-radius:8px;padding:12px;margin-bottom:10px;text-align:center">
+          <div style="font-size:17px;font-weight:800;color:var(--red)">⛔ לא לסחור — סיכון גבוה מדי</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Quality Score ${qs}/100 — מתחת לסף המינימלי (65)</div>
+        </div>`:""}
+
+        <!-- STOP banner — Win Probability נמוכה מדי -->
+        ${(a.signal!=="NEUTRAL" && a.win_probability>0 && a.win_probability<60)?`
+        <div style="background:rgba(239,68,68,.15);border:2px solid var(--red);border-radius:8px;padding:10px;margin-bottom:10px;text-align:center">
+          <div style="font-size:14px;font-weight:800;color:var(--red)">⛔ Win Probability נמוכה מדי — דלג על עסקה זו</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">פחות מ-60% סיכוי הצלחה לפי Claude</div>
+        </div>`:""}
+
         <!-- Win Probability + Ideal Hold Time -->
         ${(a.win_probability||a.ideal_hold_time)?`
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-          ${a.win_probability?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center;border:1px solid ${a.win_probability>=60?"var(--green)":a.win_probability>=45?"var(--amber)":"var(--red)"}">
+          ${a.win_probability?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center;border:1px solid ${a.win_probability>=70?"var(--green)":a.win_probability>=60?"var(--amber)":"var(--red)"}">
             <div style="font-size:9px;color:var(--text3);font-family:monospace">סיכוי הצלחה</div>
-            <div style="font-size:18px;font-weight:800;font-family:monospace;color:${a.win_probability>=60?"var(--green)":a.win_probability>=45?"var(--amber)":"var(--red)"}">${a.win_probability}%</div>
+            <div style="font-size:18px;font-weight:800;font-family:monospace;color:${a.win_probability>=70?"var(--green)":a.win_probability>=60?"var(--amber)":"var(--red)"}">${a.win_probability}%</div>
           </div>`:"<div></div>"}
           ${a.ideal_hold_time?`<div style="background:var(--bg2);border-radius:6px;padding:7px;text-align:center;border:1px solid var(--blue)">
             <div style="font-size:9px;color:var(--text3);font-family:monospace">זמן החזקה אידאלי</div>
