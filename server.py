@@ -1630,9 +1630,11 @@ What Could Go Wrong:
             rr_q   = result.get("rr_ratio", 1) or 1
             conf_q = result.get("confidence", 5) or 5
             confs_q = result.get("confluence_score", 5) or 5
-            rr_base  = 1.0 if trade_type == "day" else 1.5  # Day Trade: בסיס נמוך יותר
-            rr_bonus = min(25, int((rr_q - rr_base) * 12)) if rr_q >= rr_base else 0
-            result["quality_score"] = min(100, int(conf_q * 5 + confs_q * 3 + rr_bonus))
+            rr_base  = 1.5  # שניהם דורשים 1.5 מינימום
+            rr_bonus = min(20, int((rr_q - rr_base) * 10)) if rr_q >= rr_base else 0
+            wp_q = result.get("win_probability", 50) or 50
+            wp_bonus = max(-20, min(15, int((wp_q - 65) * 0.6)))  # -20 עד +15 לפי win_prob
+            result["quality_score"] = min(100, max(0, int(conf_q * 4 + confs_q * 3 + rr_bonus + wp_bonus)))
         else:
             result["quality_score"] = 0
         return {"success": True, "analysis": result}
