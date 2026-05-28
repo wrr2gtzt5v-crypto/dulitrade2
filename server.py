@@ -1197,6 +1197,7 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
         market_ctx = get_market_context_for_chart(ticker, max_drawdown_active=max_dd)
         
         # בנה טקסט context
+        is_day_trade_ctx = (trade_type == "day")  # משמש לסינון context לפי סוג עסקה
         ctx_lines = ["═══ נתוני שוק בזמן אמת ═══"]
         if market_ctx.get("spy_price"):
             ctx_lines.append(f"SPY: ${market_ctx['spy_price']} ({market_ctx.get('spy_direction','')}{market_ctx.get('spy_change',0):+.2f}%)")
