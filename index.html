@@ -3886,10 +3886,10 @@ async function analyzeChartImage(){
     const cb = a.confidence_breakdown || {};
     // Quality Score
     const qs = a.quality_score || 0;
-    const qsColor = qs>=85?"var(--green)":qs>=70?"var(--amber)":qs>=55?"#f97316":"var(--red)";
-    const qsGlow  = qs>=85?"var(--glow-green)":qs>=70?"0 0 16px rgba(245,158,11,.2)":qs>=55?"0 0 16px rgba(249,115,22,.2)":"var(--glow-red)";
-    const qsLabel = qs>=85?"🟢 מצוין — כנס":qs>=70?"🟡 טוב — כנס":qs>=55?"🟠 בינוני — שקול":"🔴 לא מומלץ";
-    const cardBorder = a.signal==="NEUTRAL"?"var(--border2)":qs>=70?sigColor:"var(--border2)";
+    const qsColor = qs>=85?"var(--green)":qs>=75?"var(--amber)":qs>=65?"#f97316":"var(--red)";
+    const qsGlow  = qs>=85?"var(--glow-green)":qs>=75?"0 0 16px rgba(245,158,11,.2)":qs>=65?"0 0 16px rgba(249,115,22,.2)":"var(--glow-red)";
+    const qsLabel = qs>=85?"🟢 מצוין — כנס":qs>=75?"🟡 טוב — כנס":qs>=65?"🟠 בינוני — שקול":"🔴 אל תכנס";
+    const cardBorder = a.signal==="NEUTRAL"?"var(--border2)":qs>=75?sigColor:"var(--border2)";
 
     // confidence breakdown bars
     const confItems = [
