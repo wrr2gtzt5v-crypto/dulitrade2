@@ -1512,9 +1512,11 @@ What Could Go Wrong:
   },
   "timing_note": "מתי הכי טוב להיכנס — candle close? breakout confirm? pull-back? limit order?",
   "win_probability": 0,
+  "win_probability_reason": "סיבה קצרה בעברית מדוע ההסתברות היא X% — מה מחזק/מחליש",
   "max_adverse_excursion": 0.0,
   "ideal_hold_time": "15m/30m/1h/2h",
-  "skip_reason": ""
+  "skip_reason": "",
+  "skip_if": "תנאי ספציפי שיבטל את ה-Setup — למשל: נופל מתחת ל-$X"
 }
 
 הערות לשדות החדשים:
