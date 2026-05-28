@@ -1216,8 +1216,8 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
                     ctx_lines.append(f"  [{n.get('src','')}] {n.get('h','')}")
                 else:
                     ctx_lines.append(f"  • {n}")
-        # VWAP SD Bands
-        if market_ctx.get("sd_position"):
+        # VWAP SD Bands — רק ל-Swing (מחושב מנרות יומיים, לא רלוונטי ל-Day Trade)
+        if market_ctx.get("sd_position") and not is_day_trade_ctx:
             ctx_lines.append("")
             ctx_lines.append("── VWAP Standard Deviation Bands ──")
             ctx_lines.append(f"VWAP: ${market_ctx.get('vwap_calc','—')} | SD1: ${market_ctx.get('sd1_lower','—')}-${market_ctx.get('sd1_upper','—')}")
