@@ -1247,8 +1247,10 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
             ctx_lines.append("── תנודתיות (ATR) ──")
             ctx_lines.append(market_ctx["volatility_warning"])
 
-        # Earnings Warning
-        if market_ctx.get("earnings_warning"):
+        # Earnings Warning — ל-Day Trade: רק אם דוח בעוד 3 ימים או פחות
+        _earn_days = market_ctx.get("earnings_days")
+        _show_earn = not is_day_trade_ctx or (_earn_days is not None and _earn_days <= 3)
+        if market_ctx.get("earnings_warning") and _show_earn:
             ctx_lines.append("")
             ctx_lines.append("── דוח רווחים ──")
             ctx_lines.append(market_ctx["earnings_warning"])
