@@ -1234,8 +1234,9 @@ def analyze_chart_image(image_base64, media_type="image/jpeg", ticker=None, imag
             ctx_lines.append("")
             ctx_lines.append("!! " + market_ctx["drawdown_warning"])
 
-        # News Sentiment
-        if market_ctx.get("news_sentiment"):
+        # News Sentiment — רק אם יש לפחות 2 כתבות (1 כותרת = לא אמין)
+        _news_count = len(market_ctx.get("ticker_news", []))
+        if market_ctx.get("news_sentiment") and _news_count >= 2:
             ctx_lines.append("")
             ctx_lines.append("── סנטימנט חדשות ──")
             ctx_lines.append(market_ctx["news_sentiment"])
