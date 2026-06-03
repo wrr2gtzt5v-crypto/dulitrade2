@@ -6150,10 +6150,10 @@ async function runScanner(auto=false){
   const pass1 = [];
   const BATCH1 = 8; // מהיר — רק quote
 
-  for(let i = 0; i < SCAN_LIST.length; i += BATCH1){
-    const batch = SCAN_LIST.slice(i, i+BATCH1);
-    fill.style.width = Math.round((i/SCAN_LIST.length)*30) + "%"; // 0-30%
-    status.textContent = `שלב 1/3 — ${i+1}-${Math.min(i+BATCH1,SCAN_LIST.length)} מתוך ${SCAN_LIST.length}...`;
+  for(let i = 0; i < scanUniverse.length; i += BATCH1){
+    const batch = scanUniverse.slice(i, i+BATCH1);
+    fill.style.width = Math.round((i/scanUniverse.length)*30) + "%"; // 0-30%
+    status.textContent = `שלב 1/3 — ${i+1}-${Math.min(i+BATCH1,scanUniverse.length)} מתוך ${scanUniverse.length}...`;
 
     await sleep(200);
     await Promise.allSettled(batch.map(async sym => {
