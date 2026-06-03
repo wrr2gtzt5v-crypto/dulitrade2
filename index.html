@@ -6156,7 +6156,7 @@ async function runScanner(auto=false){
     const hot = await fetch(`/api/hot?tf=${tfMap[scannerTimeframe] || "day"}&risk=${_hotRiskMode}`)
                       .then(r => r.json());
     if(hot && hot.tickers && hot.tickers.length){
-      const hotSyms = hot.tickers.slice(0, 50).map(t => t.sym);   // הגבל תוספת ל-50
+      const hotSyms = hot.tickers.slice(0, 25).map(t => t.sym);   // הגבל תוספת ל-25 (פחות לחץ על Finnhub)
       scanUniverse = [...new Set([...hotSyms, ...SCAN_LIST])];     // חמות בראש + קבועות אחריהן
       window._hotMeta = Object.fromEntries(hot.tickers.map(t => [t.sym, t]));
       const hotCount = hotSyms.length;
