@@ -3468,6 +3468,7 @@ function recordTradeResult(sym, strategy, signal, confidence, rrRatio, result){
     hour: new Date().getHours(),
   });
   localStorage.setItem(key, JSON.stringify(results.slice(-200))); // שמור 200 אחרונות
+  linkOutcomeToPrediction(sym, result); // שלב 1 — קשר את התוצאה הידנית לניבוי המנתח
 
   // הצג אישור
   const el = document.createElement("div");
