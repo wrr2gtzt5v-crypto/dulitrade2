@@ -5832,6 +5832,7 @@ const SCAN_LIST = [
 
 let scannerRunning = false;
 let scannerTimeframe = "month"; // ברירת מחדל
+let _hotRiskMode = "safe";      // מצב סיכון ליקום הדינמי: safe / all (הטוגל נוסף בשינוי 4)
 
 function setScanTF(tf){
   scannerTimeframe = tf;
