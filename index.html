@@ -6949,9 +6949,15 @@ function renderScanResults(results){
       ? renderSizingHtml(r.entry || r.price, r.sl, r.tp, r.conf || 7)
       : '';
 
-    // hot mover badge
-    const hotBadge = r.isHotMover
-      ? `<span class="hot-mover-badge">🔥 HOT +${r.hotChangePct?.toFixed(1)||''}%</span>`
+    // hot mover badge — משולב עם נתוני היקום החם מהשרת (שינוי 3)
+    const hm = r.hotMeta;
+    const hotPct = hm ? hm.pct : (r.hotChangePct || 0);
+    const hotBadge = (hm || r.isHotMover)
+      ? `<span class="hot-mover-badge">🔥 ${hotPct>=0?'+':''}${(hotPct||0).toFixed(1)}%${hm && hm.rvol ? ` · RVOL ${hm.rvol}x` : ''}</span>`
+      : '';
+    // תג סיכון — ראנר מסוכן מהיקום החם
+    const riskBadge = (hm && hm.risk === "high")
+      ? `<span style="font-size:10px;font-family:monospace;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--rdim);border:1px solid var(--red);color:var(--red)">🔴 סיכון גבוה</span>`
       : '';
 
     // כבר נסחרת היום badge
