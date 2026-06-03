@@ -6763,6 +6763,7 @@ async function runScanner(auto=false){
                    (a.divergence === "bullish" ? 1 : 0) +
                    (a.insiderNet >= 2 ? 1 : 0) +
                    (a.isHotMover ? 5 : 0) +    // 🔥 Hot Mover bonus — sort to top
+                   _hotBonus(a) +              // 🔥 בונוס חום מהיקום הדינמי (שינוי 3)
                    // ── בונוסים Day Trade בלבד ──────────────────────────────
                    (_isDT && a.hourlyIsCont && (a.hourlyMove3h||0) > 0.5 ? 3 : 0) + // Bounce שעתי מאושר
                    (_isDT && a.detectedStrats?.best?.name?.includes("Squeeze") ? 3 : 0) + // Squeeze Breakout
