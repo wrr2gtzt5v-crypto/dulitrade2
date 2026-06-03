@@ -1922,8 +1922,19 @@ def _classify_and_score(row, tf):
     return row
 
 
+import time as _time
+_HOT_CACHE = {}          # {(tf,risk): (ts, data)} — cache בזיכרון ליקום החם
+_HOT_TTL = 300           # 5 דקות (תואם לעיכוב ~15 דק' של הנתונים ממילא)
+
 def get_hot_universe(tf="day", risk="safe"):
     """מחזיר את המניות הכי חמות לטווח הנתון, ממוין לפי ציון חום."""
+    # ── cache: סריקות חוזרות (כולל auto-scan) לא מורידות שוב נתונים ──
+    key = (tf, risk)
+    now = _time.time()
+    hit = _HOT_CACHE.get(key)
+    if hit and (now - hit[0]) < _HOT_TTL:
+        return hit[1]
+
     source = "polygon"
     rows = _hot_from_polygon()
     if not rows:
