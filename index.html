@@ -6424,8 +6424,8 @@ async function runScanner(auto=false){
     // אחר כך Volume Surge
     const vDiff = (b.volumeSurge?2:b.highVolume?1:0) - (a.volumeSurge?2:a.highVolume?1:0);
     if(vDiff !== 0) return vDiff;
-    // סדר SCAN_LIST (דטרמיניסטי)
-    return SCAN_LIST.indexOf(a.sym) - SCAN_LIST.indexOf(b.sym);
+    // סדר היקום (חמות בראש, דטרמיניסטי)
+    return scanUniverse.indexOf(a.sym) - scanUniverse.indexOf(b.sym);
   });
 
   const candidates = [];
