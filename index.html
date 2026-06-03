@@ -6730,6 +6730,13 @@ async function runScanner(auto=false){
     if(wr < 0.40) return -2; // אסטרטגיה מפסידה — ענישה
     return 0;
   };
+  // שינוי 3 — בונוס מיון לפי ציון החום מהשרת. safe מקבל מלא; high מוגבל ל-1 (לא עוקף איכות)
+  const _hotBonus = (r) => {
+    const m = r.hotMeta;
+    if(!m) return 0;
+    const tier = m.heat >= 70 ? 5 : m.heat >= 50 ? 3 : m.heat >= 30 ? 1 : 0;
+    return m.risk === "high" ? Math.min(1, tier) : tier;
+  };
   results.sort((a,b)=>{
     // Day Trade: בונוס לפי נר שעתי אחרון
     const hourlyA = scannerTimeframe==="today" ? (
