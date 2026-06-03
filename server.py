@@ -1958,11 +1958,13 @@ def get_hot_universe(tf="day", risk="safe"):
 
     limit = 60 if tf == "day" else 80
     import datetime as _dt
-    return {
+    result = {
         "source": source,
         "asof": _dt.datetime.utcnow().isoformat() + "Z",
         "tickers": scored[:limit],
     }
+    _HOT_CACHE[key] = (now, result)   # שמירה ל-cache
+    return result
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
