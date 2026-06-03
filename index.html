@@ -6701,6 +6701,7 @@ async function runScanner(auto=false){
           signal: scores.sig?.includes("BUY") ? "BUY" : scores.sig?.includes("SELL") ? "SELL" : "HOLD",
           isHotMover: (pass1.find(x=>x.sym===sym)||{}).isHotMover||false,
           hotChangePct: (pass1.find(x=>x.sym===sym)||{}).hotChangePct||0,
+          hotMeta: (window._hotMeta && window._hotMeta[sym]) || null,  // שינוי 3 — מטא מהיקום החם (heat/rvol/risk)
           aboveVwap: ind.aboveVwap || false,
           nearSupport: ind.nearSupport || false,
           entry: scores.entry || scanQuote.c,
