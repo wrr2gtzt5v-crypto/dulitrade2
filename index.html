@@ -4000,6 +4000,29 @@ async function analyzeChartImage(){
       </div>`;
     }).join("");
 
+    // ── דיוק המנתח + כיול win_probability (שלב 1ג + 2ב) ──
+    let accuracyHtml = "";
+    const _acc = getAnalyzerAccuracy();
+    if(_acc && a.signal !== "NEUTRAL"){
+      // מצא את הבאקט של הניבוי הנוכחי והשווה לדיוק ההיסטורי בפועל
+      const wp = a.win_probability || 0;
+      const bKey = wp >= 80 ? "80+" : wp >= 70 ? "70-80" : wp >= 60 ? "60-70" : wp >= 50 ? "50-60" : null;
+      const b = bKey ? _acc.buckets[bKey] : null;
+      let calibLine = "";
+      if(b && b.total >= 3){
+        const actualRate = +(b.wins / b.total * 100).toFixed(0);
+        const mismatch = wp - actualRate >= 12; // הניבוי מנופח משמעותית
+        calibLine = `<div style="font-size:10px;font-family:monospace;color:${mismatch?"var(--red)":"var(--text2)"};margin-top:4px">
+          ${mismatch?"⚠️ ":""}ניבויי ${bKey}% הצליחו בפועל ב-<strong>${actualRate}%</strong> (${b.total} עסקאות)${mismatch?" — הניבוי גבוה מהמציאות":""}
+        </div>`;
+      }
+      accuracyHtml = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+        <div style="font-size:9px;color:var(--text3);font-family:monospace;margin-bottom:2px">📊 דיוק המנתח (היסטוריה אמיתית)</div>
+        <div style="font-size:12px;font-family:monospace;color:var(--text2)">סה"כ ניבויים שהוכרעו: <strong style="color:${_acc.overallRate>=60?"var(--green)":_acc.overallRate>=50?"var(--amber)":"var(--red)"}">${_acc.wins}/${_acc.total} (${_acc.overallRate}%)</strong></div>
+        ${calibLine}
+      </div>`;
+    }
+
     result.innerHTML = `
       <div style="background:var(--bg4);border:1px solid ${cardBorder};border-radius:12px;padding:1rem;box-shadow:${qsGlow}">
 
