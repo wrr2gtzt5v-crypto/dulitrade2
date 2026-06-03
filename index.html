@@ -7399,6 +7399,7 @@ setTimeout(refreshAllWL, 2000);
 // Keep-alive — מונע שינה של Render + מרענן מדדים כל 5 דקות
 setInterval(()=>{
   loadIndices();
+  loadBTC();          // ביטקוין רץ עכשיו גם בריענון התקופתי (לא רק בטעינה)
   loadMacro();
   fetch("/api/stock?symbol=SPY&endpoint=quote").catch(()=>{});
 }, 5 * 60 * 1000);
