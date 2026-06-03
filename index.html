@@ -3964,6 +3964,7 @@ async function analyzeChartImage(){
     const a = data.analysis;
     // שמור ticker לניתוחים עתידיים
     if(a.ticker && a.ticker !== "null") _chartTicker = a.ticker;
+    saveAnalyzerPrediction(a); // שלב 1 — שמור ניבוי למאגר המשוב (ניבוי↔תוצאה)
     const sigColor = a.signal==="LONG"?"var(--green)":a.signal==="SHORT"?"var(--red)":"var(--amber)";
     const sigIcon  = a.signal==="LONG"?"▲ לונג":a.signal==="SHORT"?"▼ שורט":"◆ ניטרלי";
     const isDayTrade = a.trade_type==="DAY_TRADE";
