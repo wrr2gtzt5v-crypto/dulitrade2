@@ -3547,6 +3547,92 @@ function getWinRateInsights(){
   return insights;
 }
 
+// ── ANALYZER PREDICTION FEEDBACK LOOP (שלב 1) ────────────
+// מאגר שמקשר כל ניבוי של המנתח לתוצאה האמיתית — כדי לדעת אם הניבוי צדק.
+
+// 1א — שמירת ניבוי בעת ניתוח (נקרא פעם אחת מתוך הרינדור)
+function saveAnalyzerPrediction(a){
+  if(!a || !a.signal || a.signal === "NEUTRAL") return; // מודדים רק עסקאות אמיתיות
+  const key = "dt_analyzer_predictions";
+  const preds = JSON.parse(localStorage.getItem(key) || "[]");
+  const ticker = (a.ticker && a.ticker !== "null") ? a.ticker : (_chartTicker || "?");
+  preds.push({
+    id: ticker + "_" + Date.now(),
+    ticker,
+    signal: a.signal,                                   // LONG / SHORT
+    trade_type: a.trade_type || "DAY_TRADE",
+    strategy: a.strategy || "",
+    win_probability: a.win_probability || 0,            // הניבוי שניתן
+    confidence: a.confidence || 0,
+    quality_score: a.quality_score || 0,
+    rr_ratio: a.rr_ratio || 0,
+    entry: a.entry || null,
+    tp: a.tp || null,
+    sl: a.sl || null,
+    date: new Date().toISOString(),
+    outcome: null,                                      // יתמלא בהמשך: win/loss/expired
+    outcome_date: null,
+  });
+  localStorage.setItem(key, JSON.stringify(preds.slice(-200))); // שמור 200 אחרונות
+}
+
+// 1ב — קישור תוצאה אמיתית לניבוי הפתוח האחרון של אותו טיקר
+function linkOutcomeToPrediction(ticker, outcome){
+  if(!ticker || !outcome) return;
+  const key = "dt_analyzer_predictions";
+  const preds = JSON.parse(localStorage.getItem(key) || "[]");
+  // מצא את הניבוי הפתוח (outcome===null) האחרון לאותו טיקר
+  let idx = -1;
+  for(let i = preds.length - 1; i >= 0; i--){
+    if(preds[i].ticker === ticker && !preds[i].outcome){ idx = i; break; }
+  }
+  if(idx < 0) return;
+  preds[idx].outcome = outcome;                         // win / loss / expired
+  preds[idx].outcome_date = new Date().toISOString();
+  localStorage.setItem(key, JSON.stringify(preds));
+}
+
+// 1ג — חישוב דיוק המנתח מתוך ניבויים שנסגרו
+function getAnalyzerAccuracy(){
+  const preds = JSON.parse(localStorage.getItem("dt_analyzer_predictions") || "[]");
+  // רק ניבויים שהוכרעו win/loss (expired לא נספר כדיוק)
+  const closed = preds.filter(p => p.outcome === "win" || p.outcome === "loss");
+  if(!closed.length) return null;
+  const wins = closed.filter(p => p.outcome === "win").length;
+
+  // דיוק לפי באקט win_probability — הלב של הכיול
+  const buckets = {
+    "50-60": {wins:0, total:0},
+    "60-70": {wins:0, total:0},
+    "70-80": {wins:0, total:0},
+    "80+":   {wins:0, total:0},
+  };
+  closed.forEach(p => {
+    const wp = p.win_probability || 0;
+    const b = wp >= 80 ? "80+" : wp >= 70 ? "70-80" : wp >= 60 ? "60-70" : wp >= 50 ? "50-60" : null;
+    if(!b) return;
+    buckets[b].total++;
+    if(p.outcome === "win") buckets[b].wins++;
+  });
+
+  // דיוק לפי אסטרטגיה
+  const byStrategy = {};
+  closed.forEach(p => {
+    const s = p.strategy || "—";
+    if(!byStrategy[s]) byStrategy[s] = {wins:0, total:0};
+    byStrategy[s].total++;
+    if(p.outcome === "win") byStrategy[s].wins++;
+  });
+
+  return {
+    total: closed.length,
+    wins,
+    overallRate: +(wins / closed.length * 100).toFixed(0),
+    buckets,
+    byStrategy,
+  };
+}
+
 // ── WIN RATE MANUAL ADD ──────────────────────────────────
 function showAddToWinRate(sym, price, tp, sl, strategy, holding){
   // חשב holdDays מ-holding string
