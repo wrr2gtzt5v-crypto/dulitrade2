@@ -1798,6 +1798,155 @@ def get_market_regime():
         }
 
 
+# ══════════════════════════════════════════════════════════════
+# יקום סריקה דינמי — "המניות הכי חמות" לפי טווח (שינוי 1)
+# מקור ראשי: Polygon full-market snapshot (קריאה אחת לכל השוק).
+# גיבוי: Yahoo predefined screeners. אם שניהם נכשלים — הלקוח נופל ל-SCAN_LIST.
+# ══════════════════════════════════════════════════════════════
+
+def _hot_from_polygon():
+    """מושך snapshot של כל השוק מ-Polygon ומחזיר רשימת dict גולמית לכל טיקר."""
+    if not POLYGON_KEY:
+        return []
+    d = pg("/v2/snapshot/locale/us/markets/stocks/tickers")
+    tickers = d.get("tickers", []) if isinstance(d, dict) else []
+    rows = []
+    for t in tickers:
+        sym = t.get("ticker", "")
+        if not sym or not sym.isalpha():   # דלג על סימבולים מיוחדים (warrants/units וכו')
+            continue
+        day  = t.get("day", {}) or {}
+        prev = t.get("prevDay", {}) or {}
+        mn   = t.get("min", {}) or {}
+        # מחיר אחרון: נר דקה > סגירת יום > סגירת אתמול
+        price = mn.get("c") or day.get("c") or prev.get("c") or 0
+        if not price:
+            continue
+        day_vol  = day.get("v", 0) or 0
+        prev_vol = prev.get("v", 0) or 0
+        pct = t.get("todaysChangePerc", 0) or 0
+        rvol = round(day_vol / prev_vol, 2) if prev_vol > 0 else 0
+        rows.append({
+            "sym": sym,
+            "pct": round(pct, 2),
+            "price": round(price, 2),
+            "dayVol": int(day_vol),
+            "rvol": rvol,
+            "dollarVol": int(day_vol * price),
+        })
+    return rows
+
+
+def _hot_from_yahoo(tf):
+    """גיבוי: Yahoo predefined screeners (חינם, ~15 דק' עיכוב, ללא מפתח)."""
+    # בחר screeners לפי טווח — Day: gainers+losers+active ; Swing/Long: active+gainers
+    if tf == "day":
+        scr_ids = ["day_gainers", "day_losers", "most_actives"]
+    else:
+        scr_ids = ["most_actives", "day_gainers"]
+    rows, seen = [], set()
+    for scr in scr_ids:
+        try:
+            url = (f"https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
+                   f"?count=50&scrIds={scr}")
+            req = Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json",
+            })
+            with urlopen(req, timeout=8) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            quotes = (data.get("finance", {}).get("result", [{}])[0].get("quotes", []))
+            for q in quotes:
+                sym = q.get("symbol", "")
+                if not sym or sym in seen or not sym.isalpha():
+                    continue
+                seen.add(sym)
+                price = q.get("regularMarketPrice", 0) or 0
+                if not price:
+                    continue
+                vol = q.get("regularMarketVolume", 0) or 0
+                rows.append({
+                    "sym": sym,
+                    "pct": round(q.get("regularMarketChangePercent", 0) or 0, 2),
+                    "price": round(price, 2),
+                    "dayVol": int(vol),
+                    "rvol": 0,   # Yahoo לא נותן ווליום אתמול בקריאה זו
+                    "dollarVol": int(vol * price),
+                })
+        except:
+            continue
+    return rows
+
+
+def _classify_and_score(row, tf):
+    """מסווג שורה לשכבת איכות/סיכון ומחשב ציון חום 0-100. מחזיר None אם לא רלוונטי."""
+    pct   = row["pct"]
+    apct  = abs(pct)
+    price = row["price"]
+    rvol  = row["rvol"]
+    dvol  = row["dollarVol"]
+
+    # ── שכבת איכות (safe): נזיל ו-"in play" אך לא פרבולי ──
+    is_quality = (5 <= price <= 500
+                  and (row["dayVol"] >= 1_000_000 or dvol >= 20_000_000)
+                  and apct >= 3
+                  and apct <= 25)
+
+    # ── שכבת סיכון (🔴): זול/לא-נזיל/פרבולי ──
+    is_risky = (1 <= price < 5) or (apct > 25) or (dvol < 5_000_000)
+
+    if not is_quality and not is_risky:
+        return None   # רעש — לא חם מספיק
+
+    risk = "safe" if is_quality else "high"
+
+    if tf == "day":
+        # מומנטום + ווליום יחסי + בונוס נזילות
+        heat = min(50, apct * 2.5) + min(35, rvol * 7) + (15 if is_quality else 0)
+    else:
+        # Swing/Long — ה-snapshot זורע מועמדים; מעדיפים נזילות ומומנטום מתון
+        # (לא פרבולי). הדירוג הרב-יומי האמיתי נעשה בלקוח ע"י scoreAll.
+        liq_bonus = min(30, dvol / 50_000_000)   # עד 30 נק' לפי dollar-volume
+        heat = min(40, apct * 2) + liq_bonus + (20 if is_quality else 0)
+
+    row = dict(row)
+    row["risk"] = risk
+    row["heat"] = round(heat, 1)
+    return row
+
+
+def get_hot_universe(tf="day", risk="safe"):
+    """מחזיר את המניות הכי חמות לטווח הנתון, ממוין לפי ציון חום."""
+    source = "polygon"
+    rows = _hot_from_polygon()
+    if not rows:
+        source = "yahoo"
+        rows = _hot_from_yahoo(tf)
+    if not rows:
+        # אין נתונים — הלקוח ייפול ל-SCAN_LIST
+        return {"source": "static", "tickers": []}
+
+    scored = []
+    for r in rows:
+        s = _classify_and_score(r, tf)
+        if s is None:
+            continue
+        if risk != "all" and s["risk"] == "high":
+            continue   # ברירת מחדל: מסתירים את המסוכנות
+        scored.append(s)
+
+    # מיון לפי חום יורד; safe לפני high באותו ציון
+    scored.sort(key=lambda x: (x["heat"], x["risk"] == "safe"), reverse=True)
+
+    limit = 60 if tf == "day" else 80
+    import datetime as _dt
+    return {
+        "source": source,
+        "asof": _dt.datetime.utcnow().isoformat() + "Z",
+        "tickers": scored[:limit],
+    }
+
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
