@@ -1499,12 +1499,13 @@ async function loadBTC(_retry){
   }catch(e){}
 }
 
-async function loadIndices(){
-  const tickers=[["SPY","spyP","spyC"],["QQQ","qqqP","qqqC"],["DIA","diaP","diaC"],["GLD","gldP","gldC"],["TLT","tltP","tltC"]];
+async function loadIndices(list, _retry){
+  const tickers = list || [["SPY","spyP","spyC"],["QQQ","qqqP","qqqC"],["DIA","diaP","diaC"],["GLD","gldP","gldC"],["TLT","tltP","tltC"]];
+  const failed = [];   // טיקרים שהקריאה אליהם נכשלה — ינוסו שוב פעם אחת
   for(const [sym,pid,cid] of tickers){
     try{
       const q=await api(sym,"quote");
-      if(!q.c||isNaN(q.c))continue;
+      if(!q.c||isNaN(q.c)){ failed.push([sym,pid,cid]); continue; }
       const pct=+((q.c-q.pc)/q.pc*100).toFixed(2);
       // BTC — מחיר גבוה, הצג ב-K
       const isBtc = sym.includes("BTC");
@@ -1515,8 +1516,10 @@ async function loadIndices(){
       const cel=document.getElementById(cid);
       cel.textContent=(pct>=0?"+":"")+pct+"%";
       cel.className="idx-chg "+(pct>=0?"up":"dn");
-    }catch(e){}
+    }catch(e){ failed.push([sym,pid,cid]); }
   }
+  // נסה שוב את הכושלים פעם אחת אחרי 6ש' (כנראה throttling) במקום להשאיר "—"
+  if(failed.length && !_retry) setTimeout(()=>loadIndices(failed, true), 6000);
 }
 
 // ── CANDLE CHART ──────────────────────────────────────────
