@@ -1805,35 +1805,42 @@ def get_market_regime():
 # ══════════════════════════════════════════════════════════════
 
 def _hot_from_polygon():
-    """מושך snapshot של כל השוק מ-Polygon ומחזיר רשימת dict גולמית לכל טיקר."""
+    """מושך את המניות החמות מ-Polygon דרך קריאות gainers+losers הקלות.
+
+    במקום snapshot של כל השוק (~10K טיקרים, כמה MB — חוסם את השרת), משתמשים
+    ב-endpoints הייעודיים שמחזירים ~20 טיקרים כל אחד, עם אותו מבנה נתונים.
+    """
     if not POLYGON_KEY:
         return []
-    d = pg("/v2/snapshot/locale/us/markets/stocks/tickers")
-    tickers = d.get("tickers", []) if isinstance(d, dict) else []
-    rows = []
-    for t in tickers:
-        sym = t.get("ticker", "")
-        if not sym or not sym.isalpha():   # דלג על סימבולים מיוחדים (warrants/units וכו')
-            continue
-        day  = t.get("day", {}) or {}
-        prev = t.get("prevDay", {}) or {}
-        mn   = t.get("min", {}) or {}
-        # מחיר אחרון: נר דקה > סגירת יום > סגירת אתמול
-        price = mn.get("c") or day.get("c") or prev.get("c") or 0
-        if not price:
-            continue
-        day_vol  = day.get("v", 0) or 0
-        prev_vol = prev.get("v", 0) or 0
-        pct = t.get("todaysChangePerc", 0) or 0
-        rvol = round(day_vol / prev_vol, 2) if prev_vol > 0 else 0
-        rows.append({
-            "sym": sym,
-            "pct": round(pct, 2),
-            "price": round(price, 2),
-            "dayVol": int(day_vol),
-            "rvol": rvol,
-            "dollarVol": int(day_vol * price),
-        })
+    rows, seen = [], set()
+    # gainers + losers = ~40 הטיקרים הכי חמים של היום (לפי תנועת אחוז)
+    for direction in ("gainers", "losers"):
+        d = pg(f"/v2/snapshot/locale/us/markets/stocks/{direction}")
+        tickers = d.get("tickers", []) if isinstance(d, dict) else []
+        for t in tickers:
+            sym = t.get("ticker", "")
+            if not sym or sym in seen or not sym.isalpha():   # דלג על כפילויות וסימבולים מיוחדים
+                continue
+            day  = t.get("day", {}) or {}
+            prev = t.get("prevDay", {}) or {}
+            mn   = t.get("min", {}) or {}
+            # מחיר אחרון: נר דקה > סגירת יום > סגירת אתמול
+            price = mn.get("c") or day.get("c") or prev.get("c") or 0
+            if not price:
+                continue
+            seen.add(sym)
+            day_vol  = day.get("v", 0) or 0
+            prev_vol = prev.get("v", 0) or 0
+            pct = t.get("todaysChangePerc", 0) or 0
+            rvol = round(day_vol / prev_vol, 2) if prev_vol > 0 else 0
+            rows.append({
+                "sym": sym,
+                "pct": round(pct, 2),
+                "price": round(price, 2),
+                "dayVol": int(day_vol),
+                "rvol": rvol,
+                "dollarVol": int(day_vol * price),
+            })
     return rows
 
 
