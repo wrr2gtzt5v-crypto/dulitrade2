@@ -5859,6 +5859,24 @@ function setScanTF(tf){
   });
 }
 
+// טוגל מצב סיכון ליקום החם — safe (ברירת מחדל) ↔ all (כולל ראנרים מסוכנים) — שינוי 4
+function toggleHotRisk(){
+  _hotRiskMode = (_hotRiskMode === "safe") ? "all" : "safe";
+  const b = document.getElementById("hotRiskBtn");
+  if(!b) return;
+  if(_hotRiskMode === "all"){
+    b.innerHTML = "🔴 כולל מסוכנות";
+    b.style.borderColor = "var(--red)";
+    b.style.background = "var(--rdim)";
+    b.style.color = "var(--red)";
+  } else {
+    b.innerHTML = "🛡️ בטוח";
+    b.style.borderColor = "var(--border)";
+    b.style.background = "var(--bg3)";
+    b.style.color = "var(--text2)";
+  }
+}
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let lastScanResults = [];
 let scanInterval = null;
