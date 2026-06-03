@@ -5513,6 +5513,7 @@ async function checkAndUpdateTrades(){
         trades[idx].exitPrice = current;
         trades[idx].pnlPct    = pnlPct;
         updated = true;
+        linkOutcomeToPrediction(t.sym, status); // שלב 1 — קשר תוצאה אוטומטית לניבוי המנתח
       }
     } catch(e){}
   }));
