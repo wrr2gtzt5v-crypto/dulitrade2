@@ -1482,10 +1482,14 @@ async function loadMacro(){
 }
 
 // ── INDICES ───────────────────────────────────────────────
-async function loadBTC(){
+async function loadBTC(_retry){
   try{
     const q = await api("BINANCE:BTCUSDT","quote");
-    if(!q.c||isNaN(q.c)) return;
+    if(!q.c||isNaN(q.c)){
+      // קריאה נכשלה (כנראה throttling) — נסה שוב פעם אחת אחרי 6ש' במקום להישאר "—"
+      if(!_retry) setTimeout(()=>loadBTC(true), 6000);
+      return;
+    }
     const pct = q.pc>0 ? +((q.c-q.pc)/q.pc*100).toFixed(2) : 0;
     const priceStr = "$"+(q.c>=1000?(q.c/1000).toFixed(1)+"K":(+q.c).toFixed(0));
     const el = document.getElementById("btcP");
