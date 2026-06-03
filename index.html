@@ -6888,7 +6888,7 @@ function renderScanResults(results){
   if(typeof _scanFilter !== 'undefined'){
     if(_scanFilter === 'buy')  filtered = results.filter(r => r.sig && r.sig.includes('BUY'));
     else if(_scanFilter === 'sell') filtered = results.filter(r => r.sig && r.sig.includes('SELL'));
-    else if(_scanFilter === 'hot')  filtered = results.filter(r => r.isHotMover || r.todayMomentum >= 4);
+    else if(_scanFilter === 'hot')  filtered = results.filter(r => r.isHotMover || r.hotMeta || r.todayMomentum >= 4);
   }
 
   // Update results bar
