@@ -6120,7 +6120,28 @@ async function runScanner(auto=false){
 
   // הצג Market Breadth מעל הסורק
   status.textContent = `${breadthLabel} (${breadthAbove}/${breadthTotal} מניות מעל MA50) · סף ציון: ${dynamicMinScore}`;
-  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>${tfCfg.label} — סורק ${SCAN_LIST.length} מניות...</div>`;
+
+  // ══════════════════════════════════════════════════════════
+  // שלב 0.5 — בניית יקום דינמי: המניות הכי חמות לטווח (שינוי 2)
+  // מושך מ-/api/hot ומציב את החמות בראש, לפני 154 הקבועות (גיבוי).
+  // כל כשל → נשארים עם SCAN_LIST בלבד, הסורק לא נשבר.
+  // ══════════════════════════════════════════════════════════
+  const tfMap = { today: "day", week: "swing", month: "long" };
+  let scanUniverse = SCAN_LIST;
+  window._hotMeta = {};
+  try {
+    const hot = await fetch(`/api/hot?tf=${tfMap[scannerTimeframe] || "day"}&risk=${_hotRiskMode}`)
+                      .then(r => r.json());
+    if(hot && hot.tickers && hot.tickers.length){
+      const hotSyms = hot.tickers.slice(0, 50).map(t => t.sym);   // הגבל תוספת ל-50
+      scanUniverse = [...new Set([...hotSyms, ...SCAN_LIST])];     // חמות בראש + קבועות אחריהן
+      window._hotMeta = Object.fromEntries(hot.tickers.map(t => [t.sym, t]));
+      const hotCount = hotSyms.length;
+      status.textContent = `🔥 ${hotCount} מניות חמות (${hot.source}) + ${SCAN_LIST.length} בסיס · ${breadthLabel}`;
+    }
+  } catch(e){ /* נשארים עם SCAN_LIST */ }
+
+  grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>${tfCfg.label} — סורק ${scanUniverse.length} מניות...</div>`;
 
   // ══════════════════════════════════════════════════════════
   // שלב 1 — מסנן כמותי מהיר (quote בלבד)
