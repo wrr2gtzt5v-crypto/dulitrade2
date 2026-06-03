@@ -2018,6 +2018,17 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"key": FINNHUB_KEY})
             return
 
+        # יקום סריקה דינמי — המניות הכי חמות לטווח (שינוי 1)
+        if parsed.path == "/api/hot":
+            tf   = qs.get("tf", ["day"])[0]
+            risk = qs.get("risk", ["safe"])[0]
+            try:
+                data = get_hot_universe(tf, risk)
+            except Exception as e:
+                data = {"source": "static", "tickers": [], "error": str(e)}
+            self._json(data)
+            return
+
         if parsed.path == "/api/stock":
             symbol   = qs.get("symbol",[""])[0].upper().strip()
             endpoint = qs.get("endpoint",[""])[0]
