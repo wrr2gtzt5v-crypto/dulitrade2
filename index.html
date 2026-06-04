@@ -6309,13 +6309,12 @@ async function runScanner(auto=false, _coldRetry=false){
   // ── מגן cold-start: אם רוב ה-quotes חזרו ריקים → השרת קר, לא "אין מניות" ──
   // Render free נרדם; הבקשות הראשונות ריקות. מעירים, ממתינים, ומריצים שוב פעם אחת.
   if(_q1Total >= 5 && _q1Empty / _q1Total >= 0.7 && pass1.length === 0){
-    if(!_coldRetryDone){
-      _coldRetryDone = true;
+    if(!_coldRetry){
       status.textContent = "⏳ השרת מתעורר — מנסה שוב בעוד רגע...";
       grid.innerHTML = `<div class="scan-loading"><div class="dots"><span></span><span></span><span></span></div>⏳ השרת מתעורר — סורק שוב...</div>`;
-      await wakeServer();          // ממתין עד שהשרת מחזיר נתון חי
+      await wakeServer();              // ממתין עד שהשרת מחזיר נתון חי
       scannerRunning = false;
-      return runScanner(auto);     // הרצה חוזרת אחת על שרת ער
+      return runScanner(auto, true);   // הרצה חוזרת אחת על שרת ער
     }
     // גם אחרי ריטריי עדיין ריק — הודעה ברורה במקום "לא נמצאו עסקאות"
     scannerRunning = false;
