@@ -6193,7 +6193,8 @@ async function runScanner(auto=false){
     await Promise.allSettled(batch.map(async sym => {
       try {
         const quote = await api(sym, "quote");
-        if(!quote.c || quote.c === 0) return;
+        _q1Total++;
+        if(!quote.c || quote.c === 0){ _q1Empty++; return; }   // ספירת ריקים לזיהוי שרת קר
 
         // השתמש ב-quote כמו שהוא — לא מחליפים מחיר
         // כך pct ו-dp נשארים נכונים גם כשהשוק סגור
