@@ -1501,9 +1501,10 @@ async function loadBTC(_attempt){
   }catch(e){}
 }
 
-async function loadIndices(list, _retry){
+async function loadIndices(list, _attempt){
+  _attempt = _attempt || 0;
   const tickers = list || [["SPY","spyP","spyC"],["QQQ","qqqP","qqqC"],["DIA","diaP","diaC"],["GLD","gldP","gldC"],["TLT","tltP","tltC"]];
-  const failed = [];   // טיקרים שהקריאה אליהם נכשלה — ינוסו שוב פעם אחת
+  const failed = [];   // טיקרים שהקריאה אליהם נכשלה — ינוסו שוב עם backoff
   for(const [sym,pid,cid] of tickers){
     try{
       const q=await api(sym,"quote");
