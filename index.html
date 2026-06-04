@@ -1521,8 +1521,8 @@ async function loadIndices(list, _attempt){
       cel.className="idx-chg "+(pct>=0?"up":"dn");
     }catch(e){ failed.push([sym,pid,cid]); }
   }
-  // נסה שוב את הכושלים פעם אחת אחרי 6ש' (כנראה throttling) במקום להשאיר "—"
-  if(failed.length && !_retry) setTimeout(()=>loadIndices(failed, true), 6000);
+  // נסה שוב את הכושלים עם backoff (מכסה cold-start של ~30-60ש') במקום להשאיר "—"
+  if(failed.length && _attempt < _IDX_BACKOFF.length) setTimeout(()=>loadIndices(failed, _attempt+1), _IDX_BACKOFF[_attempt]);
 }
 
 // ── CANDLE CHART ──────────────────────────────────────────
