@@ -7378,10 +7378,29 @@ function showPriceAlert(sym, msg, color, price, target){
 }
 
 // ── INIT ─────────────────────────────────────────────────
-loadIndices();
-loadMacro();
-loadBTC();
-loadMarketRegime();
+// עירור שרת: Render free נרדם אחרי ~15 דק'. הבקשה הראשונה אחרי שינה חוזרת ריקה,
+// ואז הפס מציג "—" והסורק לא מוצא כלום. wakeServer מנסה לעורר עם backoff
+// ורק כשהשרת מחזיר נתון חי — טוען את הפס/ביטקוין/regime על שרת ער.
+async function wakeServer(){
+  const delays = [0, 3000, 6000, 10000, 15000]; // עד ~34ש' של עירור
+  for(let i = 0; i < delays.length; i++){
+    if(delays[i]) await sleep(delays[i]);
+    try{
+      const r = await fetch("/api/stock?symbol=SPY&endpoint=quote");
+      const d = await r.json();
+      if(d && d.c > 0) return true;   // השרת ער
+    }catch(e){ /* עדיין מתעורר */ }
+  }
+  return false;   // לא התעורר בזמן — נטען בכל זאת (loadIndices/loadBTC עושים retry עצמאי)
+}
+
+(async () => {
+  await wakeServer();
+  loadIndices();
+  loadMacro();
+  loadBTC();
+  loadMarketRegime();
+})();
 // רענן Market Regime כל 2 דקות — Regime יכול להשתנות מהר
 setInterval(loadMarketRegime, 2 * 60 * 1000);
 // בדוק עסקאות ישנות בטעינה
