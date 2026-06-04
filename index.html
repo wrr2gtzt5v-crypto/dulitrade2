@@ -5923,7 +5923,7 @@ function startCandleRefresh(sym, candles){
   }, 30 * 60 * 1000); // 30 דקות
 }
 
-async function runScanner(auto=false){
+async function runScanner(auto=false, _coldRetry=false){
   if(scannerRunning) return;
   scannerRunning = true;
 
