@@ -1482,12 +1482,14 @@ async function loadMacro(){
 }
 
 // ── INDICES ───────────────────────────────────────────────
-async function loadBTC(_retry){
+const _IDX_BACKOFF = [5000, 15000, 30000];   // ריטריי לפס: מכסה גם cold-start של ~30-60ש'
+async function loadBTC(_attempt){
+  _attempt = _attempt || 0;
   try{
     const q = await api("BINANCE:BTCUSDT","quote");
     if(!q.c||isNaN(q.c)){
-      // קריאה נכשלה (כנראה throttling) — נסה שוב פעם אחת אחרי 6ש' במקום להישאר "—"
-      if(!_retry) setTimeout(()=>loadBTC(true), 6000);
+      // קריאה ריקה (cold-start/throttling) — נסה שוב עם backoff במקום להישאר "—"
+      if(_attempt < _IDX_BACKOFF.length) setTimeout(()=>loadBTC(_attempt+1), _IDX_BACKOFF[_attempt]);
       return;
     }
     const pct = q.pc>0 ? +((q.c-q.pc)/q.pc*100).toFixed(2) : 0;
