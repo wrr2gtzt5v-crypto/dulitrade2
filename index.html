@@ -6182,6 +6182,7 @@ async function runScanner(auto=false){
   // ══════════════════════════════════════════════════════════
   const pass1 = [];
   const BATCH1 = 8; // מהיר — רק quote
+  let _q1Total = 0, _q1Empty = 0;   // מונים לזיהוי שרת קר (quotes ריקים)
 
   for(let i = 0; i < scanUniverse.length; i += BATCH1){
     const batch = scanUniverse.slice(i, i+BATCH1);
